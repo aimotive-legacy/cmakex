@@ -27,8 +27,8 @@ bool file_exists(string_par x)
 
 string find_input_path(const char* argv0)
 {
-    const char* primary_filename = "cmakex-preset.yml";
-    const char* secondary_filename = ".cmakex-preset.yml";
+    const char* primary_filename = "cmakex-presets.yml";
+    const char* secondary_filename = ".cmakex-presets.yml";
     const char* cpf = getenv("CMAKEX_PRESET_FILE");
     if (cpf && strlen(cpf) > 0)
         return cpf;
@@ -55,7 +55,11 @@ string find_input_path(const char* argv0)
             return hb + secondary_filename;
     }
 
-    string d = string(strlen(argv0) == 0 ? "." : argv0) + "/";
+    string d = argv0;
+    while (!d.empty() && d.back() != '/' && d.back() != '\\')
+        d.pop_back();
+    if (d.empty() || (d.back() != '/' && d.back() != '\\'))
+        d += "/";
     if (file_exists(d + primary_filename))
         return d + primary_filename;
     else if (file_exists(d + secondary_filename))
@@ -71,8 +75,9 @@ void print_usage()
 
     getpreset <preset-name-or-alias> <field>
 
-The first argument is the the name or alias (alternative name) of the preset.
-The second argument is the name of the field to retrieve.
+The first argument is the name or alias (alternative name) of the preset.
+The second argument is the name of the field to retrieve. The official fields
+names are: `name`, `args` and `arch`.
 
 Example (return the `args` fields of the `vs2013` preset):
 
@@ -82,10 +87,10 @@ The preset file will be loaded from the first valid location from the
 following list:
 
 - the file pointed by the `CMAKEX_PRESET_FILE` environment variable
-- the `cmakex-preset.yml` or `.cmakex-preset.yml` in the current working directory
-- the `cmakex-preset.yml` or `.cmakex-preset.yml` in the current user's home
+- the `cmakex-presets.yml` or `.cmakex-presets.yml` in the current working directory
+- the `cmakex-presets.yml` or `.cmakex-presets.yml` in the current user's home
   directory (retrieved from `$HOME` or `%HOMEDRIVE%\%HOMEPATH%` variables)
-- the `cmakex-preset.yml` or `.cmakex-preset.yml` in the `getpreset`
+- the `cmakex-presets.yml` or `.cmakex-presets.yml` in the `getpreset`
   executable's directory
 )~");
 }
@@ -125,7 +130,6 @@ vector<string> split(string_par x)
 {
     vector<string> vs;
     string s = x.str();
-    int N = s.size();
     bool w_valid = false;
     string w;
     auto add_to_w = [&w, &w_valid](char c) {
@@ -215,9 +219,7 @@ string subs(string_par x, string_par var, string_par value)
     for (auto c : {'$', '{', '}'}) {
         if (strchr(var.c_str(), c)) {
             fprintf(stderr, "Character '%c' found in variable name \"%s\".\n", c, var.c_str());
-        }
-        if (strchr(value.c_str(), c)) {
-            fprintf(stderr, "Character '%c' found in variable value \"%s\".\n", c, value.c_str());
+            exit(EXIT_FAILURE);
         }
     }
     string r = x.str();
@@ -270,7 +272,6 @@ int main_core(int argc, char* argv[])
     }
 
     YAML::Node config;
-
     try {
         config = YAML::LoadFile(input_path);
     } catch (const std::exception& e) {
@@ -278,8 +279,6 @@ int main_core(int argc, char* argv[])
                 e.what());
         exit(EXIT_FAILURE);
     }
-
-    config = YAML::Load("presets: { {a: ize},{b: bize}}");
 
     const YAML::Node variables = config["variables"];
     const YAML::Node presets = config["presets"];
@@ -362,15 +361,6 @@ int main_core(int argc, char* argv[])
                 }
             }
             for (auto& s : vv) {
-                // remove quotes
-                while (s.size() >= 2 && s.front() == '"' && s.back() == '"')
-                    s = s.substr(1, s.size() - 2);
-                // check any double quotes left
-                if (s.find("\"") != string::npos) {
-                    fprintf(stderr, "The string `%s` contains internal double-quotes in file %s.",
-                            s.c_str(), input_path.c_str());
-                    exit(EXIT_FAILURE);
-                }
                 // add quotes as necessary
                 if (s.empty() || s.find(' ') != string::npos)
                     s = string("\"") + s + string("\"");
