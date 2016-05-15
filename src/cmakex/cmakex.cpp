@@ -1,6 +1,7 @@
 #include <cstdlib>
 
 #include <adasworks/sx/log.h>
+#include <nowide/args.hpp>
 
 #include "cmakexengine.h"
 #include "filesystem.h"
@@ -152,7 +153,7 @@ string make_string(array_view<const char> x)
     return string(x.begin(), x.end());
 }
 
-cmakex_pars_t process_command_line(int argc, const char* argv[])
+cmakex_pars_t process_command_line(int argc, char* argv[])
 {
     cmakex_pars_t pars;
     if (argc <= 1)
@@ -254,12 +255,15 @@ cmakex_pars_t process_command_line(int argc, const char* argv[])
         }  // else: not one of specific args
     }      // foreach arg
     if (pars.binary_dir.empty())
-        pars.binary_dir = fs::current_path().u8string();
+        pars.binary_dir = fs::current_path();
+
     return pars;
 }
 
-int main(int argc, const char* argv[])
+int main(int argc, char* argv[])
 {
+    nowide::args nwa(argc, argv);
+
     try {
         auto pars = process_command_line(argc, argv);
         auto eng = CMakeXEngine::create(pars);
@@ -272,31 +276,13 @@ int main(int argc, const char* argv[])
 }
 }
 
-int main(int argc, const char* argv[])
+int main(int argc, char* argv[])
 {
     return cmakex::main(argc, argv);
 }
 
 // clang-format off
 #if 0
-
-
-if [[ -n "$source_dir" ]]; then
-    echo "CMAKE_SOURCE_DIR: $source_dir"
-fi
-echo "CMAKE_BINARY_DIR: $binary_dir"
-
-if [[ -n "$build_targets" ]]; then
-    echo "targets: $build_targets"
-fi
-
-if [[ -n "$configs" ]]; then
-    echo "configurations: $configs"
-fi
-
-#echo "config_args: ${config_args[@]}"
-#echo "build_args: ${build_args[@]}"
-#echo "native_tool_args: ${native_tool_args[@]}"
 
 if [[ -z "$configs" ]]; then
     configs=-

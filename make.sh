@@ -34,6 +34,7 @@ fi
 
 build_dep aw-sx
 build_dep yaml-cpp
+build_dep nowide
 
 opts="$common_opts -DCMAKE_PREFIX_PATH=$deps_install -DCMAKE_INSTALL_PREFIX=$PWD/o" 
 src=.

@@ -23,3 +23,4 @@ function clone {
 
 clone aw-sx https://scm.adasworks.com/r/frameworks/adasworks-std-extras.git
 clone yaml-cpp https://github.com/adasworks/yaml-cpp.git
+clone nowide https://github.com/adasworks/nowide-standalone.git
