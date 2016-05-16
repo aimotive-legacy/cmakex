@@ -4,4 +4,6 @@ add_executable(cmakex
     using-decls.h
 )
 
-target_link_libraries(cmakex PRIVATE ::aw-sx nowide::nowide-static filesystem)
+target_link_libraries(cmakex PRIVATE
+    ::aw-sx nowide::nowide-static filesystem
+    ::tiny-process-library)

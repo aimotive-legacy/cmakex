@@ -41,6 +41,7 @@ add_definitions(
 find_package(aw-sx REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nowide REQUIRED)
+find_package(tiny-process-library REQUIRED)
 
 if(NOT CMAKE_CROSSCOMPILING)
     enable_testing()

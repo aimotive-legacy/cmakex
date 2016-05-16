@@ -27,14 +27,15 @@ function build_dep {
 opts="$common_opts -DCMAKE_INSTALL_PREFIX=$deps_install -DBUILD_SHARED_LIBS=0" 
 
 if [[ -n $CMAKEX_BUILD_TESTING ]]; then
-    opts="$opts -DYAML_CPP_BUILD_TOOLS=1 -DBUILD_TESTING=1"
+    opts="$opts -DYAML_CPP_BUILD_TOOLS=1 -DBUILD_TESTING=1 -DENABLE_TESTING=1"
 else
-    opts="$opts -DYAML_CPP_BUILD_TOOLS=0 -DBUILD_TESTING=0"
+    opts="$opts -DYAML_CPP_BUILD_TOOLS=0 -DBUILD_TESTING=0 -DENABLE_TESTING=0"
 fi
 
 build_dep aw-sx
 build_dep yaml-cpp
 build_dep nowide
+build_dep tiny-process-library
 
 opts="$common_opts -DCMAKE_PREFIX_PATH=$deps_install -DCMAKE_INSTALL_PREFIX=$PWD/o" 
 src=.
