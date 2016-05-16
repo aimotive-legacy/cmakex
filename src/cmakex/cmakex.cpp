@@ -56,14 +56,6 @@ const char* usage_text =
     "- `--clean-first`\n"
     "- double-dash \"--\" followed by options to the native build tool\n"
     "\n"
-    "Environment Variables\n"
-    "---------------------\n"
-    "\n"
-    "If the configure step is specified, the following environment variables will\n"
-    "be repeated on the `cmake` command-line: `CMAKE_PREFIX_PATH`,\n"
-    "`CMAKE_INSTALL_PREFIX`, `CMAKE_MODULE_PATH`. If a variable is already set in\n"
-    "the project's cache, it will not be overwritten.\n"
-    "\n"
     "Examples:\n"
     "=========\n"
     "\n"
@@ -281,72 +273,3 @@ int main(int argc, char* argv[])
     return cmakex::main(argc, argv);
 }
 
-// clang-format off
-#if 0
-
-if [[ -z "$configs" ]]; then
-    configs=-
-fi
-if [[ -n $arg_b && -z "$build_targets" ]]; then
-    build_targets=-
-fi
-
-unset config_env_arg
-
-if [[ -n "$CMAKE_INSTALL_PREFIX" ]]; then
-    grep "^CMAKE_INSTALL_PREFIX:" "$binary_dir/CMakeCache.txt" >/dev/null 2>/dev/null \
-        || config_env_arg+=("-DCMAKE_INSTALL_PREFIX:PATH=$CMAKE_INSTALL_PREFIX")
-fi
-
-if [[ -n "$CMAKE_PREFIX_PATH" ]]; then
-    grep "^CMAKE_PREFIX_PATH:" "$binary_dir/CMakeCache.txt" >/dev/null 2>/dev/null \
-        || config_env_arg+=("-DCMAKE_PREFIX_PATH:STRING=$CMAKE_PREFIX_PATH")
-fi
-
-if [[ -n "$CMAKE_MODULE_PATH" ]]; then
-    grep "^CMAKE_MODULE_PATH:" "$binary_dir/CMakeCache.txt" >/dev/null 2>/dev/null \
-        || config_env_arg+=("-DCMAKE_MODULE_PATH:STRING=$CMAKE_MODULE_PATH")
-fi
-
-for config in $configs; do
-    if [[ $config == - ]]; then
-        unset config_config_arg
-        unset build_config_arg
-        unset test_config_arg
-    else
-        config_config_arg="-DCMAKE_BUILD_TYPE=$config"
-        build_config_arg="--config $config"
-        test_config_arg="-C $config"
-    fi
-
-    # configure step
-    if [[ -n $arg_c ]]; then
-        (set -x; cmake $config_config_arg "${config_env_arg[@]}" "${config_args[@]}")
-    elif [[ -n $config_args_besides_binary_dir ]]; then
-        echo -e "You specified args for the cmake configuration step besides binary dir:\n"\
-"\t${config_args[@]}\n"\
-"but the 'c' option is missing from the command word: \"$command_word\"" >&2
-        exit 1
-    fi
-
-    # build step
-    for target in $build_targets; do
-        if [[ $target == - ]]; then
-            unset build_target_arg
-        else
-            build_target_arg="--target $target"
-        fi
-        echo "bta $build_target_arg"
-        (set -x; cmake --build "$binary_dir" $build_args $build_target_arg $build_config_arg "${native_tool_args[@]}")
-    done
-
-    # test step
-    if [[ -n $arg_t ]]; then
-        pushd "$binary_dir" >/dev/null
-        (set -x; ctest $test_config_arg)
-        popd >/dev/null
-    fi  
-done
-
-
-#endif

@@ -1,11 +1,10 @@
 #ifndef FILESYSTEM_23978479283
 #define FILESYSTEM_23978479283
 
-#include <system_error>
 #include <string>
+#include <system_error>
 
 namespace filesystem {
-
 
 // like boost/std filesystem but assumes char*/string is utf8
 class path
@@ -111,6 +110,7 @@ inline bool is_regular_file(const path& p)
     return is_regular_file(status(p));
 }
 path current_path();
+void current_path(const path& p);
 }
 
 #endif

@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include <adasworks/sx/check.h>
+#include <adasworks/sx/string_par.h>
 #include <adasworks/sx/stringf.h>
 
 #include <nowide/convert.hpp>
@@ -22,6 +23,74 @@
 namespace filesystem {
 
 using adasworks::sx::stringf;
+using adasworks::sx::string_par;
+using std::string;
+using std::exception;
+
+namespace {
+#ifdef _WIN32
+string message_from_windows_system_error_code(DWORD code)
+{
+    wchar_t* msgBuf = nullptr;
+    auto r = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), msgBuf, 0, NULL);
+
+    if (r == 0)  // FormatMessage failed
+        return stringf(
+            "(can't to obtain system error message, FormatMessage failed with error code %u)",
+            (unsigned)GetLastError());
+
+    // success
+    try {
+        string msg_buf = nowide::narrow(msgBuf);
+        LocalFree(msgBuf);
+        return msg_buf;
+    } catch (const exception& e) {
+        LocalFree(msgBuf);
+        return stringf("(can't obtain system error message, nowide::narrow failed with '%s')",
+                       e.what());
+    } catch (...) {
+        LocalFree(msgBuf);
+        return stringf(
+            "(can't obtain system error message, nowide::narrow failed with unknown "
+            "exception)");
+    }
+}
+[[noreturn]] void throw_filesystem_error_from_windows_system_error_code(DWORD code,
+                                                                        string_par base_msg,
+                                                                        const path* p1 = nullptr,
+                                                                        const path* p2 = nullptr)
+{
+    auto error_msg = message_from_windows_system_error_code(code);
+    auto msg = stringf("%s, reason: %s", base_msg.c_str(), error_msg.c_str());
+    auto ec = std::error_code(code, std::system_category());
+    if (!p1) {
+        CHECK(!p2);
+        throw filesystem_error(msg, ec);
+    } else if (!p2)
+        throw filesystem_error(msg, *p1, ec);
+    else
+        throw filesystem_error(msg, *p1, *p2, ec);
+}
+#endif
+
+[[noreturn]] void throw_filesystem_error_from_errno_code(int code,
+                                                         string_par base_msg,
+                                                         const path* p1 = nullptr,
+                                                         const path* p2 = nullptr)
+{
+    auto msg = stringf("%s, reason: %s", base_msg.c_str(), strerror(errno));
+    auto ec = std::error_code(code, std::system_category());
+    if (!p1) {
+        CHECK(!p2);
+        throw filesystem_error(msg, ec);
+    } else if (!p2)
+        throw filesystem_error(msg, *p1, ec);
+    else
+        throw filesystem_error(msg, *p1, *p2, ec);
+}
+}
 
 path current_path()
 {
@@ -43,8 +112,22 @@ path current_path()
             throw;
         }
     } else
-        throw filesystem_error("Can't get current working directory",
-                               std::error_code(errno, std::system_category()));
+        throw_filesystem_error_from_errno_code(errno, "Can't get current working directory");
+}
+
+void current_path(const path& p)
+{
+#ifdef _WIN32
+    if (SetCurrentDirectoryW(nowide::widen(p.c_str())))
+        return;
+    throw_filesystem_error_from_windows_system_error_code(
+        GetLastError(), stringf("Can't change current directory to %s", p.c_str()).c_str(), &p);
+#else
+    if (::chdir(p.c_str()) == 0)
+        return;
+    throw_filesystem_error_from_errno_code(
+        errno, stringf("Can't change current directory to %s", p.c_str()), &p);
+#endif
 }
 
 namespace {
@@ -71,8 +154,8 @@ file_status process_status_failure(const path& p, error_code* ec)
         return file_status(file_type::unknown);
     }
     if (ec == 0)
-        throw filesystem_error(stringf("Can't get file status for %s", p.c_str()), p,
-                               error_code(errval, std::system_category()));
+        throw_filesystem_error_from_windows_system_error_code(
+            errval, stringf("Can't get file status for %s", p.c_str()), &p);
     return file_status(file_type::none);
 }
 perms make_permissions(const path& p, DWORD attr)
@@ -161,8 +244,8 @@ file_status status(const path& p, std::error_code* ec)
         if (errno == EACCES)
             return file_status(file_type::unknown, perms::none);
         if (ec == 0)
-            throw filesystem_error(stringf("Can't get file status for %s", p.c_str()), p,
-                                   std::error_code(errno, std::system_category()));
+            throw_filesystem_error_from_errno_code(
+                errno, stringf("Can't get file status for %s", p.c_str()), &p);
         return file_status(file_type::none);
     }
     if (ec)
