@@ -5,6 +5,7 @@
 
 #include "cmakexengine.h"
 #include "filesystem.h"
+#include "misc_util.h"
 #include "using-decls.h"
 
 #define STRINGIZE_CORE(x) #x
@@ -101,48 +102,6 @@ void badpars_exit(string_par msg)
 {
     fprintf(stderr, "Error, bad parameters: %s\n", msg.c_str());
     exit(EXIT_FAILURE);
-}
-
-bool is_one_of(string_par x, initializer_list<const char*> y)
-{
-    for (auto& i : y) {
-        if (x == i)
-            return true;
-    }
-    return false;
-}
-
-bool starts_with(string_par x, string_par y)
-{
-    const auto ys = y.size();
-    if (ys == 0)
-        return true;
-    const auto xs = x.size();
-    if (ys > xs)
-        return false;
-    for (int i = 0; i < ys; ++i) {
-        if (x[i] != y[i])
-            return false;
-    }
-    return true;
-}
-
-bool starts_with(string_par x, char y)
-{
-    return !x.empty() && x[0] == y;
-}
-
-array_view<const char> butleft(string_par x, int z)
-{
-    const auto xs = x.size();
-    if (xs <= z)
-        return {};
-    return array_view<const char>(x.c_str() + z, xs - z);
-}
-
-string make_string(array_view<const char> x)
-{
-    return string(x.begin(), x.end());
 }
 
 cmakex_pars_t process_command_line(int argc, char* argv[])
@@ -272,4 +231,3 @@ int main(int argc, char* argv[])
 {
     return cmakex::main(argc, argv);
 }
-

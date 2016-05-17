@@ -4,34 +4,14 @@
 
 #include "filesystem.h"
 
+#include "invoke.h"
+#include "misc_util.h"
+
 namespace cmakex {
 
 namespace fs = filesystem;
 
 #define BEGINEND(X) (X).begin(), (X).end()
-
-namespace {
-string join(const vector<string>& v, const string& s)
-{
-    if (v.empty())
-        return string();
-    size_t l((v.size() - 1) * s.size());
-    for (auto& x : v)
-        l += x.size();
-    string r;
-    r.reserve(l);
-    r += v.front();
-    for (int i = 1; i < v.size(); ++i) {
-        r += s;
-        r += v[i];
-    }
-    return r;
-}
-void invoke(string_par c, const vector<string>& args)
-{
-    CHECK(false);  // todo
-}
-}
 
 class CMakeXEngineImpl : public CMakeXEngine
 {
