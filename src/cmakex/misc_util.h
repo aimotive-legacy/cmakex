@@ -3,6 +3,8 @@
 
 #include "using-decls.h"
 
+#define BEGINEND(X) (X).begin(), (X).end()
+
 namespace cmakex {
 
 // true if one of the items in y equals to x

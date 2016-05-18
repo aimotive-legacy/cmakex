@@ -215,9 +215,33 @@ int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
+    adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
+#if 0
+    OutErrMessagesBuilder oeb(true);
+    auto exit_code = exec_process("sh", {"-C", "/Users/tamas.kenez/git/cmakex/test.sh"},
+                                  oeb.stdout_callback(), oeb.stderr_callback());
+    LOG_DEBUG("Exit code: %d", exit_code);
+    auto out_err_messages = oeb.move_result();
+    LOG_DEBUG("Message count: %u", (int)out_err_messages.size());
+    for (int i = 0; i < out_err_messages.size(); ++i) {
+        auto msg = out_err_messages.at(i);
+        string text;
+        for (auto c : msg.text) {
+            if (isprint(c))
+                text += c;
+            else
+                text += stringf("<%02X>", (int)c);
+        }
+        LOG_DEBUG("[%s]@%.3f: %s",
+                  msg.source == out_err_message_base_t::source_stdout ? "stdout" : "stderr", msg.t,
+                  text.c_str());
+    }
+    exit(0);
+#endif
     try {
         auto pars = process_command_line(argc, argv);
         auto eng = CMakeXEngine::create(pars);
+        eng->run();
     } catch (const exception& e) {
         LOG_FATAL("Exception: %s", e.what());
     } catch (...) {

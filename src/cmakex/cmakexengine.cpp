@@ -4,14 +4,13 @@
 
 #include "filesystem.h"
 
-#include "invoke.h"
 #include "misc_util.h"
+#include "out_err_messages.h"
+#include "print.h"
 
 namespace cmakex {
 
 namespace fs = filesystem;
-
-#define BEGINEND(X) (X).begin(), (X).end()
 
 class CMakeXEngineImpl : public CMakeXEngine
 {
@@ -32,12 +31,12 @@ private:
     void run_cmake_steps()
     {
         if (!pars.source_dir.empty())
-            printf("CMAKE_SOURCE_DIR: %s\n", pars.source_dir.c_str());
-        printf("CMAKE_BINARY_DIR: %s\n", pars.binary_dir.c_str());
+            print_out("CMAKE_SOURCE_DIR: %s", pars.source_dir.c_str());
+        print_out("CMAKE_BINARY_DIR: %s", pars.binary_dir.c_str());
         if (!pars.build_targets.empty())
-            printf("targets: %s\n", join(pars.build_targets, " ").c_str());
+            print_out("targets: %s", join(pars.build_targets, " ").c_str());
         if (!pars.configs.empty())
-            printf("configurations: %s\n", join(pars.configs, " ").c_str());
+            print_out("configurations: %s", join(pars.configs, " ").c_str());
 
         // add a single, neutral config, if no configs specified
         auto configs = pars.configs;
@@ -56,13 +55,14 @@ private:
                 if (!config.empty()) {
                     args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
                     args.insert(args.end(), BEGINEND(pars.config_args));
-                    invoke("cmake", args);
+                    log_exec("cmake", args);
+                    exec_process("cmake", args);
                 } else if (pars.config_args_besides_binary_dir) {
-                    fprintf(stderr,
-                            "You specified args for the cmake configuration step besides binary "
-                            "dir:\n");
-                    fprintf(stderr, "\t%s\n", join(pars.config_args, " ").c_str());
-                    fprintf(stderr, "but the 'c' option is missing from the command word\n");
+                    print_err(
+                        "You specified args for the cmake configuration step besides binary "
+                        "dir:");
+                    print_err("\t%s", join(pars.config_args, " ").c_str());
+                    print_err("but the 'c' option is missing from the command word");
                     exit(EXIT_FAILURE);
                 }
             }
@@ -82,7 +82,8 @@ private:
                     args.emplace_back(config);
                 }
                 args.insert(args.end(), BEGINEND(pars.native_tool_args));
-                invoke("cmake", args);
+                log_exec("cmake", args);
+                exec_process("cmake", args);
             }
 
             // test step
@@ -93,7 +94,8 @@ private:
                     args.emplace_back("-C");
                     args.emplace_back(config);
                 }
-                invoke("ctest", args);
+                log_exec("ctest", args);
+                exec_process("ctest", args);
             }
         }  // for configs
     }
