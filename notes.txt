@@ -1,0 +1,38 @@
+set(PKG_CONFIGS Release)
+add_pkg(ZIB GIT_URL x GIT_TAG y)
+set(PKG_CONFIGS Debug)
+set(PKG_CLONE_DIR ./)
+add_pkg(IZE GIT_URL x GIT_TAG y)
+build(CMAKE_ARGS ize bize SOURCE_DIR ..)
+
+build/cmakex-install
+build/cmakex-build
+build/cmakex-clone
+cmakex cbdrit
+
+
+add_pkg:
+- clone + build + install here in the build directory, as it is (not cached)
+- clone + build + install here in the build directory in a cache, return install dir or compressed archive
+- clone + build + install here in another build directory in a cache, return install dir or compressed archive
+- download from remote server, return install dir or compressed archive
+
+add_pkg:
+
+PACKAGE_SOURCE_POLICY = local_build | force_server_build | server_build | try_server_build
+
+    switch(PACKAGE_SOURCE_POLICY)
+        case force_server_build:
+        case server_build:
+        case try_server_build:
+            server_has_it = ask_server()
+            if(!server_has_it && PACKAGE_SOURCE_POLICY == server_build || PACKAGE_SOURCE_POLICY == force_server_build)
+                server_has_it = build_on_server()
+            if(server_has_it)
+                download && return path
+            else            
+                CHECK(PACKAGE_SOURCE_POLICY != force_server_build)
+                build_here_to_cache()
+                return path
+        case local_build:
+            build_locally() && return path
