@@ -4,6 +4,8 @@
 #include "using-decls.h"
 
 #define BEGINEND(X) (X).begin(), (X).end()
+#define STRINGIZE_CORE(x) #x
+#define STRINGIZE(x) STRINGIZE_CORE(x)
 
 namespace cmakex {
 
@@ -28,7 +30,5 @@ inline string make_string(array_view<const char> x)
 // join the items of v with separator string s
 string join(const vector<string>& v, const string& s);
 }
-
-
 
 #endif
