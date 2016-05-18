@@ -1,5 +1,9 @@
 #include "print.h"
 
+#include "Poco/DateTimeFormat.h"
+#include "Poco/DateTimeFormatter.h"
+#include "Poco/Timezone.h"
+
 namespace cmakex {
 void log_exec(string_par command, const vector<string>& args)
 {
@@ -32,5 +36,12 @@ void log_exec(string_par command, const vector<string>& args)
         u.append(t);
     }
     print_out("$ %s", u.c_str());
+}
+string current_datetime_string_for_log()
+{
+    Poco::DateTime dt;
+    dt.makeLocal(Poco::Timezone::tzd());
+    return Poco::DateTimeFormatter::format(dt, Poco::DateTimeFormat::RFC1123_FORMAT,
+                                           Poco::Timezone::tzd());
 }
 }

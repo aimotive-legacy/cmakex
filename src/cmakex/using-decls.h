@@ -21,6 +21,7 @@ using std::initializer_list;
 using std::move;
 using std::chrono::system_clock;
 using std::chrono::high_resolution_clock;
+using dur_sec = std::chrono::duration<double>;
 
 using adasworks::sx::stringf;
 using adasworks::sx::string_par;

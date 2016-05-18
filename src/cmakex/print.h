@@ -32,6 +32,7 @@ inline void print_err(const char* s, ...)
     va_end(ap);
 }
 void log_exec(string_par command, const vector<string>& args);
+string current_datetime_string_for_log();
 }
 
 #endif

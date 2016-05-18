@@ -6,6 +6,7 @@
 #include "cmakexengine.h"
 #include "filesystem.h"
 #include "misc_util.h"
+#include "print.h"
 #include "using-decls.h"
 
 #define STRINGIZE_CORE(x) #x
@@ -31,7 +32,7 @@ const char* usage_text =
     "Execute Multiple `cmake` Commands\n"
     "=================================\n"
     "\n"
-    "    cmakex c|b|i|t|d|r|w [cmake-options]\n"
+    "    cmakex [c][b][i][t][d][r][w] [cmake-options]\n"
     "\n"
     "Specify one or more of the characters c, b, i, t to execute one or more of\n"
     "these steps:\n"
@@ -68,7 +69,7 @@ const char* usage_text =
     "\n"
     "Install the 'Debug' and 'Release' configs:\n"
     "\n"
-    "    cmakex cidr -Hsource_dir -Bbuild_dir -DMY_OPTION=something\n"
+    "    cmakex cidr -H source_dir -B build_dir -DMY_OPTION=something\n"
     "\n"
     "Test the 'Release' config:\n"
     "\n"
@@ -88,7 +89,7 @@ const char* usage_text =
     "\n"
     "or\n"
     "\n"
-    "    cmakex cbtr -Hsource_dir -Bbuild_dir\n"
+    "    cmakex cbtr -H source_dir -B build_dir\n"
     "\n";
 
 void display_usage_and_exit(int exit_code)
