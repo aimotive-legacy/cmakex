@@ -5,6 +5,9 @@
 #include <cerrno>
 #include <cstdlib>
 
+#include <Poco/File.h>
+#include <Poco/Path.h>
+
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/string_par.h>
 #include <adasworks/sx/stringf.h>
@@ -416,5 +419,18 @@ path path::extension() const
         return path();
     auto pos = name.s.rfind('.');
     return pos == string_type::npos ? path() : path(name.s.c_str() + pos);
+}
+
+void remove(const path& p)
+{
+    Poco::File(p.string()).remove();
+}
+void remove_all(const path& p)
+{
+    Poco::File(p.string()).remove(true);
+}
+void create_directories(const path& p)
+{
+    Poco::File(p.string()).createDirectories();
 }
 }

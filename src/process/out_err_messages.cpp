@@ -9,8 +9,6 @@
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/log.h>
 
-#include "misc_util.h"
-
 namespace cmakex {
 
 // add_msg is thread-safe
@@ -19,7 +17,7 @@ void OutErrMessages::add_msg(source_t source, array_view<const char> msg, atomic
     auto now = msg_clock::now();
     std::lock_guard<atomic_flag_mutex> lock(mutex);
     ptrdiff_t begin_idx = strings.size();
-    strings.insert(strings.end(), BEGINEND(msg));
+    strings.insert(strings.end(), msg.begin(), msg.end());
     messages.emplace_back(source, now, begin_idx, begin_idx + msg.size());
 }
 
@@ -33,7 +31,7 @@ out_err_message_t OutErrMessages::at(ptrdiff_t idx) const
 void OutErrMessages::mark_process_start_time()
 {
     process_start_time = msg_clock::now();
-    process_start_system_time = system_clock::now();
+    process_start_system_time = std::chrono::system_clock::now();
 }
 exec_process_output_callback_t OutErrMessagesBuilder::stdout_callback()
 {

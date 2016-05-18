@@ -9,16 +9,17 @@
 #include <adasworks/sx/mutex.h>
 
 #include "exec_process.h"
-#include "using-decls.h"
 
 namespace cmakex {
 
 using adasworks::sx::atomic_flag_mutex;
+using std::move;
 
 struct out_err_message_base_t
 {
     enum source_t
     {
+        source_invalid,
         source_stdout,
         source_stderr
     };
@@ -87,7 +88,7 @@ private:
     std::deque<internal::out_err_message_internal_t> messages;
     strings_t strings;
     msg_clock::time_point process_start_time;
-    system_clock::time_point process_start_system_time;
+    std::chrono::system_clock::time_point process_start_system_time;
 };
 
 class OutErrMessagesBuilder

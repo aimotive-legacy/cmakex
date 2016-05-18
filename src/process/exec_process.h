@@ -5,13 +5,15 @@
 
 #include <adasworks/sx/array_view.h>
 #include <adasworks/sx/mutex.h>
-
-#include "using-decls.h"
+#include <adasworks/sx/string_par.h>
 
 namespace cmakex {
 
 using adasworks::sx::atomic_flag_mutex;
 using adasworks::sx::array_view;
+using adasworks::sx::string_par;
+using std::vector;
+using std::string;
 
 using exec_process_output_callback_t = std::function<void(array_view<const char>)>;
 

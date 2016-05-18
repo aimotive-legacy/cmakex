@@ -77,7 +77,11 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
                 args.insert(args.end(), BEGINEND(pars.config_args));
                 log_exec("cmake", args);
-                exec_process("cmake", args);
+                int r = exec_process("cmake", args);
+                if (r != EXIT_SUCCESS) {
+                    print_err("Configuring failed with error code %d", r);
+                    exit(EXIT_FAILURE);
+                }
             } else if (pars.config_args_besides_binary_dir) {
                 print_err(
                     "You specified args for the cmake configuration step besides binary "
@@ -114,7 +118,11 @@ void run_cmake_steps(const cmakex_pars_t& pars)
             }
             args.insert(args.end(), BEGINEND(pars.native_tool_args));
             log_exec("cmake", args);
-            exec_process("cmake", args);
+            int r = exec_process("cmake", args);
+            if (r != EXIT_SUCCESS) {
+                print_err("Building failed with error code %d", r);
+                exit(EXIT_FAILURE);
+            }
             print_out(
                 "End %s, elapsed %s", step_string.c_str(),
                 sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
@@ -133,7 +141,11 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 args.emplace_back(config);
             }
             log_exec("ctest", args);
-            exec_process("ctest", args);
+            int r = exec_process("ctest", args);
+            if (r != EXIT_SUCCESS) {
+                print_err("Testing failed with error code %d", r);
+                exit(EXIT_FAILURE);
+            }
             print_out(
                 "End %s, elapsed %s", step_string.c_str(),
                 sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());

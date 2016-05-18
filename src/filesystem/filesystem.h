@@ -111,6 +111,9 @@ inline bool is_regular_file(const path& p)
 }
 path current_path();
 void current_path(const path& p);
+void remove(const path& p);
+void remove_all(const path& p);
+void create_directories(const path& p);
 }
 
 #endif
