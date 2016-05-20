@@ -43,7 +43,6 @@ export MAKEFLAGS=-j8
 build_dep aw-sx
 build_dep yaml-cpp
 build_dep nowide
-build_dep tiny-process-library
 build_dep Poco
 
 opts="$common_opts -DCMAKE_PREFIX_PATH=$deps_install -DCMAKE_INSTALL_PREFIX=$PWD/o" 
