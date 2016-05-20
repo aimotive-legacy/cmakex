@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <thread>
+#include <mutex>
 
 #include <Poco/Pipe.h>
 #include <Poco/Process.h>
