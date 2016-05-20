@@ -85,7 +85,6 @@ class file_status
 {
 public:
     file_status(const file_status&) = default;
-    file_status(file_status&&) = default;
     explicit file_status(file_type type = file_type::none, perms permissions = perms::unknown)
         : t(type), p(permissions)
     {

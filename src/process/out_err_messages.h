@@ -74,7 +74,13 @@ public:
 
     OutErrMessages() { mark_process_start_time(); }
     OutErrMessages(const OutErrMessages&) = delete;
-    OutErrMessages(OutErrMessages&&) = default;
+    OutErrMessages(OutErrMessages&& x)
+        : messages(move(x.messages)),
+          strings(move(x.strings)),
+          process_start_time(move(process_start_time)),
+          process_start_system_time(move(process_start_system_time))
+    {
+    }
 
     void mark_process_start_time();
     // add_msg is thread-safe

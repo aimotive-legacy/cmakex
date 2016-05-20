@@ -62,10 +62,16 @@ string message_from_windows_system_error_code(DWORD code)
             "exception)");
     }
 }
-[[noreturn]] void throw_filesystem_error_from_windows_system_error_code(DWORD code,
-                                                                        string_par base_msg,
-                                                                        const path* p1 = nullptr,
-                                                                        const path* p2 = nullptr)
+
+#if defined _MSC_VER && _MSC_VER < 1900
+__declspec(noreturn)
+#else
+[[noreturn]]
+#endif
+    void throw_filesystem_error_from_windows_system_error_code(DWORD code,
+                                                               string_par base_msg,
+                                                               const path* p1 = nullptr,
+                                                               const path* p2 = nullptr)
 {
     auto error_msg = message_from_windows_system_error_code(code);
     auto msg = stringf("%s, reason: %s", base_msg.c_str(), error_msg.c_str());
@@ -80,10 +86,15 @@ string message_from_windows_system_error_code(DWORD code)
 }
 #endif
 
-[[noreturn]] void throw_filesystem_error_from_errno_code(int code,
-                                                         string_par base_msg,
-                                                         const path* p1 = nullptr,
-                                                         const path* p2 = nullptr)
+#if defined _MSC_VER && _MSC_VER < 1900
+__declspec(noreturn)
+#else
+[[noreturn]]
+#endif
+    void throw_filesystem_error_from_errno_code(int code,
+                                                string_par base_msg,
+                                                const path* p1 = nullptr,
+                                                const path* p2 = nullptr)
 {
     auto msg = stringf("%s, reason: %s", base_msg.c_str(), strerror(errno));
     auto ec = std::error_code(code, std::system_category());
