@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +26,7 @@ bool file_exists(string_par x)
     FILE* f = fopen(x.c_str(), "r");
     if (f)
         fclose(f);
-    return f;
+    return f != nullptr;
 }
 
 string find_input_path(const char* argv0)

@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <cerrno>
 #include <cstdlib>
+#include <memory>
 
 #include <Poco/File.h>
 #include <Poco/Path.h>
@@ -18,7 +19,8 @@
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_EXTRALEAN
-#include <windows.h>
+#include <Windows.h>
+//#include <WinIoCtl.h>
 #else
 #include <unistd.h>
 #endif
@@ -35,7 +37,7 @@ namespace {
 string message_from_windows_system_error_code(DWORD code)
 {
     wchar_t* msgBuf = nullptr;
-    auto r = FormatMessage(
+    auto r = FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), msgBuf, 0, NULL);
 
@@ -121,7 +123,7 @@ path current_path()
 void current_path(const path& p)
 {
 #ifdef _WIN32
-    if (SetCurrentDirectoryW(nowide::widen(p.c_str())))
+    if (SetCurrentDirectoryW(nowide::widen(p.c_str()).c_str()))
         return;
     throw_filesystem_error_from_windows_system_error_code(
         GetLastError(), stringf("Can't change current directory to %s", p.c_str()).c_str(), &p);
@@ -145,7 +147,7 @@ bool not_found_error(int errval)
            || errval == ERROR_BAD_PATHNAME       // "//nosuch" on Win64
            || errval == ERROR_BAD_NETPATH;       // "//nosuch" on Win32
 }
-file_status process_status_failure(const path& p, error_code* ec)
+file_status process_status_failure(const path& p, std::error_code* ec)
 {
     int errval(::GetLastError());
     if (ec != 0)                                     // always report errval, even though some
@@ -163,14 +165,16 @@ file_status process_status_failure(const path& p, error_code* ec)
 }
 perms make_permissions(const path& p, DWORD attr)
 {
-    perms prms = perms::owner_read | fs::group_read | fs::others_read;
+    perms prms = (perms)((int)perms::owner_read | (int)perms::group_read | (int)perms::others_read);
     if ((attr & FILE_ATTRIBUTE_READONLY) == 0)
-        prms |= fs::owner_write | fs::group_write | fs::others_write;
+        prms = (perms)((int)prms | (int)perms::owner_write | (int)perms::group_write |
+                       (int)perms::others_write);
     if (_stricmp(p.extension().string().c_str(), ".exe") == 0 ||
         _stricmp(p.extension().string().c_str(), ".com") == 0 ||
         _stricmp(p.extension().string().c_str(), ".bat") == 0 ||
         _stricmp(p.extension().string().c_str(), ".cmd") == 0)
-        prms |= fs::owner_exec | fs::group_exec | fs::others_exec;
+        prms = (perms)((int)prms | (int)perms::owner_exec | (int)perms::group_exec |
+                       (int)perms::others_exec);
     return prms;
 }
 struct handle_wrapper
@@ -191,9 +195,70 @@ HANDLE create_file_handle(const path& p,
                           DWORD dwFlagsAndAttributes,
                           HANDLE hTemplateFile)
 {
-    return ::CreateFileW(p.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                         dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    return ::CreateFileW(nowide::widen(p).c_str(), dwDesiredAccess, dwShareMode,
+                         lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes,
+                         hTemplateFile);
 }
+
+//  REPARSE_DATA_BUFFER related definitions are found in ntifs.h, which is part of the
+//  Windows Device Driver Kit. Since that's inconvenient, the definitions are provided
+//  here. See http://msdn.microsoft.com/en-us/library/ms791514.aspx
+
+#if !defined(REPARSE_DATA_BUFFER_HEADER_SIZE)  // mingw winnt.h does provide the defs
+
+#define SYMLINK_FLAG_RELATIVE 1
+
+typedef struct _REPARSE_DATA_BUFFER
+{
+    ULONG ReparseTag;
+    USHORT ReparseDataLength;
+    USHORT Reserved;
+    union
+    {
+        struct
+        {
+            USHORT SubstituteNameOffset;
+            USHORT SubstituteNameLength;
+            USHORT PrintNameOffset;
+            USHORT PrintNameLength;
+            ULONG Flags;
+            WCHAR PathBuffer[1];
+            /*  Example of distinction between substitute and print names:
+            mklink /d ldrive c:\
+            SubstituteName: c:\\??\
+            PrintName: c:\
+            */
+        } SymbolicLinkReparseBuffer;
+        struct
+        {
+            USHORT SubstituteNameOffset;
+            USHORT SubstituteNameLength;
+            USHORT PrintNameOffset;
+            USHORT PrintNameLength;
+            WCHAR PathBuffer[1];
+        } MountPointReparseBuffer;
+        struct
+        {
+            UCHAR DataBuffer[1];
+        } GenericReparseBuffer;
+    };
+} REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
+
+#define REPARSE_DATA_BUFFER_HEADER_SIZE FIELD_OFFSET(REPARSE_DATA_BUFFER, GenericReparseBuffer)
+
+#endif
+
+#ifndef MAXIMUM_REPARSE_DATA_BUFFER_SIZE
+#define MAXIMUM_REPARSE_DATA_BUFFER_SIZE (16 * 1024)
+#endif
+
+#ifndef FSCTL_GET_REPARSE_POINT
+#define FSCTL_GET_REPARSE_POINT 0x900a8
+#endif
+
+#ifndef IO_REPARSE_TAG_SYMLINK
+#define IO_REPARSE_TAG_SYMLINK (0xA000000CL)
+#endif
 
 bool is_reparse_point_a_symlink(const path& p)
 {
@@ -275,7 +340,7 @@ file_status status(const path& p, std::error_code* ec)
 
 #else  // Windows
 
-    DWORD attr(::GetFileAttributesW(nowide::widen(p.c_str())));
+    DWORD attr(::GetFileAttributesW(nowide::widen(p).c_str()));
     if (attr == 0xFFFFFFFF) {
         return process_status_failure(p, ec);
     }
@@ -284,7 +349,7 @@ file_status status(const path& p, std::error_code* ec)
     //    since GetFileAttributesW does not resolve symlinks, try to open a file
     //    handle to discover if the file exists
     if (attr & FILE_ATTRIBUTE_REPARSE_POINT) {
-        handle_wrapper h(create_file_handle(p.c_str(),
+        handle_wrapper h(create_file_handle(p,
                                             0,  // dwDesiredAccess; attributes only
                                             FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
                                             0,  // lpSecurityAttributes
@@ -295,7 +360,7 @@ file_status status(const path& p, std::error_code* ec)
         }
 
         if (!is_reparse_point_a_symlink(p))
-            return file_status(reparse_file, make_permissions(p, attr));
+            return file_status(file_type::symlink, make_permissions(p, attr));
     }
 
     if (ec != 0)
