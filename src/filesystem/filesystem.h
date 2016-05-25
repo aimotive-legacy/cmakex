@@ -101,6 +101,7 @@ private:
 file_status status(const path& p);
 file_status status(const path& p, std::error_code& ec);
 
+bool exists(const path& p);
 inline bool is_regular_file(file_status s)
 {
     return s.type() == file_type::regular;

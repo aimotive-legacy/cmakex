@@ -40,9 +40,8 @@ const char* usage_text =
     "CMake Options\n"
     "-------------\n"
     "\n"
-    "After the command word you can specify\n"
+    "After the command word you can specify:\n"
     "\n"
-    "- any options the cmake command accepts (the normal, non-build mode)\n"
     "- `-H` and `-B` to specify source and build directories. Note that unlike cmake,\n"
     "  cmakex accepts the `-H <path>` and `-B <path>` forms, too.\n"
     "- <source-dir> or <existing-binary-dir>\n"
@@ -72,25 +71,13 @@ const char* usage_text =
     "\n"
     "    cmakex cidr -H source_dir -B build_dir -DMY_OPTION=something\n"
     "\n"
-    "Test the 'Release' config:\n"
-    "\n"
-    "    cd build_dir\n"
-    "    cmakex tr .\n"
-    "\n"
-    "Note, that the configure/build steps are omitted in that case.\n"
-    "To execute the build step, use:\n"
-    "\n"
-    "    cd build_dir\n"
-    "    cmakex btr .\n"
-    "\n"
     "To test a project which has not been configured yet:\n"
     "\n"
-    "    cd build_dir\n"
-    "    cmakex cbtr .\n"
+    "    cmakex cbtr -H source_dir -B build\n"
     "\n"
-    "or\n"
+    "Test the 'Release' config (no configure and build):\n"
     "\n"
-    "    cmakex cbtr -H source_dir -B build_dir\n"
+    "    cmakex tr -H source_dir -B build_dir\n"
     "\n";
 
 void display_usage_and_exit(int exit_code)
@@ -123,11 +110,11 @@ source_descriptor_kind_t evaluate_source_descriptor(string_par x, bool allow_inv
             return source_descriptor_invalid;
         else
             badpars_exit(stringf(
-                "Source path is a directory but contains no 'CMakeLists.txt': \"%s\"", x.c_str()));
+                "Source path \"%s\" is a directory but contains no 'CMakeLists.txt'.", x.c_str()));
     } else if (allow_invalid)
         return source_descriptor_invalid;
     else
-        badpars_exit(stringf("Source path not found: \"%s\"", x.c_str()));
+        badpars_exit(stringf("Source path not found: \"%s\".", x.c_str()));
 
     CHECK(false);  // never here
     return source_descriptor_invalid;

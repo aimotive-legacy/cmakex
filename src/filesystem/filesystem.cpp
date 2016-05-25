@@ -509,4 +509,8 @@ void create_directories(const path& p)
 {
     Poco::File(p.string()).createDirectories();
 }
+bool exists(const path& p)
+{
+    return Poco::File(p.string()).exists();
+}
 }

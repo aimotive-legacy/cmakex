@@ -79,26 +79,29 @@ void run_cmake_steps(const cmakex_pars_t& pars)
             if (!source_dir.empty())
                 args.emplace_back(string("-H") + source_dir);
             args.emplace_back(string("-B") + pars.binary_dir);
-            if (!config.empty()) {
+            if (!config.empty())
                 args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
-                args.insert(args.end(), BEGINEND(pars.config_args));
-                log_exec("cmake", args);
-                int r = exec_process("cmake", args);
-                if (r != EXIT_SUCCESS) {
-                    print_err("Configuring failed with error code %d", r);
-                    exit(EXIT_FAILURE);
-                }
-            } else if (pars.config_args_besides_binary_dir) {
-                print_err(
-                    "You specified args for the cmake configuration step besides binary "
-                    "dir:");
-                print_err("\t%s", join(pars.config_args, " ").c_str());
-                print_err("but the 'c' option is missing from the command word");
+            args.insert(args.end(), BEGINEND(pars.config_args));
+            log_exec("cmake", args);
+            int r = exec_process("cmake", args);
+            if (r != EXIT_SUCCESS) {
+                print_err("Configuring failed with error code %d", r);
                 exit(EXIT_FAILURE);
             }
             print_out(
                 "End %s, elapsed %s", step_string.c_str(),
                 sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
+        } else if (pars.config_args_besides_binary_dir) {
+            print_err(
+                "You specified args for the cmake configuration step besides binary "
+                "dir:");
+            vector<string> a;
+            if (!pars.source_desc.empty())
+                a.emplace_back(string("-H") + pars.source_desc);
+            a.insert(a.end(), BEGINEND(pars.config_args));
+            print_err("    %s", join(a, " ").c_str());
+            print_err("but the 'c' option is missing from the command word");
+            exit(EXIT_FAILURE);
         }
 
         // build step
