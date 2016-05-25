@@ -14,6 +14,7 @@ public:
     using string_type = std::basic_string<value_type>;
 
     path() = default;
+    path(const char* s) : s(s) {}
     path(const std::string& s) : s(s) {}
     const value_type* c_str() const { return s.c_str(); }
     const string_type& string() const { return s; }
@@ -107,6 +108,14 @@ inline bool is_regular_file(file_status s)
 inline bool is_regular_file(const path& p)
 {
     return is_regular_file(status(p));
+}
+inline bool is_directory(file_status s)
+{
+    return s.type() == file_type::directory;
+}
+inline bool is_directory(const path& p)
+{
+    return is_directory(status(p));
 }
 path current_path();
 void current_path(const path& p);

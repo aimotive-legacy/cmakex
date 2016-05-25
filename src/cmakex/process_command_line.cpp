@@ -2,6 +2,8 @@
 #include "misc_util.h"
 #include "process_command_line.h"
 
+#include <adasworks/sx/check.h>
+
 namespace cmakex {
 
 namespace fs = filesystem;
@@ -95,6 +97,38 @@ void badpars_exit(string_par msg)
     exit(EXIT_FAILURE);
 }
 
+source_descriptor_kind_t evaluate_source_descriptor(string_par x, bool allow_invalid = false)
+{
+    if (fs::is_regular_file(x.c_str())) {
+        if (fs::path(x.c_str()).extension().string() == ".cmake")
+            return source_descriptor_build_script;
+        else if (allow_invalid)
+            return source_descriptor_invalid;
+        else
+            badpars_exit(stringf("Source path is a file but its extension is not '.cmake': \"%s\"",
+                                 x.c_str()));
+    } else if (fs::is_directory(x.c_str())) {
+        if (fs::is_regular_file(x.str() + "/CMakeLists.txt"))
+            return source_descriptor_cmakelists_dir;
+        else if (allow_invalid)
+            return source_descriptor_invalid;
+        else
+            badpars_exit(stringf(
+                "Source path is a directory but contains no 'CMakeLists.txt': \"%s\"", x.c_str()));
+    } else if (allow_invalid)
+        return source_descriptor_invalid;
+    else
+        badpars_exit(stringf("Source path not found: \"%s\"", x.c_str()));
+
+    CHECK(false);  // never here
+    return source_descriptor_invalid;
+}
+
+bool evaluate_binary_dir(string_par x)
+{
+    return fs::is_regular_file(x.str() + "/CMakeCache.txt");
+}
+
 cmakex_pars_t process_command_line(int argc, char* argv[])
 {
     cmakex_pars_t pars;
@@ -133,6 +167,24 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         }
     }
 
+    auto set_source_dir = [&pars](string_par x) -> void {
+        auto sdc = evaluate_source_descriptor(x);
+        if (!pars.source_desc.empty())
+            badpars_exit(stringf("Multiple source paths specified: \"%s\", then \"%s\"",
+                                 pars.source_desc.c_str(), x.c_str()));
+        pars.source_desc_kind = sdc;
+        pars.source_desc = x.c_str();
+    };
+
+    auto set_binary_dir = [&pars](string_par x) -> void {
+        if (!pars.binary_dir.empty())
+            badpars_exit(
+                stringf("Multiple binary (build) directories specified: \"%s\", then \"%s\"",
+                        pars.binary_dir.c_str(), x.c_str()));
+        pars.binary_dir_valid = evaluate_binary_dir(x);
+        pars.binary_dir = x.c_str();
+    };
+
     for (int argix = 2; argix < argc; ++argix) {
         string arg = argv[argix];
         if (!pars.native_tool_args.empty() || arg == "--") {
@@ -153,40 +205,40 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         else {
             pars.config_args.emplace_back(arg);
             if (starts_with(arg, "-H")) {
+                pars.config_args.pop_back();
                 if (arg == "-H") {
+                    // unlike cmake, here we support the '-H <path>' style, too
                     if (++argix >= argc)
                         badpars_exit("Missing path after '-H'");
-                    pars.source_dir = argv[argix];
-                    // cmake doesn't support separated -H <path>
-                    pars.config_args.pop_back();
-                    pars.config_args.emplace_back(string("-H") + pars.source_dir);
+                    set_source_dir(argv[argix]);
                 } else
-                    pars.source_dir = make_string(butleft(arg, 2));
+                    set_source_dir(make_string(butleft(arg, 2)));
                 pars.config_args_besides_binary_dir = true;
             } else if (starts_with(arg, "-B")) {
+                pars.config_args.pop_back();
                 if (arg == "-B") {
+                    // unlike cmake, here we support the '-B <path>' style, too
                     if (++argix >= argc)
                         badpars_exit("Missing path after '-B'");
-                    pars.binary_dir = argv[argix];
-                    // cmake doesn't support separated -B <path>
-                    pars.config_args.pop_back();
-                    pars.config_args.emplace_back(string("-B") + pars.binary_dir);
+                    set_binary_dir(argv[argix]);
                 } else
-                    pars.binary_dir = make_string(butleft(arg, 2));
+                    set_binary_dir(make_string(butleft(arg, 2)));
             } else if (is_one_of(arg, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
                 if (++argix >= argc)
                     badpars_exit(stringf("Missing path after '%s'", arg.c_str()));
                 pars.config_args.emplace_back(arg);
                 pars.config_args_besides_binary_dir = true;
             } else if (!starts_with(arg, '-')) {
-                if (fs::is_regular_file(arg + "/CMakeLists.txt")) {
-                    pars.source_dir = arg;
+                pars.config_args.pop_back();
+                if (evaluate_source_descriptor(arg, true) != source_descriptor_invalid) {
+                    set_source_dir(arg);
                     pars.config_args_besides_binary_dir = true;
-                } else if (fs::is_regular_file(arg + "/CMakeCache.txt")) {
-                    pars.binary_dir = arg;
+                } else if (evaluate_binary_dir(arg)) {
+                    set_binary_dir(arg);
                 } else {
                     badpars_exit(
-                        stringf("%s is neither a valid source dir (no CMakeLists.txt), nor "
+                        stringf("%s is neither a valid source dir (no CMakeLists.txt), nor a "
+                                "'*.cmake' build script, nor "
                                 "an existing binary dir (no CMakeCache.txt)",
                                 arg.c_str()));
                 }
@@ -196,8 +248,10 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             }
         }  // else: not one of specific args
     }      // foreach arg
-    if (pars.binary_dir.empty())
+    if (pars.binary_dir.empty()) {
         pars.binary_dir = fs::current_path();
+        pars.binary_dir_valid = evaluate_binary_dir(pars.binary_dir);
+    }
 
     return pars;
 }

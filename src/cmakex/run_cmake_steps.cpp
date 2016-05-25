@@ -17,6 +17,9 @@ namespace sx = adasworks::sx;
 void run_cmake_steps(const cmakex_pars_t& pars)
 {
     CHECK(pars.subcommand == cmakex_pars_t::subcommand_cmake_steps);
+    CHECK(pars.source_desc_kind != source_descriptor_build_script);
+    CHECK(!pars.binary_dir.empty());
+    string source_dir = pars.source_desc;
 
     auto main_tic = high_resolution_clock::now();
     print_out("Started at %s", current_datetime_string_for_log().c_str());
@@ -46,8 +49,8 @@ void run_cmake_steps(const cmakex_pars_t& pars)
     }
     {
         string s = stringf("CMAKE_BINARY_DIR: %s", pars.binary_dir.c_str());
-        if (!pars.source_dir.empty())
-            s += stringf(", CMAKE_SOURCE_DIR: %s", pars.source_dir.c_str());
+        if (!source_dir.empty())
+            s += stringf(", CMAKE_SOURCE_DIR: %s", source_dir.c_str());
         print_out("%s", s.c_str());
     }
     if (!pars.build_targets.empty())
@@ -73,6 +76,9 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 "configure step%s", config.empty() ? "" : (string(" (") + config + ")").c_str());
             print_out("Begin %s", step_string.c_str());
             vector<string> args;
+            if (!source_dir.empty())
+                args.emplace_back(string("-H") + source_dir);
+            args.emplace_back(string("-B") + pars.binary_dir);
             if (!config.empty()) {
                 args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
                 args.insert(args.end(), BEGINEND(pars.config_args));
