@@ -288,6 +288,10 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         }  // else: not one of specific args
     }      // foreach arg
     if (pars.binary_dir.empty()) {
+        if (pars.source_desc.empty())
+            badpars_exit(
+                "Neither a source directory and nor a valid binary directory (path to an existing "
+                "build) specified.");
         pars.binary_dir = fs::current_path();
         pars.binary_dir_valid = evaluate_binary_dir(pars.binary_dir);
     }
