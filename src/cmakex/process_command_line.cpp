@@ -45,10 +45,19 @@ const char* usage_text =
     "- any options the cmake command accepts (the normal, non-build mode)\n"
     "- `-H` and `-B` to specify source and build directories. Note that unlike cmake,\n"
     "  cmakex accepts the `-H <path>` and `-B <path>` forms, too.\n"
+    "- <source-dir> or <existing-binary-dir>\n"
+    "- most of the cmake configuring options (see below)\n"
     "- `--target <tgt>` (also multiple times)\n"
     "- `--config <cfg>` (also multiple times)\n"
     "- `--clean-first`\n"
     "- double-dash \"--\" followed by options to the native build tool\n"
+    "\n"
+    "Allowed cmake options: \n"
+    "\n"
+    "  -C, -D, -U, -G, -T, -A, -N, all the -W* options\n"
+    "  --debug-trycompile, --debug-output, --trace, --trace-expand\n"
+    "  --warn-uninitialized, --warn-unused-vars, --no-warn-unused-cli,\n"
+    "  --check-system-vars, --graphwiz=\n"
     "\n"
     "Examples:\n"
     "=========\n"
@@ -203,9 +212,48 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
             pars.build_args.emplace_back(arg);
         else {
-            pars.config_args.emplace_back(arg);
+            bool found = false;
+            for (const char* c : {"-C", "-D", "-U", "-G", "-T", "-A"}) {
+                if (arg == c) {
+                    if (++argix >= argc)
+                        badpars_exit(stringf("Missing argument after '%s'", c));
+                    pars.config_args.emplace_back(string(c) + argv[argix]);
+                    found = true;
+                    pars.config_args_besides_binary_dir = true;
+                    break;
+                }
+                if (starts_with(arg, c)) {
+                    pars.config_args.emplace_back(arg);
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                continue;
+
+            for (auto c : {"-Wno-dev", "-Wdev", "-Werror=dev", "Wno-error=dev", "-Wdeprecated",
+                           "-Wno-deprecated", "-Werror=deprecated", "-Wno-error=deprecated", "-N",
+                           "--debug-trycompile", "--debug-output", "--trace", "--trace-expand",
+                           "--warn-uninitialized", "--warn-unused-vars", "--no-warn-unused-cli",
+                           "--check-system-vars"}) {
+                if (arg == c) {
+                    pars.config_args.emplace_back(arg);
+                    found = true;
+                    pars.config_args_besides_binary_dir = true;
+                    break;
+                }
+            }
+
+            if (found)
+                continue;
+
+            if (starts_with(arg, "--graphwiz=")) {
+                pars.config_args.emplace_back(arg);
+                pars.config_args_besides_binary_dir = true;
+                continue;
+            }
+
             if (starts_with(arg, "-H")) {
-                pars.config_args.pop_back();
                 if (arg == "-H") {
                     // unlike cmake, here we support the '-H <path>' style, too
                     if (++argix >= argc)
@@ -215,7 +263,6 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                     set_source_dir(make_string(butleft(arg, 2)));
                 pars.config_args_besides_binary_dir = true;
             } else if (starts_with(arg, "-B")) {
-                pars.config_args.pop_back();
                 if (arg == "-B") {
                     // unlike cmake, here we support the '-B <path>' style, too
                     if (++argix >= argc)
@@ -223,13 +270,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                     set_binary_dir(argv[argix]);
                 } else
                     set_binary_dir(make_string(butleft(arg, 2)));
-            } else if (is_one_of(arg, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
-                if (++argix >= argc)
-                    badpars_exit(stringf("Missing path after '%s'", arg.c_str()));
-                pars.config_args.emplace_back(arg);
-                pars.config_args_besides_binary_dir = true;
             } else if (!starts_with(arg, '-')) {
-                pars.config_args.pop_back();
                 if (evaluate_source_descriptor(arg, true) != source_descriptor_invalid) {
                     set_source_dir(arg);
                     pars.config_args_besides_binary_dir = true;
@@ -242,10 +283,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                                 "an existing binary dir (no CMakeCache.txt)",
                                 arg.c_str()));
                 }
-            } else {
-                // some other argument we just pass to cmake config step
-                pars.config_args_besides_binary_dir = true;
-            }
+            } else
+                badpars_exit(stringf("Invalid option: '%s'", arg.c_str()));
         }  // else: not one of specific args
     }      // foreach arg
     if (pars.binary_dir.empty()) {

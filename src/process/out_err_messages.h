@@ -77,8 +77,8 @@ public:
     OutErrMessages(OutErrMessages&& x)
         : messages(move(x.messages)),
           strings(move(x.strings)),
-          process_start_time(move(process_start_time)),
-          process_start_system_time(move(process_start_system_time))
+          process_start_time(move(x.process_start_time)),
+          process_start_system_time(move(x.process_start_system_time))
     {
     }
 

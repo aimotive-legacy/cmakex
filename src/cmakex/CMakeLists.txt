@@ -3,8 +3,9 @@ add_executable(cmakex
     using-decls.h
     misc_util.h misc_util.cpp
     print.h print.cpp
-    main.cpp
+    main.cpp pars.h
     process_command_line.h process_command_line.cpp
+    run_build_script.cpp run_build_script.h
 )
 
 target_link_libraries(cmakex PRIVATE
