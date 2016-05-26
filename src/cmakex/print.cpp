@@ -45,6 +45,7 @@ void log_exec(string_par command, const vector<string>& args)
                     if (!quoted) {
                         quoted = true;
                         t.insert(t.begin(), '"');
+                        t.push_back(c);
                     }
                     break;
                 case '\\':

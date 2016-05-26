@@ -14,6 +14,9 @@ namespace cmakex {
 namespace fs = filesystem;
 
 const char* k_build_script_executor_subdir = "_cmakex/build_script_executor_project";
+const char* k_tmp_subdir = "_cmakex/tmp";
+const char* k_build_script_add_pkg_out_filename = "add_pkg_out.txt";
+const char* k_build_script_cmakex_out_filename = "cmakex_out.txt";
 const char* k_log_subdir = "_cmakex/log";
 const char* k_default_binary_dirname = "b";
 const char* k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
@@ -31,24 +34,46 @@ string build_script_executor_cmakelists()
                k_executor_project_command_cache_var, k_executor_project_command_cache_var,
                k_executor_project_command_cache_var) +
 
+           "function(add_pkg NAME)\n"
+           "  # test list compatibility\n"
+           "  set(s ${NAME})\n"
+           "  list(LENGTH s l)\n"
+           "  if (NOT l EQUAL 1)\n"
+           "    message(FATAL_ERROR \"\\\"${NAME}\\\" is an invalid name for a package\")\n"
+           "  endif()\n"
+           "  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
+           "\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
+           "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${NAME};${ARGN}\\n\")\n"
+           "endfunction()\n\n"
+
            "# include build script within a function to protect local variables\n"
            "function(include_build_script path)\n"
-           "    if(NOT IS_ABSOLUTE \"${path}\")\n"
-           "        set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
-           "    endif()\n"
-           "    if(NOT EXISTS \"${path}\")\n"
-           "        message(FATAL_ERROR \"Build script not found: \\\"${path}\\\".\")\n"
-           "    endif()\n"
-           "    include(\"${path}\")\n"
+           "  if(NOT IS_ABSOLUTE \"${path}\")\n"
+           "    set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
+           "  endif()\n"
+           "  if(NOT EXISTS \"${path}\")\n"
+           "    message(FATAL_ERROR \"Build script not found: \\\"${path}\\\".\")\n"
+           "  endif()\n"
+           "  include(\"${path}\")\n"
            "endfunction()\n\n"
 
            "if(DEFINED command)\n"
-           "    message(STATUS \"Build script executor command: ${command}\")\n"
-           "    list(GET command 0 verb)\n\n"
-           "    if(verb STREQUAL \"run\")\n"
-           "        list(GET command 1 path)\n"
-           "        include_build_script(\"${path}\")\n"
+           "  message(STATUS \"Build script executor command: ${command}\")\n"
+           "  list(GET command 0 verb)\n\n"
+           "  if(verb STREQUAL \"run\")\n"
+           "    list(LENGTH command l)\n"
+           "    if(NOT l EQUAL 3)\n"
+           "      message(FATAL_ERROR \"Internal error, invalid command\")\n"
            "    endif()\n"
+           "    list(GET command 1 path)\n"
+           "    list(GET command 2 out)\n"
+           "    if(NOT EXISTS \"${out}\" OR IS_DIRECTORY \"${out}\")\n"
+           "      message(FATAL_ERROR \"Internal error, the output file "
+           "\\\"${out}\\\" is not an existing file.\")\n"
+           "    endif()\n"
+           "    set(__CMAKEX_ADD_PKG_OUT \"${out}\")\n"
+           "    include_build_script(\"${path}\")\n"
+           "  endif()\n"
            "endif()\n\n";
 }
 string build_script_executor_cmakelists_checksum(const std::string& x)
@@ -74,25 +99,39 @@ void run_build_script(const cmakex_pars_t& pars)
     CHECK(pars.source_desc_kind == source_descriptor_build_script);
 
     print_out("Running build script \"%s\"", pars.source_desc.c_str());
-    string build_script_executor_source_dir =
-        pars.binary_dir + "/" + k_build_script_executor_subdir;
-    string build_script_executor_binary_dir =
+
+    string source_desc = pars.source_desc;
+    if (fs::path(source_desc).is_relative())
+        source_desc = fs::current_path().string() + "/" + source_desc;
+
+    string binary_dir = pars.binary_dir;
+    if (fs::path(binary_dir).is_relative())
+        binary_dir = fs::current_path().string() + "/" + binary_dir;
+
+    const string build_script_executor_source_dir =
+        binary_dir + "/" + k_build_script_executor_subdir;
+    const string build_script_executor_binary_dir =
         build_script_executor_source_dir + "/" + k_default_binary_dirname;
+    const string tmp_dir = binary_dir + "/" + k_tmp_subdir;
 
-    if (!fs::is_directory(build_script_executor_source_dir)) {
-        string msg;
-        try {
-            fs::create_directories(build_script_executor_source_dir);
-        } catch (const exception& e) {
-            msg = e.what();
+    const string build_script_add_pkg_out_file =
+        tmp_dir + "/" + k_build_script_add_pkg_out_filename;
+    const string build_script_cmakex_out_file = tmp_dir + "/" + k_build_script_cmakex_out_filename;
 
-        } catch (...) {
-            msg = "unknown exception";
-        }
-        if (!msg.empty()) {
-            print_err("Can't create directory \"%s\", reason: %s.",
-                      build_script_executor_source_dir.c_str(), msg.c_str());
-            exit(EXIT_FAILURE);
+    for (auto d : {build_script_executor_source_dir, tmp_dir}) {
+        if (!fs::is_directory(d)) {
+            string msg;
+            try {
+                fs::create_directories(d);
+            } catch (const exception& e) {
+                msg = e.what();
+            } catch (...) {
+                msg = "unknown exception";
+            }
+            if (!msg.empty()) {
+                print_err("Can't create directory \"%s\", reason: %s.", d.c_str(), msg.c_str());
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -145,7 +184,7 @@ void run_build_script(const cmakex_pars_t& pars)
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
-    string log_dir = pars.binary_dir + "/" + k_log_subdir;
+    string log_dir = binary_dir + "/" + k_log_subdir;
     save_log_from_oem(oem, log_dir,
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
@@ -156,10 +195,19 @@ void run_build_script(const cmakex_pars_t& pars)
 
     args.clear();
     args.emplace_back(build_script_executor_binary_dir);
-    string source_desc = pars.source_desc;
-    if (fs::path(source_desc).is_relative())
-        source_desc = fs::current_path().string() + "/" + source_desc;
-    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + source_desc);
+
+    // create empty add_pkg out file
+    {
+        FILE* f = fopen(build_script_add_pkg_out_file.c_str(), "wt");
+        if (f)
+            fclose(f);
+        else {
+            print_err("Can't create temporary file: \"%s\"", build_script_add_pkg_out_file.c_str());
+            exit(EXIT_FAILURE);
+        }
+    }
+    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + source_desc +
+                      ";" + build_script_add_pkg_out_file);
 
     print_out("Executing build script by executor project.");
     log_exec("cmake", args);
