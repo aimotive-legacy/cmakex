@@ -2,8 +2,9 @@
 #include <nowide/args.hpp>
 
 #include "process_command_line.h"
-#include "run_cmake_steps.h"
+#include "run_add_pkgs.h"
 #include "run_build_script.h"
+#include "run_cmake_steps.h"
 
 namespace cmakex {
 int main(int argc, char* argv[])
@@ -13,7 +14,9 @@ int main(int argc, char* argv[])
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     try {
         auto pars = process_command_line(argc, argv);
-        if (pars.source_desc_kind == source_descriptor_build_script)
+        if (!pars.add_pkgs.empty())
+            run_add_pkgs(pars);
+        else if (pars.source_desc_kind == source_descriptor_build_script)
             run_build_script(pars);
         else
             run_cmake_steps(pars);

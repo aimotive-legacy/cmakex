@@ -89,7 +89,7 @@ void display_usage_and_exit(int exit_code)
 
 void badpars_exit(string_par msg)
 {
-    fprintf(stderr, "Error, bad parameters: %s\n", msg.c_str());
+    fprintf(stderr, "Error, bad parameters: %s.\n", msg.c_str());
     exit(EXIT_FAILURE);
 }
 
@@ -188,7 +188,13 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             continue;
         }
 
-        if (arg == "--target") {
+        if (arg == "--add-pkg") {
+            if (++argix >= argc)
+                badpars_exit("Missing argument after --add-pkg");
+            pars.add_pkgs.emplace_back(argv[argix]);
+        } else if (starts_with(arg, "--add-pkg=")) {
+            pars.add_pkgs.emplace_back(make_string(butleft(arg, strlen("--add-pkg="))));
+        } else if (arg == "--target") {
             if (++argix >= argc)
                 badpars_exit("Missing target name after '--target'");
             pars.build_targets.emplace_back(argv[argix]);
@@ -281,6 +287,14 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 "build) specified.");
         pars.binary_dir = fs::current_path();
         pars.binary_dir_valid = evaluate_binary_dir(pars.binary_dir);
+    }
+
+    if (!pars.add_pkgs.empty()) {
+        if (!pars.source_desc.empty())
+            badpars_exit(
+                "Don't specify source directory or build script (with or without '-H') together "
+                "with the '--add-pkg' option. Packages are assigned automatic source locations "
+                "under the 'cmakex_deps_clone_prefix' directory");
     }
 
     return pars;

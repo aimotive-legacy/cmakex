@@ -6,6 +6,7 @@ add_executable(cmakex
     main.cpp pars.h
     process_command_line.h process_command_line.cpp
     run_build_script.cpp run_build_script.h
+    run_add_pkgs.cpp run_add_pkgs.h
 )
 
 target_link_libraries(cmakex PRIVATE

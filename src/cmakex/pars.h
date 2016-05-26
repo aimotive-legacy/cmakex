@@ -33,6 +33,7 @@ struct cmakex_pars_t
     vector<string> native_tool_args;
     vector<string> build_targets;
     bool config_args_besides_binary_dir = false;
+    vector<string> add_pkgs;
 };
 }
 
