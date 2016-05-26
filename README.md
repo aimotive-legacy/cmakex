@@ -1,7 +1,38 @@
-# cmakex
+# cmakex - an extension for the `cmake` command
 
-Execute multiple CMake steps in one command, define build option presets in a
-yaml file.
+## Contents
+
+- Overview
+- Building and Installing
+- Tutorial
+- Reference
+
+## Overview
+
+`cmakex` is a command-line tool, which extends the functionality of the `cmake`
+command. It adds the following interdependent features:
+
+1. Execute multiple `cmake` steps with one command. For example, configure,
+   install, test a project for debug & release configs with one, concise
+   command, without changing directories.
+2. Define common cmake option groups in a `YAML` file. For example,
+   cmake-generator settings, platform and toolchain options can be defined
+   and added to the current cmake configuration step with a single switch
+3. Download (git-clone), configure, install a package with a single command
+   line. It's the command-line version of the CMake ExternalProject module.
+4. Organize the dependencies of your project with a simple cmake-file listing
+   the dependent packages.
+5. Install a local or remote build-server which builds, caches and provides
+   installable packages, automatically managing the full dependency graph,
+   keeping track of versions and build settings.
+
+And all this is
+
+- written in C++ and provided in a self-contained, easy-to-install project.
+- as lightweight as it gets: don't need to abandon your current workflow,
+  use only as many features as you need, easy to opt-out.
+- open-source, permissive license
+- supports a wide range of platforms, UNIX/Mac/Windows
 
 ## Building and Installing
 
@@ -12,29 +43,20 @@ For a quick release build:
 
     ./configure.sh && ./make.sh
 
-# Details for Developers
+## Tutorial
 
-## Building and Installing
+### Multiple CMake Commands
+### CMake Option Groups
+### Add-Pkg Mode with Local Build
+### Build Script with Dependencies
+### Local Build Server
+### Remote Build Server
 
-### Environment Variables
+## Reference
 
-There are a few environment variables which control the building and install
-processes:
-
-- set `CMAKEX_CONFIG_DEV=1` to do a full clone of the dependencies (instead of
-  the default shallow clone) and build the `Debug` config, too
-- set `CMAKEX_BUILD_TESTING=1` to enable testing for both the dependencies and
-  cmakex
-- set `CMAKEX_CMAKE_ARGS` to additional cmake options
-
-Example:
-
-    export CMAKEX_CMAKE_ARGS="-G \"Kate - Unix Makefiles\""
-    CMAKEX_CONFIG_DEV=1 ./configure.sh && ./make.sh
-
-### Directory Layout
-
-- `./b` and `./o`: cmakex build and install dirs
-- `./deps/<name>` and `./deps/<name>-build`: source and build dirs of the
-  dependencies
-- `./deps/o`: install dir of the dependencies
+### Multiple CMake Commands
+### CMake Option Groups
+### Add-Pkg Mode with Local Build
+### Build Script with Dependencies
+### Local Build Server
+### Remote Build Server

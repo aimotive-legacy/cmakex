@@ -36,3 +36,32 @@ PACKAGE_SOURCE_POLICY = local_build | force_server_build | server_build | try_se
                 return path
         case local_build:
             build_locally() && return path
+
+
+what should happen at an add_pkg (add_dep?) command
+
+cmakex [t][d][r][w] -B <binary-dir>
+    --add-pkg "ZLIB;GIT_URL;https://scm.adasworks.com/r/thirdparty/src/zlib;CMAKE_ARGS;-DBUILD_SHARED_LIBS=0"
+    config_pars (no install_prefix)
+    -- native_pars
+
+cmakex -H <build-script> -B binary_dir config_pars [configs] --target TS -- native_pars
+add_pkg:
+    clone
+
+    --package
+    cmakex
+        -H clone_dir/SOURCE_DIR
+        -B pkg_binary_dir(binary_dir, pkg_name)
+        all the config pars
+        all the configs or CONFIGURATIONS specified for the pkg
+        install target
+        test target if specified
+        -- native_pars
+        install_prefix = pkg_install_prefix(binary_dir, pkg_name)
+
+
+deps_install_prefix = deps/o
+deps_binary_dir = deps/b
+deps_clone_dir = deps/c
+package_registry = url or urls
