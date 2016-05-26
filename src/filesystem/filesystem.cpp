@@ -497,6 +497,16 @@ path path::extension() const
     return pos == string_type::npos ? path() : path(name.s.c_str() + pos);
 }
 
+bool path::is_absolute() const
+{
+    return Poco::Path(s).isAbsolute();
+}
+
+bool path::is_relative() const
+{
+    return Poco::Path(s).isRelative();
+}
+
 void remove(const path& p)
 {
     Poco::File(p.string()).remove();

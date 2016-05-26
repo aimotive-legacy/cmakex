@@ -64,12 +64,22 @@ void log_exec(string_par command, const vector<string>& args)
     }
     print_out("$ %s", u.c_str());
 }
-string current_datetime_string_for_log()
+string datetime_string_for_log(Poco::DateTime dt)
 {
-    Poco::DateTime dt;
     dt.makeLocal(Poco::Timezone::tzd());
     return Poco::DateTimeFormatter::format(dt, Poco::DateTimeFormat::RFC1123_FORMAT,
                                            Poco::Timezone::tzd());
+}
+string current_datetime_string_for_log()
+{
+    return datetime_string_for_log(Poco::DateTime());
+}
+string datetime_string_for_log(std::chrono::system_clock::time_point x)
+{
+    auto t = std::chrono::system_clock::to_time_t(x);
+    auto ts = Poco::Timestamp::fromEpochTime(t);
+    auto dt = Poco::DateTime(ts);
+    return datetime_string_for_log(dt);
 }
 
 void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par log_filename)
@@ -95,27 +105,60 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
         print_err("Can't open log file for writing: \"%s\".", log_path.c_str());
         return;
     }
-    string text;
+
+    fprintf(f, "Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str());
+    const char c_line_feed = 10;
+    const char c_carriage_return = 13;
+    const int c_stderr_marker_length = 4;
+    // longest timestamp must fit into c_spaces
+    //                      [12345678901.23]
+    const char* c_spaces = "                                ";
     for (int i = 0; i < oem.size(); ++i) {
         auto msg = oem.at(i);
-        text = msg.text;
-        int nlcount = 0;
-        int idx = (int)text.size() - 1;
-        for (; idx >= 0; --idx) {
-            char c = text[idx];
-            if (c == 13)
-                continue;
-            if (c == 10) {
-                ++nlcount;
-                continue;
+        int xs = msg.text.size();
+        int x0 = 0;
+        int indent = -1;
+        const char* stderr_marker =
+            msg.source == out_err_message_base_t::source_stdout ? "    " : "ERR ";
+        assert(c_stderr_marker_length == strlen(stderr_marker));
+        for (; x0 < xs;) {
+            int x1 = x0;
+            // find the next newline-free section
+            while (x1 < xs && msg.text[x1] != c_line_feed && msg.text[x1] != c_carriage_return)
+                ++x1;
+            // print the newline-free section
+            if (x0 < x1) {
+                if (indent < 0)
+                    fprintf(f, "%s[%.2f] %n%.*s\n", stderr_marker, msg.t, &indent, x1 - x0,
+                            msg.text.c_str() + x0);
+                else {
+                    assert(indent - c_stderr_marker_length <= strlen(c_spaces));
+                    fprintf(f, "%s%.*s%.*s\n", stderr_marker, indent - c_stderr_marker_length,
+                            c_spaces, x1 - x0, msg.text.c_str() + x0);
+                }
             }
-            break;
+            // find the next newline section
+            x0 = x1;
+            int newline_count = 0;
+            for (; x1 < xs; ++x1) {
+                auto c = msg.text[x1];
+                if (c == c_line_feed)
+                    ++newline_count;
+                else if (c != c_carriage_return)
+                    break;
+            }
+            // print at most one extra newline
+            if (newline_count > 1) {
+                if (msg.source == out_err_message_base_t::source_stderr)
+                    fprintf(f, "%s\n", stderr_marker);
+                else
+                    fprintf(f, "\n");
+            }
+
+            x0 = x1;
         }
-        ++idx;
-        fprintf(f, "%s[%.2f] %.*s\n",
-                msg.source == out_err_message_base_t::source_stdout ? "    " : "ERR ", msg.t, idx,
-                msg.text.c_str());
     }
+    fprintf(f, "Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str());
     fclose(f);
     print_out("Log saved to \"%s\".", log_path.c_str());
 }

@@ -21,6 +21,8 @@ public:
     operator string_type() const { return s; }
     path extension() const;
     path filename() const;
+    bool is_relative() const;
+    bool is_absolute() const;
 
 #ifdef _WIN32
     static const value_type preferred_separator = '\\';
