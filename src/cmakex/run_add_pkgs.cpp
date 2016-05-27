@@ -4,10 +4,16 @@
 
 #include <adasworks/sx/check.h>
 
-#include "misc_util.h"
+#include "cmakex_utils.h"
+#include "filesystem.h"
+#include "git.h"
+#include "misc_utils.h"
+#include "out_err_messages.h"
 #include "print.h"
 
 namespace cmakex {
+
+namespace fs = filesystem;
 
 //
 vector<string> separate_arguments(string_par x)
@@ -63,14 +69,10 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
         if (is_one_of(arg, options))
             r[arg];
         else if (is_one_of(arg, onevalue_args)) {
-            if (++ix >= args.size()) {
-                print_err("Missing argument after \"%s\".", arg.c_str());
-                exit(EXIT_FAILURE);
-            }
-            if (r.count(arg) > 0) {
-                print_err("Single-value argument '%s' specified multiple times.", arg.c_str());
-                exit(EXIT_FAILURE);
-            }
+            if (++ix >= args.size())
+                throwf("Missing argument after \"%s\".", arg.c_str());
+            if (r.count(arg) > 0)
+                throwf("Single-value argument '%s' specified multiple times.", arg.c_str());
             r[arg] = vector<string>(1, args[ix]);
         } else if (is_one_of(arg, multivalue_args)) {
             for (; ix < args.size(); ++ix) {
@@ -81,10 +83,8 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
                 }
                 r[arg].emplace_back(v);
             }
-        } else {
-            print_err("Invalid option: '%s'.", arg.c_str());
-            exit(EXIT_FAILURE);
-        }
+        } else
+            throwf("Invalid option: '%s'.", arg.c_str());
     }
     return r;
 }
@@ -97,7 +97,7 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
     return parse_arguments(options, onevalue_args, multivalue_args, separate_arguments(argstr));
 }
 
-struct pkg_props_t
+struct pkg_request_t
 {
     string name;
     string git_url;
@@ -106,6 +106,8 @@ struct pkg_props_t
     vector<string> depends;
     vector<string> cmake_args;
     vector<string> configs;
+    string install_prefix;
+    string clone_dir;
 };
 void run_add_pkgs(const cmakex_pars_t& pars)
 {
@@ -113,22 +115,18 @@ void run_add_pkgs(const cmakex_pars_t& pars)
     CHECK(pars.source_desc.empty());
     for (auto& pkg_arg_str : pars.add_pkgs) {
         auto pkg_args = separate_arguments(pkg_arg_str);
-        if (pkg_args.empty()) {
-            print_err("Empty argument string for '--add_pkg'.");
-            exit(EXIT_FAILURE);
-        }
-        pkg_props_t props;
-        props.name = pkg_args[0];
+        if (pkg_args.empty())
+            throwf("Empty argument string for '--add_pkg'.");
+        pkg_request_t request;
+        request.name = pkg_args[0];
         pkg_args.erase(pkg_args.begin());
         auto args = parse_arguments({}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"},
                                     {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, pkg_args);
         for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
             auto count = args.count(c);
             CHECK(count == 0 || args[c].size() == 1);
-            if (count > 0 && args[c].empty()) {
-                print_err("Empty string after '%s'.", c);
-                exit(EXIT_FAILURE);
-            }
+            if (count > 0 && args[c].empty())
+                throwf("Empty string after '%s'.", c);
         }
         string a, b;
         if (args.count("GIT_REPOSITORY") > 0)
@@ -136,45 +134,90 @@ void run_add_pkgs(const cmakex_pars_t& pars)
         if (args.count("GIT_URL") > 0)
             b = args["GIT_URL"][0];
         if (!a.empty()) {
-            props.git_url = a;
-            if (!b.empty()) {
-                print_err("Both GIT_URL and GIT_REPOSITORY are specified.");
-                exit(EXIT_FAILURE);
-            }
+            request.git_url = a;
+            if (!b.empty())
+                throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
         } else
-            props.git_url = b;
+            request.git_url = b;
 
         if (args.count("GIT_TAG") > 0)
-            props.git_tag = args["GIT_TAG"][0];
+            request.git_tag = args["GIT_TAG"][0];
         if (args.count("SOURCE_DIR") > 0)
-            props.git_tag = args["SOURCE_DIR"][0];
+            request.source_dir = args["SOURCE_DIR"][0];
         if (args.count("DEPENDS") > 0)
-            props.depends = args["DEPENDS"];
-        if (args.count("CMAKE_ARGS") > 0)
-            props.depends = args["CMAKE_ARGS"];
+            request.depends = args["DEPENDS"];
+        if (args.count("CMAKE_ARGS") > 0) {
+            // join some cmake options for easier search
+            for (auto& a : args["CMAKE_ARGS"]) {
+                if (!request.cmake_args.empty() &&
+                    is_one_of(request.cmake_args.back(), {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+                    request.cmake_args.back() += a;
+                } else
+                    request.cmake_args.emplace_back(a);
+            }
+            request.cmake_args = args["CMAKE_ARGS"];
+        }
         if (args.count("CONFIGS") > 0)
-            props.depends = args["CONFIGS"];
+            request.configs = args["CONFIGS"];
 
-        // props is filled at this point
+        const cmakex_config_t cfg(pars.binary_dir);
+
+        request.install_prefix = cfg.cmakex_deps_install_prefix + "/" + request.name;
+        request.clone_dir = cfg.cmakex_deps_clone_prefix + "/" + request.name;
+
+        // request is filled at this point
+
         cmakex_pars_t ppars;
         ppars.c = true;
         ppars.b = true;
         ppars.t = pars.t;
-        ppars.configs = props.configs.empty() ? pars.configs : props.configs;
-        ppars.binary_dir = $cmakex_deps_binary_prefix + "/" + props.name;
-        ppars.source_desc = $cmakex_deps_clone_prefix + "/" + props.name;
-        if (!props.source_dir.empty())
-            ppars.source_desc += "/" + props.source_dir;
-        ppars.source_desc_kind = evaluate_source_descriptor(ppars.source_desc);
+        ppars.configs = request.configs.empty() ? pars.configs : request.configs;
+        ppars.binary_dir = cfg.cmakex_deps_binary_prefix + "/" + request.name;
+        ppars.source_desc = cfg.cmakex_deps_clone_prefix + "/" + request.name;
+        if (!request.source_dir.empty())
+            ppars.source_desc += "/" + request.source_dir;
         ppars.config_args = pars.config_args;
-        ppars.config_args.insert(ppars.config_args.end(), BEGINEND(props.cmake_args));
+        ppars.config_args.insert(ppars.config_args.end(), BEGINEND(request.cmake_args));
         ppars.build_args = pars.build_args;
         ppars.native_tool_args = pars.native_tool_args;
         ppars.build_targets = {"install"};
         ppars.config_args_besides_binary_dir = true;
 
         // check if no install prefix in configs
-        // add -DCMAKE_INSTALL_PREFIX= arg
+        for (auto s : ppars.config_args) {
+            if (starts_with(s, "-DCMAKE_INSTALL_PREFIX:") ||
+                starts_with(s, "-DCMAKE_INSTALL_PREFIX="))
+                throwf("In '--add-pkg' mode 'CMAKE_INSTALL_PREFIX' can't be set manually.");
+        }
+
+        ppars.config_args.emplace_back(string("-DCMAKE_INSTALL_PREFIX:PATH=") +
+                                       request.install_prefix);
+
+        // clone
+        // remove clone dir if empty
+        if (fs::is_directory(request.clone_dir)) {
+            try {
+                fs::remove(request.clone_dir);
+            } catch (...) {
+            }
+        }
+        // clone if not exists
+        if (fs::is_directory(request.clone_dir)) {
+            {
+                // attempt to get SHA from remote
+                int result;
+                string output;
+                tie(result, output) = git_ls_remote(request.git_url, request.git_tag.empty() ? "HEAD" : request.git_tag);
+            }
+            {
+                vector<string> args = {"clone"};
+                //   if (!cfg.full_clone)
+
+                //     execute_git({"clone", "--depth 1", "--branch", "--recursive"});
+            }
+        }
+
+        ppars.source_desc_kind = evaluate_source_descriptor(ppars.source_desc);
     }
 }
 }

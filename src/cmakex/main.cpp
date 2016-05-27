@@ -6,11 +6,17 @@
 #include "run_build_script.h"
 #include "run_cmake_steps.h"
 
+#include "git.h"
+
 namespace cmakex {
 int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
+    auto r = git_ls_remote("https://tamas.kenez@scm.adasworks.com/r/frameworks/cmakex.git", "HEAD");
+
+    fprintf(stderr, "%d, %s\n", std::get<0>(r), std::get<1>(r).c_str());
+    exit(0);
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     try {
         auto pars = process_command_line(argc, argv);

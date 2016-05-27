@@ -57,17 +57,21 @@ void OutErrMessages::mark_end_time()
 }
 exec_process_output_callback_t OutErrMessagesBuilder::stdout_callback()
 {
+    if (stdout_mode == pipe_echo)
+        return {};
     return [this](array_view<const char> x) {
         add_msg(out_err_message_base_t::source_stdout, x);
-        if (passthrough_callbacks)
+        if (stdout_mode == pipe_echo_and_capture)
             exec_process_callbacks::print_to_stdout(x);
     };
 }
 exec_process_output_callback_t OutErrMessagesBuilder::stderr_callback()
 {
+    if (stderr_mode == pipe_echo)
+        return {};
     return [this](array_view<const char> x) {
         add_msg(out_err_message_base_t::source_stderr, x);
-        if (passthrough_callbacks)
+        if (stderr_mode == pipe_echo_and_capture)
             exec_process_callbacks::print_to_stderr(x);
     };
 }

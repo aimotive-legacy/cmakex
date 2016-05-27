@@ -523,4 +523,8 @@ bool exists(const path& p)
 {
     return Poco::File(p.string()).exists();
 }
+path temp_directory_path()
+{
+    return Poco::Path::temp();
+}
 }

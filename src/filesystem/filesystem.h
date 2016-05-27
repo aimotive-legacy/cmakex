@@ -125,6 +125,7 @@ void current_path(const path& p);
 void remove(const path& p);
 void remove_all(const path& p);
 void create_directories(const path& p);
+path temp_directory_path();
 }
 
 #endif

@@ -1,8 +1,10 @@
 #include "filesystem.h"
-#include "misc_util.h"
-#include "process_command_line.h"
 
 #include <adasworks/sx/check.h>
+
+#include "cmakex_utils.h"
+#include "misc_utils.h"
+#include "process_command_line.h"
 
 namespace cmakex {
 
@@ -85,39 +87,6 @@ void display_usage_and_exit(int exit_code)
     fprintf(stderr, "cmakex v%s\n\n", cmakex_version_string);
     fprintf(stderr, "%s", usage_text);
     exit(exit_code);
-}
-
-void badpars_exit(string_par msg)
-{
-    fprintf(stderr, "Error, bad parameters: %s.\n", msg.c_str());
-    exit(EXIT_FAILURE);
-}
-
-source_descriptor_kind_t evaluate_source_descriptor(string_par x, bool allow_invalid = false)
-{
-    if (fs::is_regular_file(x.c_str())) {
-        if (fs::path(x.c_str()).extension().string() == ".cmake")
-            return source_descriptor_build_script;
-        else if (allow_invalid)
-            return source_descriptor_invalid;
-        else
-            badpars_exit(stringf("Source path is a file but its extension is not '.cmake': \"%s\"",
-                                 x.c_str()));
-    } else if (fs::is_directory(x.c_str())) {
-        if (fs::is_regular_file(x.str() + "/CMakeLists.txt"))
-            return source_descriptor_cmakelists_dir;
-        else if (allow_invalid)
-            return source_descriptor_invalid;
-        else
-            badpars_exit(stringf(
-                "Source path \"%s\" is a directory but contains no 'CMakeLists.txt'.", x.c_str()));
-    } else if (allow_invalid)
-        return source_descriptor_invalid;
-    else
-        badpars_exit(stringf("Source path not found: \"%s\".", x.c_str()));
-
-    CHECK(false);  // never here
-    return source_descriptor_invalid;
 }
 
 bool evaluate_binary_dir(string_par x)

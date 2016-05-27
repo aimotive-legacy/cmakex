@@ -107,11 +107,18 @@ private:
     system_clock::time_point end_system_time_;
 };
 
+enum pipe_mode_t
+{
+    pipe_capture,
+    pipe_echo,
+    pipe_echo_and_capture
+};
+
 class OutErrMessagesBuilder
 {
 public:
-    OutErrMessagesBuilder(bool passthrough_callbacks = true)
-        : passthrough_callbacks(passthrough_callbacks)
+    OutErrMessagesBuilder(pipe_mode_t stdout_mode, pipe_mode_t stderr_mode)
+        : stdout_mode(stdout_mode), stderr_mode(stderr_mode)
     {
         clear();
     }
@@ -133,7 +140,7 @@ private:
     void clear() { last_unfinished_stdout_message = last_unfinished_stderr_message = nullptr; }
     void add_msg(source_t source, array_view<const char> msg);
 
-    const bool passthrough_callbacks;
+    const pipe_mode_t stdout_mode, stderr_mode;
     OutErrMessages out_err_messages;
     atomic_flag_mutex mutex;
     internal::out_err_message_internal_t* last_unfinished_stdout_message = nullptr;

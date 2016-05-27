@@ -1,36 +1,60 @@
 #include "print.h"
 
-#include "Poco/DateTimeFormat.h"
-#include "Poco/DateTimeFormatter.h"
-#include "Poco/Timezone.h"
+#include <nowide/cstdio.hpp>
+
+#include <Poco/DateTimeFormat.h>
+#include <Poco/DateTimeFormatter.h>
+#include <Poco/Timezone.h>
 
 #include "filesystem.h"
+#include "misc_utils.h"
 #include "out_err_messages.h"
 
 namespace cmakex {
 
 namespace fs = filesystem;
 
-void vprint(FILE* f, const char* s, va_list vl)
+void log_info(const char* s, ...)
 {
-    fprintf(f, "cmakex: ");
-    vfprintf(f, s, vl);
-    fprintf(f, "\n");
-}
-void print_out(const char* s, ...)
-{
+    printf("cmakex: ");
     va_list ap;
     va_start(ap, s);
-    vprint(stdout, s, ap);
+    vprintf(s, ap);
     va_end(ap);
+    printf("\n");
 }
-void print_err(const char* s, ...)
+void log_warn(const char* s, ...)
 {
+    printf("cmakex: [WARN] ");
     va_list ap;
     va_start(ap, s);
-    vprint(stderr, s, ap);
+    vprintf(s, ap);
     va_end(ap);
+    printf("\n");
 }
+void log_error(const char* s, ...)
+{
+    fprintf(stderr, "cmakex: [ERROR] ");
+    va_list ap;
+    va_start(ap, s);
+    fprintf(stderr, s, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+}
+void log_error_errno(const char* s, ...)
+{
+    int was_errno = errno;
+    fprintf(stderr, "cmakex: [ERROR]");
+    va_list ap;
+    va_start(ap, s);
+    fprintf(stderr, s, ap);
+    va_end(ap);
+    if (was_errno)
+        fprintf(stderr, ", reason: %s (%d)\n", strerror(was_errno), was_errno);
+    else
+        fprintf(stderr, ".\n");
+}
+
 void log_exec(string_par command, const vector<string>& args)
 {
     string u = command.str();
@@ -63,7 +87,7 @@ void log_exec(string_par command, const vector<string>& args)
         u.push_back(' ');
         u.append(t);
     }
-    print_out("$ %s", u.c_str());
+    printf("$ %s\n", u.c_str());
 }
 string datetime_string_for_log(Poco::DateTime dt)
 {
@@ -95,17 +119,18 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
             msg = "unknown exception";
         }
         if (!msg.empty()) {
-            print_err("Can't create directory for logs (\"%s\"), reason: %s.", log_dir.c_str(),
+            log_error("Can't create directory for logs (\"%s\"), reason: %s.", log_dir.c_str(),
                       msg.c_str());
             return;
         }
     }
     string log_path = log_dir.str() + "/" + log_filename.c_str();
-    FILE* f = fopen(log_path.c_str(), "wt");
-    if (!f) {
-        print_err("Can't open log file for writing: \"%s\".", log_path.c_str());
+    auto maybe_f = try_fopen(log_path, "wt");
+    if (!maybe_f) {
+        log_error_errno("Can't open log file for writing: \"%s\"", log_path.c_str());
         return;
     }
+    auto f = move(*maybe_f);
 
     fprintf(f, "Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str());
     const char c_line_feed = 10;
@@ -160,7 +185,6 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
         }
     }
     fprintf(f, "Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str());
-    fclose(f);
-    print_out("Log saved to \"%s\".", log_path.c_str());
+    log_info("Log saved to \"%s\".", log_path.c_str());
 }
 }

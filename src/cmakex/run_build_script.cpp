@@ -1,11 +1,14 @@
 #include "run_build_script.h"
 
+#include <nowide/cstdio.hpp>
+
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/log.h>
 
+#include "cmakex_utils.h"
 #include "exec_process.h"
 #include "filesystem.h"
-#include "misc_util.h"
+#include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
 
@@ -13,11 +16,8 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-const char* k_build_script_executor_subdir = "_cmakex/build_script_executor_project";
-const char* k_tmp_subdir = "_cmakex/tmp";
 const char* k_build_script_add_pkg_out_filename = "add_pkg_out.txt";
 const char* k_build_script_cmakex_out_filename = "cmakex_out.txt";
-const char* k_log_subdir = "_cmakex/log";
 const char* k_default_binary_dirname = "b";
 const char* k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
 const char* k_build_script_executor_log_name = "build_script_executor";
@@ -98,7 +98,7 @@ void run_build_script(const cmakex_pars_t& pars)
     CHECK(!pars.binary_dir.empty());
     CHECK(pars.source_desc_kind == source_descriptor_build_script);
 
-    print_out("Running build script \"%s\"", pars.source_desc.c_str());
+    log_info("Running build script \"%s\"", pars.source_desc.c_str());
 
     string source_desc = pars.source_desc;
     if (fs::path(source_desc).is_relative())
@@ -108,17 +108,18 @@ void run_build_script(const cmakex_pars_t& pars)
     if (fs::path(binary_dir).is_relative())
         binary_dir = fs::current_path().string() + "/" + binary_dir;
 
-    const string build_script_executor_source_dir =
-        binary_dir + "/" + k_build_script_executor_subdir;
+    const cmakex_config_t cfg(pars.binary_dir);
+
     const string build_script_executor_binary_dir =
-        build_script_executor_source_dir + "/" + k_default_binary_dirname;
-    const string tmp_dir = binary_dir + "/" + k_tmp_subdir;
+        cfg.cmakex_executor_dir + "/" + k_default_binary_dirname;
 
     const string build_script_add_pkg_out_file =
-        tmp_dir + "/" + k_build_script_add_pkg_out_filename;
-    const string build_script_cmakex_out_file = tmp_dir + "/" + k_build_script_cmakex_out_filename;
+        cfg.cmakex_tmp_dir + "/" + k_build_script_add_pkg_out_filename;
 
-    for (auto d : {build_script_executor_source_dir, tmp_dir}) {
+    const string build_script_cmakex_out_file =
+        cfg.cmakex_tmp_dir + "/" + k_build_script_cmakex_out_filename;
+
+    for (auto d : {cfg.cmakex_executor_dir, cfg.cmakex_tmp_dir}) {
         if (!fs::is_directory(d)) {
             string msg;
             try {
@@ -128,10 +129,8 @@ void run_build_script(const cmakex_pars_t& pars)
             } catch (...) {
                 msg = "unknown exception";
             }
-            if (!msg.empty()) {
-                print_err("Can't create directory \"%s\", reason: %s.", d.c_str(), msg.c_str());
-                exit(EXIT_FAILURE);
-            }
+            if (!msg.empty())
+                throwf("Can't create directory \"%s\", reason: %s.", d.c_str(), msg.c_str());
         }
     }
 
@@ -140,12 +139,12 @@ void run_build_script(const cmakex_pars_t& pars)
     const string cmakelists_text_hash = build_script_executor_cmakelists_checksum(cmakelists_text);
 
     // force write if not exists or first hash line differs
-    string cmakelists_path = build_script_executor_source_dir + "/CMakeLists.txt";
+    string cmakelists_path = cfg.cmakex_executor_dir + "/CMakeLists.txt";
     bool cmakelists_exists = fs::exists(cmakelists_path);
     if (cmakelists_exists) {
         cmakelists_exists = false;  // if anything goes wrong, pretend it doesn't exist
         do {
-            FILE* f = fopen(cmakelists_path.c_str(), "rt");
+            FILE* f = nowide::fopen(cmakelists_path.c_str(), "rt");
             if (!f)
                 break;
             int c_bufsize = 128;
@@ -157,68 +156,46 @@ void run_build_script(const cmakex_pars_t& pars)
         } while (false);
     }
     if (!cmakelists_exists) {
-        FILE* f = fopen(cmakelists_path.c_str(), "wt");
-        if (!f) {
-            print_err("Can't open \"%s\" for writing", cmakelists_path.c_str());
-            exit(EXIT_FAILURE);
-        }
-        int r = fprintf(f, "%s\n%s\n", cmakelists_text_hash.c_str(), cmakelists_text.c_str());
-        int was_errno = errno;
-        fclose(f);
-        if (r < 0) {
-            print_err("Write error for \"%s\", reason: (%d) %s", cmakelists_path.c_str(), was_errno,
-                      strerror(was_errno));
-            exit(EXIT_FAILURE);
-        }
+        auto f = must_fopen(cmakelists_path.c_str(), "wt");
+        must_fprintf(f, "%s\n%s\n", cmakelists_text_hash.c_str(), cmakelists_text.c_str());
     }
 
     vector<string> args;
-    args.emplace_back(string("-H") + build_script_executor_source_dir);
+    args.emplace_back(string("-H") + cfg.cmakex_executor_dir);
     args.emplace_back(string("-B") + build_script_executor_binary_dir);
 
     args.insert(args.end(), BEGINEND(pars.config_args));
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
-    print_out("Configuring build script executor project.");
+    log_info("Configuring build script executor project.");
     log_exec("cmake", args);
-    OutErrMessagesBuilder oeb(false);
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
-    string log_dir = binary_dir + "/" + k_log_subdir;
-    save_log_from_oem(oem, log_dir,
+    save_log_from_oem(oem, cfg.cmakex_log_dir,
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
-    if (r != EXIT_SUCCESS) {
-        print_err("Failed configuring build script executor project, result: %d.", r);
-        exit(EXIT_FAILURE);
-    }
+    if (r != EXIT_SUCCESS)
+        throwf("Failed configuring build script executor project, result: %d.", r);
 
     args.clear();
     args.emplace_back(build_script_executor_binary_dir);
 
     // create empty add_pkg out file
     {
-        FILE* f = fopen(build_script_add_pkg_out_file.c_str(), "wt");
-        if (f)
-            fclose(f);
-        else {
-            print_err("Can't create temporary file: \"%s\"", build_script_add_pkg_out_file.c_str());
-            exit(EXIT_FAILURE);
-        }
+        auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "wt");
     }
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + source_desc +
                       ";" + build_script_add_pkg_out_file);
 
-    print_out("Executing build script by executor project.");
+    log_info("Executing build script by executor project.");
     log_exec("cmake", args);
-    OutErrMessagesBuilder oeb2(false);
+    OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     auto oem2 = oeb2.move_result();
-    save_log_from_oem(oem2, log_dir,
+    save_log_from_oem(oem2, cfg.cmakex_log_dir,
                       string(k_build_script_executor_log_name) + "-run" + k_log_extension);
-    if (r != EXIT_SUCCESS) {
-        print_err("Failed executing build script by executor project, result: %d.", r);
-        exit(EXIT_FAILURE);
-    }
+    if (r != EXIT_SUCCESS)
+        throwf("Failed executing build script by executor project, result: %d.", r);
 }
 }

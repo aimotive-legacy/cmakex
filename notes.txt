@@ -41,7 +41,7 @@ PACKAGE_SOURCE_POLICY = local_build | force_server_build | server_build | try_se
 what should happen at an add_pkg (add_dep?) command
 
 cmakex [t][d][r][w] -B <binary-dir>
-    --add-pkg "ZLIB;GIT_URL;https://scm.adasworks.com/r/thirdparty/src/zlib;CMAKE_ARGS;-DBUILD_SHARED_LIBS=0"
+    --add-pkg "ZLIB GIT_URL https://scm.adasworks.com/r/thirdparty/src/zlib CMAKE_ARGS -DBUILD_SHARED_LIBS=0"
     config_pars (no install_prefix)
     -- native_pars
 
@@ -54,7 +54,7 @@ add_pkg:
         -H clone_dir/SOURCE_DIR
         -B pkg_binary_dir(binary_dir, pkg_name)
         all the config pars
-        all the configs or CONFIGURATIONS specified for the pkg
+        all the configs or CONFIGS specified for the pkg
         install target
         test target if specified
         -- native_pars
