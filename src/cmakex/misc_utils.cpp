@@ -125,4 +125,79 @@ string strip_trailing_whitespace(string_par x)
         s.pop_back();
     return s;
 }
+vector<string> separate_arguments(string_par x)
+{
+    bool in_dq = false;
+    vector<string> r;
+    bool valid = false;
+    auto new_empty_if_invalid = [&r, &valid]() {
+        if (!valid) {
+            r.emplace_back();
+            valid = true;
+        }
+    };
+    auto append = [&r, &valid](char c) {
+        if (valid)
+            r.back() += c;
+        else {
+            r.emplace_back(1, c);
+            valid = true;
+        }
+    };
+    for (const char* c = x.c_str(); *c; ++c) {
+        if (in_dq) {
+            if (*c == '"')
+                in_dq = false;
+            else
+                append(*c);
+        } else {
+            if (*c == '"') {
+                in_dq = true;
+                new_empty_if_invalid();
+            } else if (*c == ' ')
+                valid = false;
+            else
+                append(*c);
+        }
+    }
+    return r;
+}
+
+std::map<string, vector<string>> parse_arguments(const vector<string>& options,
+                                                 const vector<string>& onevalue_args,
+                                                 const vector<string>& multivalue_args,
+                                                 const vector<string>& args)
+{
+    std::map<string, vector<string>> r;
+    for (int ix = 0; ix < args.size(); ++ix) {
+        const auto& arg = args[ix];
+        if (is_one_of(arg, options))
+            r[arg];
+        else if (is_one_of(arg, onevalue_args)) {
+            if (++ix >= args.size())
+                throwf("Missing argument after \"%s\".", arg.c_str());
+            if (r.count(arg) > 0)
+                throwf("Single-value argument '%s' specified multiple times.", arg.c_str());
+            r[arg] = vector<string>(1, args[ix]);
+        } else if (is_one_of(arg, multivalue_args)) {
+            for (; ix < args.size(); ++ix) {
+                const auto& v = args[ix];
+                if (is_one_of(v, options) || is_one_of(v, onevalue_args)) {
+                    --ix;
+                    break;
+                }
+                r[arg].emplace_back(v);
+            }
+        } else
+            throwf("Invalid option: '%s'.", arg.c_str());
+    }
+    return r;
+}
+std::map<string, vector<string>> parse_arguments(const vector<string>& options,
+                                                 const vector<string>& onevalue_args,
+                                                 const vector<string>& multivalue_args,
+                                                 string_par argstr)
+{
+    return parse_arguments(options, onevalue_args, multivalue_args, separate_arguments(argstr));
+}
 }

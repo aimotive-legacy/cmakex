@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <adasworks/sx/array_view.h>
@@ -26,6 +27,7 @@ using std::chrono::high_resolution_clock;
 using dur_sec = std::chrono::duration<double>;
 using std::tuple;
 using std::runtime_error;
+using std::pair;
 
 using adasworks::sx::stringf;
 using adasworks::sx::string_par;

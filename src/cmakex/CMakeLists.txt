@@ -9,6 +9,7 @@ add_executable(cmakex
     run_add_pkgs.cpp run_add_pkgs.h
     cmakex_utils.h cmakex_utils.cpp
     git.cpp git.h
+    installdb.h installdb.cpp
 )
 
 target_link_libraries(cmakex PRIVATE

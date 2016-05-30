@@ -16,6 +16,7 @@ struct cmakex_config_t
     string cmakex_executor_dir;
     string cmakex_tmp_dir;
     string cmakex_log_dir;
+    bool strict_clone; //accept only the clone at the commit exactly as specified
 };
 
 void badpars_exit(string_par msg);

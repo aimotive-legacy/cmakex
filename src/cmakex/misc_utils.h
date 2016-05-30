@@ -1,6 +1,8 @@
 #ifndef MISC_UTIL_23923948
 #define MISC_UTIL_23923948
 
+#include <map>
+
 #include <adasworks/sx/config.h>
 #include <adasworks/sx/log.h>
 
@@ -84,6 +86,24 @@ AW_NORETURN void throwf_errno(const char* format, ...) AW_PRINTFLIKE(1, 2);
 
 string strip_trailing_whitespace(string_par x);
 
+// like the cmake function
+vector<string> separate_arguments(string_par x);
+
+template <class T, class Container>
+bool is_one_of(const T& x, const Container& c)
+{
+    return std::find(c.begin(), c.end(), x) != c.end();
+}
+
+// like the cmake function
+std::map<string, vector<string>> parse_arguments(const vector<string>& options,
+                                                 const vector<string>& onevalue_args,
+                                                 const vector<string>& multivalue_args,
+                                                 const vector<string>& args);
+std::map<string, vector<string>> parse_arguments(const vector<string>& options,
+                                                 const vector<string>& onevalue_args,
+                                                 const vector<string>& multivalue_args,
+                                                 string_par argstr);
 }
 
 #endif
