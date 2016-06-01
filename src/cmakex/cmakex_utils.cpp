@@ -8,12 +8,13 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-cmakex_config_t::cmakex_config_t(const string& cmake_binary_dir)
+cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir)
 {
-    cmakex_dir = cmake_binary_dir + "/_cmakex";
-    cmakex_deps_binary_prefix = cmake_binary_dir + "/../_deps/b";
-    cmakex_deps_clone_prefix = cmake_binary_dir + "/../_deps/src";
-    cmakex_deps_clone_prefix = cmake_binary_dir + "/../_deps/o";
+    const string bd = cmake_binary_dir.c_str();
+    cmakex_dir = bd + "/_cmakex";
+    cmakex_deps_binary_prefix = bd + "/../_deps/b";
+    cmakex_deps_clone_prefix = bd + "/../_deps/src";
+    cmakex_deps_clone_prefix = bd + "/../_deps/o";
     cmakex_executor_dir = cmakex_dir + "/build_script_executor_project";
     cmakex_tmp_dir = cmakex_dir + "/tmp";
     cmakex_log_dir = cmakex_dir + "/log";

@@ -144,7 +144,7 @@ void run_build_script(const cmakex_pars_t& pars)
     if (cmakelists_exists) {
         cmakelists_exists = false;  // if anything goes wrong, pretend it doesn't exist
         do {
-            FILE* f = nowide::fopen(cmakelists_path.c_str(), "rt");
+            FILE* f = nowide::fopen(cmakelists_path.c_str(), "r");
             if (!f)
                 break;
             int c_bufsize = 128;
@@ -156,7 +156,7 @@ void run_build_script(const cmakex_pars_t& pars)
         } while (false);
     }
     if (!cmakelists_exists) {
-        auto f = must_fopen(cmakelists_path.c_str(), "wt");
+        auto f = must_fopen(cmakelists_path.c_str(), "w");
         must_fprintf(f, "%s\n%s\n", cmakelists_text_hash.c_str(), cmakelists_text.c_str());
     }
 
@@ -183,7 +183,7 @@ void run_build_script(const cmakex_pars_t& pars)
 
     // create empty add_pkg out file
     {
-        auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "wt");
+        auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "w");
     }
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + source_desc +
                       ";" + build_script_add_pkg_out_file);

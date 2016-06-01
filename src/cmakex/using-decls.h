@@ -35,6 +35,7 @@ using adasworks::sx::array_view;
 using adasworks::sx::maybe;
 using adasworks::sx::nothing;
 using adasworks::sx::just;
+using adasworks::sx::in_place;
 }
 
 #endif

@@ -5,6 +5,7 @@
 #include <adasworks/sx/check.h>
 #include <regex>
 
+#include "circular_dependency_detector.h"
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "git.h"
@@ -20,21 +21,6 @@ namespace fs = filesystem;
 using pkg_requests_t = std::map<string, pkg_request_t>;
 
 pkg_request_t pkg_request_from_args(const string& pkg_arg_str);
-
-// a persistent (file-based) stack of strings with additional info stored for each item
-class circular_dependency_detector
-{
-public:
-    // push package name to a persistent stack, remember the other package which has the former one
-    // as dependency
-    void push(string_par pkg_name, string_par pkg_that_needs_it);
-    // if the stack already contains pkg_name
-    bool contains(string_par pkg_name);
-    // go back to pkg_name and report the stack since then (from bottom to top)
-    vector<string> get_stack_since(string_par pkg_name);
-    // pop the top of the stack, it must be pkg_name
-    void pop(string_par pkg_name);
-};
 
 using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
 
@@ -60,8 +46,8 @@ void add_pkg(const string& pkg_name,
 
     auto& status = pkg_statuses[pkg_name];
 
-    InstallDB installdb;
-    circular_dependency_detector cdd;
+    InstallDB installdb(pars.binary_dir);
+    circular_dependency_detector cdd(pars.binary_dir);
     if (cdd.contains(pkg_name)) {
         // that means circular dependency
         CHECK(!pkg_that_needs_it.empty());
@@ -74,7 +60,7 @@ void add_pkg(const string& pkg_name,
         }
         throwf("Circular dependency detected ('->' means 'needs'): %s", s.c_str());
     }
-    cdd.push(pkg_name, pkg_that_needs_it);
+    cdd.push(pkg_name);
     try {
         auto& req = pkg_requests.at(pkg_name);
         // we need to satisfy the requirements of 'req'
@@ -99,7 +85,7 @@ void add_pkg(const string& pkg_name,
                 // installed
                 // - execute its build script (if any)
                 {
-                    string sha = installdb.installed_commit(pkg_name);
+                    string sha = installdb.try_get_installed_pkg_desc(pkg_name)->git_sha;
                     clone_pkg(pkg_requests[pkg_name], pars.binary_dir, true, sha);
                 }
                 break;

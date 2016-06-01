@@ -7,7 +7,7 @@ namespace cmakex {
 
 struct cmakex_config_t
 {
-    cmakex_config_t(const string& cmake_binary_dir);
+    cmakex_config_t(string_par cmake_binary_dir);
 
     string cmakex_dir;
     string cmakex_deps_binary_prefix;
@@ -16,7 +16,7 @@ struct cmakex_config_t
     string cmakex_executor_dir;
     string cmakex_tmp_dir;
     string cmakex_log_dir;
-    bool strict_clone; //accept only the clone at the commit exactly as specified
+    bool strict_clone;  // accept only the clone at the commit exactly as specified
 };
 
 void badpars_exit(string_par msg);

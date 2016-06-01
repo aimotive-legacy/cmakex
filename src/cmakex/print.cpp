@@ -125,7 +125,7 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
         }
     }
     string log_path = log_dir.str() + "/" + log_filename.c_str();
-    auto maybe_f = try_fopen(log_path, "wt");
+    auto maybe_f = try_fopen(log_path, "w");
     if (!maybe_f) {
         log_error_errno("Can't open log file for writing: \"%s\"", log_path.c_str());
         return;

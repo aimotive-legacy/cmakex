@@ -77,6 +77,12 @@ file_t must_fopen(string_par path, string_par mode);
 maybe<file_t> try_fopen(string_par path, string_par mode);
 void must_fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
 int fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
+// expects the file was opened in "r" mode which is text mode on windows
+string must_fgetline_if_not_eof(const file_t& f);
+bool feof(const file_t& f)
+{
+    return feof(f.stream()) != 0;
+}
 
 // throws std::runtime_error with formatted message
 AW_NORETURN void throwf(const char* format, ...) AW_PRINTFLIKE(1, 2);

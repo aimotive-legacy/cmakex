@@ -25,3 +25,4 @@ clone aw-sx https://scm.adasworks.com/r/frameworks/adasworks-std-extras.git
 clone yaml-cpp https://github.com/adasworks/yaml-cpp.git
 clone nowide https://github.com/adasworks/nowide-standalone.git
 clone Poco https://github.com/pocoproject/poco.git --branch master
+clone cereal https://github.com/adasworks/cereal.git

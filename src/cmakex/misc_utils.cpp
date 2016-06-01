@@ -118,6 +118,30 @@ int fprintf(const file_t& f, const char* format, ...)
     va_end(ap);
     return r;
 }
+
+string must_fgetline_if_not_eof(const file_t& f)
+{
+    const int c_bufsize = 1024;
+    char buf[c_bufsize];
+    string r;
+    for (;;) {
+        char* p = fgets(buf, c_bufsize, f.stream());
+        if (p) {
+            r.append(p);
+            const char c_line_feed = 10;
+            if (!r.empty() && r.back() == c_line_feed) {
+                r.pop_back();
+                return r;
+            }
+        } else {
+            if (feof(f.stream()))
+                return r;
+            throwf("Read error in file \"%s\"%s", f.path().c_str(),
+                   std::ferror(f.stream()) ? "." : ", ferror is zero.");
+        }
+    }
+}
+
 string strip_trailing_whitespace(string_par x)
 {
     string s = x.str();

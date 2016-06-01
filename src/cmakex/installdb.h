@@ -3,6 +3,8 @@
 
 #include "using-decls.h"
 
+#include <map>
+
 namespace cmakex {
 
 // pkg request is what comes from the registry (to be implemented)
@@ -19,6 +21,35 @@ struct pkg_request_t
     vector<string> configs;
 };
 
+struct installed_pkg_desc_t
+{
+    struct depends_item_t
+    {
+        string pkg_name;
+        string source;  // empty mean local install
+    };
+
+    string name;
+    string git_url;
+    string git_sha;
+    string source_dir;
+    vector<depends_item_t> depends;
+    vector<string> cmake_args;
+    vector<string> configs;
+};
+
+struct installed_pkg_files_t
+{
+    struct file_item_t
+    {
+        string path;  // relative to install prefix
+        string sha;
+    };
+    using files_t = vector<file_item_t>;
+    using files_of_configs_t = std::map<string, files_t>;
+
+    files_of_configs_t files_of_configs;
+};
 // stores, adds and removes and queries the list of packages and corresponding files
 // installed into a directory
 class InstallDB
@@ -38,8 +69,16 @@ public:
         request_eval_result_status_t status = invalid_status;
         vector<string> missing_configs;
     };
+
+    InstallDB(string_par binary_dir);
+
     tuple<request_eval_result_t, string> evaluate_pkg_request(const pkg_request_t& req);
-    string installed_commit(string_par pkg_name);
+    maybe<installed_pkg_desc_t> try_get_installed_pkg_desc(string_par pkg_name) const;
+    void put_installed_pkg_desc(const installed_pkg_desc_t& p);
+
+private:
+    string installed_pkg_desc_path(string_par pkg_name) const;
+    string dbpath;
 };
 }
 

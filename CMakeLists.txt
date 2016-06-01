@@ -42,6 +42,7 @@ find_package(aw-sx REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nowide REQUIRED)
 find_package(Poco REQUIRED Foundation)
+find_package(cereal REQUIRED)
 
 if(NOT CMAKE_CROSSCOMPILING)
     enable_testing()

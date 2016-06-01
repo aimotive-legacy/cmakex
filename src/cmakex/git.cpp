@@ -42,7 +42,7 @@ string find_git_with_cmake()
     try {
         // save findgit script to temporary file
         {
-            auto f = must_fopen(script_path, "wt");
+            auto f = must_fopen(script_path, "w");
             must_fprintf(f, "find_package(Git QUIET)\nmessage(\"${GIT_EXECUTABLE}\")\n");
         }
 

@@ -45,6 +45,9 @@ cmakex [t][d][r][w] -B <binary-dir>
     config_pars (no install_prefix)
     -- native_pars
 
+cmakex pkg --add "ZLIB;..." -GXcode --config drw
+cmakex pkg --remove 
+
 cmakex -H <build-script> -B binary_dir config_pars [configs] --target TS -- native_pars
 add_pkg:
     clone

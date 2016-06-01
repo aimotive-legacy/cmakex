@@ -10,9 +10,12 @@ add_executable(cmakex
     cmakex_utils.h cmakex_utils.cpp
     git.cpp git.h
     installdb.h installdb.cpp
+    circular_dependency_detector.cpp circular_dependency_detector.h
 )
 
 target_link_libraries(cmakex PRIVATE
     ::aw-sx nowide::nowide-static filesystem
     Poco::Foundation
-    process)
+    cereal
+    process
+)
