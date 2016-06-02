@@ -93,4 +93,116 @@ string InstallDB::installed_pkg_desc_path(string_par pkg_name) const
 {
     return dbpath + "/" + pkg_name.c_str() + ".json";
 }
+
+string varname_from_dash_d_cmake_arg(const string& x)
+{
+    CHECK(starts_with(x, "-D"));
+    auto y = butleft(x, 2);
+    auto p = std::min(std::find(BEGINEND(y), ':'), std::find(BEGINEND(y), '='));
+    if (p == y.end())
+        throwf("Invalid CMAKE_ARG: '%s'", x.c_str());
+    return string(y.begin(), p);
+}
+
+vector<string> make_canonical_cmake_args(const vector<string>& x)
+{
+    std::unordered_map<string, string> prev_options;
+    vector<string> canonical_args;
+    std::unordered_map<string, string>
+        varname_to_last_arg;  // maps variable name to the last option that deals with that variable
+    for (auto& a : x) {
+        bool found = false;
+        for (auto o : {"-C", "-G", "-T", "-A"}) {
+            if (starts_with(a, o)) {
+                found = true;
+                auto& prev_option = prev_options[o];
+                if (prev_option.empty()) {
+                    prev_option = a;
+                    canonical_args.emplace_back(a);
+                } else {
+                    if (prev_option != a) {
+                        throwf(
+                            "Two, different '%s' options has been specified: \"%s\" and \"%s\". "
+                            "There should be only a single '%s' option for a build.",
+                            o, prev_option.c_str(), a.c_str(), o);
+                    }
+                }
+                break;
+            }
+        }
+        if (!found) {
+            if (starts_with(a, "-D")) {
+                auto varname = varname_from_dash_d_cmake_arg(a);
+                if (varname.empty())
+                    throwf("Invalid CMAKE_ARG: %s", a.c_str());
+                varname_to_last_arg[varname] = a;
+            } else if (starts_with(a, "-U")) {
+                auto varname = butleft(a, 2);
+                if (varname.empty())
+                    throwf("Invalid CMAKE_ARG: %s", a.c_str());
+                varname_to_last_arg[make_string(varname)] = a;
+            }
+        }
+    }
+    for (auto& kv : varname_to_last_arg)
+        canonical_args.emplace_back(kv.second);
+    std::sort(BEGINEND(canonical_args));
+    return canonical_args;
+}
+
+template <class C>
+C set_difference(const C& x, const C& y)
+{
+    C r(std::max(x.size(), y.size()));
+    r.erase(std::set_difference(BEGINEND(x), BEGINEND(y), r.begin()), r.end());
+    return r;
+}
+
+bool is_critical_cmake_arg(const string& s)
+{
+    for (auto p : {"-C", "-D", "-G", "-T", "-A"}) {
+        if (starts_with(s, p))
+            return true;
+    }
+    return false;
+}
+
+vector<string> incompatible_cmake_args(const vector<string>& x, const vector<string>& y)
+{
+    vector<string> r;
+    auto cx = make_canonical_cmake_args(x);
+    auto cy = make_canonical_cmake_args(y);
+    for (auto& o : set_difference(cx, cy))
+        if (is_critical_cmake_arg(o))
+            r.emplace_back(o);
+    for (auto& o : set_difference(cy, cx))
+        if (is_critical_cmake_arg(o))
+            r.emplace_back(o);
+    return r;
+}
+
+tuple<InstallDB::request_eval_result_t, string> InstallDB::evaluate_pkg_request(
+    const pkg_request_t& req)
+{
+    auto maybe_desc = try_get_installed_pkg_desc(req.name);
+    request_eval_result_t r;
+    string msg;
+    if (!maybe_desc)
+        r.status = pkg_request_not_installed;
+    else {
+        auto ica = incompatible_cmake_args(maybe_desc->cmake_args, req.cmake_args);
+        if (ica.empty()) {
+            r.missing_configs = set_difference(req.configs, maybe_desc->configs);
+            if (r.missing_configs.empty())
+                r.status = pkg_request_satisfied;
+            else {
+                r.status = pkg_request_missing_configs;
+            }
+        } else {
+            r.status = pkg_request_not_compatible;
+            msg = join(ica, ", ");
+        }
+    }
+    return {r, msg};
+}
 }

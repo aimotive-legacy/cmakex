@@ -99,7 +99,8 @@ void add_pkg(const string& pkg_name,
             case InstallDB::pkg_request_not_compatible:
                 throwf(
                     "Package request for '%s' cannot be satisfied due to incompatible build "
-                    "options. Remove the package or harmonize the build options: %s",
+                    "options. Remove the package manually to allow it build with the new options "
+                    "or remove the conflicting options. The conflicting options: %s",
                     pkg_name.c_str(), eval_result_reason.c_str());
             default:
                 CHECK(false);
