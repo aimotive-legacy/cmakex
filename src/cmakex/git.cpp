@@ -84,6 +84,7 @@ string find_git_or_return_git()
 }
 
 int exec_git(const vector<string>& args,
+             string_par working_directory,
              exec_process_output_callback_t stdout_callback,
              exec_process_output_callback_t stderr_callback)
 {
@@ -107,9 +108,22 @@ int exec_git(const vector<string>& args,
 
     // we have git here
 
-    log_exec(git_executable, args);
+    log_exec(git_executable, args, working_directory);
 
-    return exec_process(git_executable, args, stdout_callback, stderr_callback);
+    return exec_process(git_executable, args, working_directory, stdout_callback, stderr_callback);
+}
+
+string first_line(const OutErrMessages& oem, out_err_message_base_t::source_t source)
+{
+    string s;
+    for (int i = 0; i < oem.size(); ++i) {
+        auto msg = oem.at(i);
+        if (msg.source == source) {
+            s = msg.text;
+            break;
+        }
+    }
+    return s;
 }
 
 tuple<int, string> git_ls_remote(string_par url, string_par ref)
@@ -118,20 +132,25 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref)
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
     int r = exec_git(args, oeb.stdout_callback(), nullptr);
     auto oem = oeb.move_result();
-    string s;
-    for (int i = 0; i < oem.size(); ++i) {
-        auto msg = oem.at(i);
-        if (msg.source == out_err_message_base_t::source_stdout) {
-            s = msg.text;
-            break;
-        }
-    }
+    auto s = first_line(oem, out_err_message_base_t::source_stdout);
     for (int i = 0; i < s.size(); ++i) {
         if (iswspace(s[i])) {
             s.resize(i);
             break;
         }
     }
-    return {r, strip_trailing_whitespace(s)};
+    return {r, s};
+}
+
+string git_rev_parse_head(string_par dir)
+{
+    vector<string> args = {"rev-parse", "HEAD"};
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
+    int r = exec_git(args, dir, oeb.stdout_callback(), nullptr);
+    auto oem = oeb.move_result();
+    if (r)
+        return {};
+    auto s = first_line(oem, out_err_message_base_t::source_stdout);
+    return strip_trailing_whitespace(s);
 }
 }

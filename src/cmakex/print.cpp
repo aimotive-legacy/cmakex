@@ -55,39 +55,48 @@ void log_error_errno(const char* s, ...)
         fprintf(stderr, ".\n");
 }
 
-void log_exec(string_par command, const vector<string>& args)
+string escape_arg(string_par arg)
 {
-    string u = command.str();
     string t;
-    for (auto& s : args) {
-        t.clear();
-        bool quoted = false;
-        for (auto c : s) {
-            switch (c) {
-                case ' ':
-                case ';':
-                    if (!quoted) {
-                        quoted = true;
-                        t.insert(t.begin(), '"');
-                        t.push_back(c);
-                    }
-                    break;
-                case '\\':
-                    t.append("\\\\");
-                    break;
-                case '"':
-                    t.append("\\\"");
-                    break;
-                default:
+    bool quoted = false;
+    ;
+    for (const char* cs = arg.c_str(); *cs; ++cs) {
+        auto c = *cs;
+        switch (c) {
+            case ' ':
+            case ';':
+                if (!quoted) {
+                    quoted = true;
+                    t.insert(t.begin(), '"');
                     t.push_back(c);
-            }
+                }
+                break;
+            case '\\':
+                t.append("\\\\");
+                break;
+            case '"':
+                t.append("\\\"");
+                break;
+            default:
+                t.push_back(c);
         }
-        if (quoted)
-            t.push_back('"');
-        u.push_back(' ');
-        u.append(t);
     }
-    printf("$ %s\n", u.c_str());
+    if (quoted)
+        t.push_back('"');
+    return t;
+}
+
+void log_exec(string_par command, const vector<string>& args, string_par working_directory)
+{
+    string cd_prefix;
+    if (!working_directory.empty())
+        cd_prefix = stringf("cd %s && ", escape_arg(working_directory).c_str());
+    string u = escape_arg(command);
+    for (auto& s : args) {
+        u.push_back(' ');
+        u.append(escape_arg(s));
+    }
+    printf("$ %s%s\n", cd_prefix.c_str(), u.c_str());
 }
 string datetime_string_for_log(Poco::DateTime dt)
 {

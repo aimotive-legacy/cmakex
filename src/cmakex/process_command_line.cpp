@@ -157,12 +157,12 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             continue;
         }
 
-        if (arg == "--add-pkg") {
+        if (arg == "-P") {
             if (++argix >= argc)
-                badpars_exit("Missing argument after --add-pkg");
+                badpars_exit("Missing argument after -P");
             pars.add_pkgs.emplace_back(argv[argix]);
-        } else if (starts_with(arg, "--add-pkg=")) {
-            pars.add_pkgs.emplace_back(make_string(butleft(arg, strlen("--add-pkg="))));
+        } else if (starts_with(arg, "-P")) {
+            pars.add_pkgs.emplace_back(make_string(butleft(arg, strlen("-P"))));
         } else if (arg == "--target") {
             if (++argix >= argc)
                 badpars_exit("Missing target name after '--target'");
@@ -173,7 +173,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             pars.configs.emplace_back(argv[argix]);
         } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
             pars.build_args.emplace_back(arg);
-        else {
+        else if (arg == "--lax") {
+        } else {
             bool found = false;
             for (const char* c : {"-C", "-D", "-U", "-G", "-T", "-A"}) {
                 if (arg == c) {
@@ -262,8 +263,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         if (!pars.source_desc.empty())
             badpars_exit(
                 "Don't specify source directory or build script (with or without '-H') together "
-                "with the '--add-pkg' option. Packages are assigned automatic source locations "
-                "under the 'cmakex_deps_clone_prefix' directory");
+                "with the '-P' option. Packages are assigned automatic source directories "
+                "under the 'cmakex_deps_clone_prefix' directory (see cmakex-config)");
     }
 
     return pars;

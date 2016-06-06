@@ -1,9 +1,11 @@
 #include "run_add_pkgs.h"
 
 #include <map>
+#include <regex>
+
+#include <Poco/DirectoryIterator.h>
 
 #include <adasworks/sx/check.h>
-#include <regex>
 
 #include "circular_dependency_detector.h"
 #include "cmakex_utils.h"
@@ -24,14 +26,163 @@ pkg_request_t pkg_request_from_args(const string& pkg_arg_str);
 
 using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
 
-void clone_pkg(const pkg_request_t& req,
-               string_par binary_dir,
-               bool struct_clone,
-               string sha = string());
+enum pkg_clone_dir_status_t
+{
+    pkg_clone_dir_invalid,
+    pkg_clone_dir_doesnt_exist,
+    pkg_clone_dir_empty,
+    pkg_clone_dir_nonempty_nongit,
+    pkg_clone_dir_git
+};
+
+// returns the package's clone dir's status, SHA, if git
+tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir,
+                                                           string_par pkg_name)
+{
+    cmakex_config_t cfg(binary_dir);
+    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    if (!fs::exists(clone_dir))
+        return make_tuple(pkg_clone_dir_doesnt_exist, string{});
+    // so it exists
+    if (!fs::is_directory(clone_dir))
+        return make_tuple(pkg_clone_dir_nonempty_nongit, string{});
+    // so it is a directory
+    if (Poco::DirectoryIterator(clone_dir) == Poco::DirectoryIterator{})
+        return make_tuple(pkg_clone_dir_empty, string{});
+    // so it is a non-empty directory
+    string sha = git_rev_parse_head(clone_dir);
+    if (sha.empty())
+        return make_tuple(pkg_clone_dir_nonempty_nongit, string{});
+    // so it has valid sha
+    return make_tuple(pkg_clone_dir_git, sha);
+}
+
 void add_pkg_after_clone(string_par pkg_name,
                          const cmakex_pars_t& pars,
                          pkg_requests_t& pkg_requests,
                          pkg_processing_statuses& pkg_statuses);
+
+// true if x could be a git SHA1
+bool could_be_sha(string_par x)
+{
+    if (x.size() < 4 || x.size() > 40)
+        return false;
+    for (const char* c = x.c_str(); *c; ++c)
+        if (!isxdigit(*c))
+            return false;
+    return true;
+}
+
+void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_dir)
+{
+    log_info("Cloning package '%s'@%s", pkg_name.c_str(),
+             cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str());
+
+    cmakex_config_t cfg(binary_dir);
+    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    vector<string> clone_args = {"--recurse"};
+    string checkout;
+    if (cp.git_tag.empty()) {
+        if (!cp.full_clone)
+            clone_args = {"--single-branch", "--depth", "1"};
+    } else {
+        bool is_sha = cp.git_tag_is_sha;
+        if (!is_sha && could_be_sha(cp.git_tag)) {
+            // find out if it's an sha
+            auto r = git_ls_remote(cp.git_url, cp.git_tag);
+            if (std::get<0>(r) == 2)
+                is_sha = true;
+        }
+        if (is_sha) {
+            checkout = cp.git_tag;
+            if (!cp.full_clone) {
+                // try to resolve corresponding reference
+                auto git_tag = try_resolve_sha_to_tag(cp.git_url, cp.git_tag);
+                do {
+                    if (git_tag.empty())
+                        break;  // couldn't resolve, do full clone
+
+                    // first attempt: clone resolved ref with --depth 1, then checkout sha
+                    vector<string> args = {"--recurse",      "--branch", git_tag.c_str(),
+                                           "--depth",        "1",        cp.git_url.c_str(),
+                                           clone_dir.c_str()};
+                    if (!git_clone(args))
+                        throwf("git-clone failed.");
+                    if (git_checkout(cp.git_tag, clone_dir) == 0)
+                        return;
+
+                    // second attempt: clone resolved ref with unlimited depth, then checkout sha
+                    fs::remove_all(clone_dir);
+                    args = {"--recurse", "--branch", git_tag.c_str(), cp.git_url.c_str(),
+                            clone_dir.c_str()};
+                    if (!git_clone(args))
+                        throwf("git-clone failed.");
+                    if (git_checkout(cp.git_tag, clone_dir) == 0)
+                        return;
+
+                    // do full clone
+                    fs::remove_all(clone_dir);
+                } while (false);
+            }
+        } else {
+            if (cp.full_clone)
+                clone_args = {"--branch", cp.git_tag.c_str(), "--no-single-branch"};
+            else
+                clone_args = {"--branch", cp.git_tag.c_str(), "--depth", "1"};
+        }
+    }
+    clone_args.insert(clone_args.end(), {cp.git_url.c_str(), clone_dir.c_str()});
+    log_exec("git", clone_args);
+    if (!git_clone(clone_args))
+        throwf("git-clone failed.");
+    if (checkout.empty()) {
+        if (git_checkout(checkout, clone_dir) != 0) {
+            fs::remove_all(clone_dir.c_str());
+            throwf("Failed to checkout the requested commit '%s' after a successful full clone.",
+                   cp.git_tag.c_str());
+        }
+    }
+}
+
+void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
+                                                  const pkg_clone_pars_t& cp,
+                                                  string_par binary_dir)
+{
+    CHECK(cp.git_tag_is_sha);
+    auto cds = pkg_clone_dir_status(binary_dir, pkg_name);
+    cmakex_config_t cfg(binary_dir);
+    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+
+    switch (std::get<0>(cds)) {
+        case pkg_clone_dir_doesnt_exist:
+        case pkg_clone_dir_empty:
+            clone(pkg_name, cp, binary_dir);
+            break;
+        case pkg_clone_dir_nonempty_nongit:
+            throwf(
+                "Need to checkout the commit '%s' to build the missing configurations of the "
+                "partly installed '%s' package but the package's clone directory \"%s\" contains "
+                "non-git files which are in the way. Remove the directory or checkout the commit "
+                "manually and restart the build.",
+                cp.git_tag.c_str(), pkg_name.c_str(), clone_dir.c_str());
+        case pkg_clone_dir_git:
+            if (std::get<1>(cds) != cp.git_tag)
+                throwf(
+                    "Need to checkout the commit '%s' to build the missing configurations of the "
+                    "partly installed '%s' package but the package's clone directory \"%s\" "
+                    "contains a different commit '%s'. Remove the directory or checkout the commit "
+                    "manually and restart the build.",
+                    cp.git_tag.c_str(), pkg_name.c_str(), clone_dir.c_str(),
+                    std::get<1>(cds).c_str());
+            break;
+        default:
+            CHECK(false);
+    }
+}
+
+void make_sure_exactly_this_git_tag_is_cloned_or_fail(string_par pkg_name, string_par git_tag);
+
+void clone_git_tag_or_accept_whats_there(string_par pkg_name, string_par git_tag);
 
 void add_pkg(const string& pkg_name,
              const string& pkg_that_needs_it,
@@ -76,6 +227,7 @@ void add_pkg(const string& pkg_name,
         tie(status, eval_result_reason) = installdb.evaluate_pkg_request(req);
         bool do_build = false;
         cmakex_config_t cfg(pars.binary_dir);
+
         switch (status.status) {
             case InstallDB::pkg_request_satisfied:
                 log_info("Package %s already installed", pkg_name.c_str());
@@ -83,18 +235,24 @@ void add_pkg(const string& pkg_name,
             case InstallDB::pkg_request_missing_configs:
                 // - make sure the package is cloned out exactly with clone-related options it was
                 // installed
-                // - execute its build script (if any)
                 {
-                    string sha = installdb.try_get_installed_pkg_desc(pkg_name)->git_sha;
-                    clone_pkg(pkg_requests[pkg_name], pars.binary_dir, true, sha);
+                    auto cp = req.clone_pars;
+                    cp.git_tag = installdb.try_get_installed_pkg_desc(pkg_name)->git_sha;
+                    cp.git_tag_is_sha = true;
+                    make_sure_exactly_this_sha_is_cloned_or_fail(pkg_name, cp, pars.binary_dir);
+                    do_build = true;
                 }
                 break;
             case InstallDB::pkg_request_not_installed:
                 // - make sure the package is cloned out: there are two modes of operation:
                 //   - strict (default) build only exactly the required clone
                 //   - permissive: build whatever is there, issue warning
-                // - execute its build script (if any)
-                clone_pkg(pkg_requests[pkg_name], pars.binary_dir, cfg.strict_clone);
+                if (cfg.strict_clone)
+                    make_sure_exactly_this_git_tag_is_cloned_or_fail(pkg_name, req.clone_pars,
+                                                                     pars.binary_dir);
+                else
+                    clone_git_tag_or_accept_whats_there(pkg_name, req.clone_pars, pars.binary_dir);
+                do_build = true;
                 break;
             case InstallDB::pkg_request_not_compatible:
                 throwf(
@@ -105,6 +263,7 @@ void add_pkg(const string& pkg_name,
             default:
                 CHECK(false);
         }
+
         if (do_build)
             add_pkg_after_clone(pkg_name, pars, pkg_requests, pkg_statuses);
     } catch (...) {
@@ -226,8 +385,9 @@ pkg_request_t pkg_request_from_args(const string& pkg_arg_str)
     pkg_request_t request;
     request.name = pkg_args[0];
     pkg_args.erase(pkg_args.begin());
-    auto args = parse_arguments({}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"},
-                                {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, pkg_args);
+    auto args =
+        parse_arguments({"FULL_CLONE"}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"},
+                        {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, pkg_args);
     for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
         auto count = args.count(c);
         CHECK(count == 0 || args[c].size() == 1);
@@ -240,14 +400,16 @@ pkg_request_t pkg_request_from_args(const string& pkg_arg_str)
     if (args.count("GIT_URL") > 0)
         b = args["GIT_URL"][0];
     if (!a.empty()) {
-        request.git_url = a;
+        request.clone_pars.git_url = a;
         if (!b.empty())
             throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
     } else
-        request.git_url = b;
+        request.clone_pars.git_url = b;
 
     if (args.count("GIT_TAG") > 0)
-        request.git_tag = args["GIT_TAG"][0];
+        request.clone_pars.git_tag = args["GIT_TAG"][0];
+    if (args.count("FULL_CLONE") > 0)
+        request.clone_pars.full_clone = true;
     if (args.count("SOURCE_DIR") > 0) {
         request.source_dir = args["SOURCE_DIR"][0];
         if (fs::path(request.source_dir).is_absolute())
@@ -303,7 +465,7 @@ ppars.config_args_besides_binary_dir = true;
 // check if no install prefix in configs
 for (auto s : ppars.config_args) {
     if (starts_with(s, "-DCMAKE_INSTALL_PREFIX:") || starts_with(s, "-DCMAKE_INSTALL_PREFIX="))
-        throwf("In '--add-pkg' mode 'CMAKE_INSTALL_PREFIX' can't be set manually.");
+        throwf("In '-P' mode 'CMAKE_INSTALL_PREFIX' can't be set manually.");
 }
 
 ppars.config_args.emplace_back(string("-DCMAKE_INSTALL_PREFIX:PATH=") + request.install_prefix);
