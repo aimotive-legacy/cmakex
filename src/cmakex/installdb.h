@@ -11,8 +11,8 @@ struct pkg_clone_pars_t
 {
     string git_url;
     string git_tag;
-    bool git_tag_is_sha = false; // false means we don't know
-    bool full_clone = false; //if false, clone only the requested branch at depth=1
+    bool git_tag_is_sha = false;  // false means we don't know
+    bool full_clone = false;      // if false, clone only the requested branch at depth=1
 };
 
 // pkg request is what comes from the registry (to be implemented)

@@ -106,18 +106,16 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
                     vector<string> args = {"--recurse",      "--branch", git_tag.c_str(),
                                            "--depth",        "1",        cp.git_url.c_str(),
                                            clone_dir.c_str()};
-                    if (!git_clone(args))
-                        throwf("git-clone failed.");
-                    if (git_checkout(cp.git_tag, clone_dir) == 0)
+                    git_clone(args);
+                    if (git_checkout({cp.git_tag}, clone_dir) == 0)
                         return;
 
                     // second attempt: clone resolved ref with unlimited depth, then checkout sha
                     fs::remove_all(clone_dir);
                     args = {"--recurse", "--branch", git_tag.c_str(), cp.git_url.c_str(),
                             clone_dir.c_str()};
-                    if (!git_clone(args))
-                        throwf("git-clone failed.");
-                    if (git_checkout(cp.git_tag, clone_dir) == 0)
+                    git_clone(args);
+                    if (git_checkout({cp.git_tag}, clone_dir) == 0)
                         return;
 
                     // do full clone
@@ -133,10 +131,9 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
     }
     clone_args.insert(clone_args.end(), {cp.git_url.c_str(), clone_dir.c_str()});
     log_exec("git", clone_args);
-    if (!git_clone(clone_args))
-        throwf("git-clone failed.");
+    git_clone(clone_args);
     if (checkout.empty()) {
-        if (git_checkout(checkout, clone_dir) != 0) {
+        if (git_checkout({checkout}, clone_dir) != 0) {
             fs::remove_all(clone_dir.c_str());
             throwf("Failed to checkout the requested commit '%s' after a successful full clone.",
                    cp.git_tag.c_str());

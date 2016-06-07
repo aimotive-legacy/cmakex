@@ -23,6 +23,8 @@ int exec_git(const vector<string>& args,
 
 tuple<int, string> git_ls_remote(string_par url, string_par ref);
 string git_rev_parse_head(string_par dir);
+void git_clone(vector<string> args);
+int git_checkout(vector<string> args, string_par dir);
 }
 
 #endif

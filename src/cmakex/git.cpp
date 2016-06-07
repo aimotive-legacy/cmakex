@@ -153,4 +153,17 @@ string git_rev_parse_head(string_par dir)
     auto s = first_line(oem, out_err_message_base_t::source_stdout);
     return strip_trailing_whitespace(s);
 }
+
+void git_clone(vector<string> args)
+{
+    args.insert(args.begin(), "clone");
+    int r = exec_git(args);
+    if (r)
+        throwf("git-clone failed with error code %d.", r);
+}
+int git_checkout(vector<string> args, string_par dir)
+{
+    args.insert(args.begin(), "checkout");
+    return exec_git(args, dir);
+}
 }
