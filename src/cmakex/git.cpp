@@ -142,9 +142,9 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref)
     return {r, s};
 }
 
-string git_rev_parse_head(string_par dir)
+string git_rev_parse(string_par ref, string_par dir)
 {
-    vector<string> args = {"rev-parse", "HEAD"};
+    vector<string> args = {"rev-parse", ref.c_str()};
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
     if (exec_git(args, dir, oeb.stdout_callback(), nullptr))
         return {};
@@ -206,5 +206,31 @@ string try_resolve_sha_to_tag(string_par git_url, string_par sha)
     if (results.size() > 1)
         throwf("git-ls-remote: requested SHA is ambiguous: '%s'", sha.c_str());
     return results.front();
+}
+
+tuple<resolve_ref_status_t, string> git_resolve_ref_on_remote(string_par git_url, string_par ref)
+{
+    int r;
+    string sha;
+    tie(r, sha) = git_ls_remote(git_url, ref);
+    if (r == 0)
+        return {resolve_ref_success, sha};
+    if (r == 2) {
+        if (sha_like(ref))
+            return {resolve_ref_sha_like, string{}};
+        else
+            return {resolve_ref_not_found, string{}};
+    }
+    return {resolve_ref_error, string{}};
+}
+
+bool sha_like(string_par x)
+{
+    if (x.size() < 4 || x.size() > 40)
+        return false;
+    for (const char* c = x.c_str(); *c; ++c)
+        if (!isxdigit(*c))
+            return false;
+    return true;
 }
 }
