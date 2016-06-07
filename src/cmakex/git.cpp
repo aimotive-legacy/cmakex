@@ -146,10 +146,9 @@ string git_rev_parse_head(string_par dir)
 {
     vector<string> args = {"rev-parse", "HEAD"};
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git(args, dir, oeb.stdout_callback(), nullptr);
-    auto oem = oeb.move_result();
-    if (r)
+    if (exec_git(args, dir, oeb.stdout_callback(), nullptr))
         return {};
+    auto oem = oeb.move_result();
     auto s = first_line(oem, out_err_message_base_t::source_stdout);
     return strip_trailing_whitespace(s);
 }
@@ -165,5 +164,47 @@ int git_checkout(vector<string> args, string_par dir)
 {
     args.insert(args.begin(), "checkout");
     return exec_git(args, dir);
+}
+string try_resolve_sha_to_tag(string_par git_url, string_par sha)
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
+    int r = exec_git({"ls-remote", git_url.c_str()});
+    if (r)
+        return {};
+    auto oem = oeb.move_result();
+    vector<string> results;
+    for (int i = 0; i < oem.size(); ++i) {
+        auto msg = oem.at(i);
+        if (msg.source != out_err_message_base_t::source_stdout || !istarts_with(msg.text, sha))
+            continue;
+        int j = 0;
+        int x0 = -1, x1 = -1;
+        while (j < msg.text.size()) {
+            if (iswspace(msg.text[j])) {
+                x0 = j + 1;
+                break;
+            }
+        }
+        if (x0 < 0)
+            throwf("Invalid line in the output of git-ls-remote, no whitespace: %s",
+                   msg.text.c_str());
+        j = x0;
+        x1 = msg.text.size();
+        while (j < msg.text.size()) {
+            if (iswspace(msg.text[j])) {
+                x1 = j;
+                break;
+            }
+        }
+        if (x1 == x0)
+            throwf("Invalid line in the output of git-ls-remote, no word after whitespace: %s",
+                   msg.text.c_str());
+        results.emplace_back(msg.text.substr(x0, x1 - x0));
+    }
+    if (results.empty())
+        return {};
+    if (results.size() > 1)
+        throwf("git-ls-remote: requested SHA is ambiguous: '%s'", sha.c_str());
+    return results.front();
 }
 }

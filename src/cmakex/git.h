@@ -25,6 +25,7 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref);
 string git_rev_parse_head(string_par dir);
 void git_clone(vector<string> args);
 int git_checkout(vector<string> args, string_par dir);
+string try_resolve_sha_to_tag(string_par git_url, string_par sha);
 }
 
 #endif

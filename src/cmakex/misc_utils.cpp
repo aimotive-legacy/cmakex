@@ -34,6 +34,21 @@ bool starts_with(string_par x, string_par y)
     return true;
 }
 
+bool istarts_with(string_par x, string_par y)
+{
+    const auto ys = y.size();
+    if (ys == 0)
+        return true;
+    const auto xs = x.size();
+    if (ys > xs)
+        return false;
+    for (int i = 0; i < ys; ++i) {
+        if (tolower(x[i]) != tolower(y[i]))
+            return false;
+    }
+    return true;
+}
+
 bool starts_with(string_par x, char y)
 {
     return !x.empty() && x[0] == y;

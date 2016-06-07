@@ -20,6 +20,9 @@ bool is_one_of(string_par x, initializer_list<const char*> y);
 // x starts with y
 bool starts_with(string_par x, string_par y);
 
+// x starts with y, case-independent
+bool istarts_with(string_par x, string_par y);
+
 // x starts with y
 bool starts_with(string_par x, char y);
 
