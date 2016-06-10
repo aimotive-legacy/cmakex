@@ -8,6 +8,7 @@ namespace cmakex {
 struct cmakex_config_t
 {
     cmakex_config_t(string_par cmake_binary_dir);
+    string pkg_binary_dir(string_par pkg_name) const;
 
     string cmakex_dir;
     string cmakex_deps_binary_prefix;

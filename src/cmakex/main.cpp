@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
         if (!pars.add_pkgs.empty())
             run_add_pkgs(pars);
         else if (pars.source_desc_kind == source_descriptor_build_script)
-            run_build_script(pars);
+            run_build_script(pars.binary_dir, pars.source_desc, pars.config_args);
         else
             run_cmake_steps(pars);
     } catch (const exception& e) {

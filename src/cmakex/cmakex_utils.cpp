@@ -52,4 +52,9 @@ source_descriptor_kind_t evaluate_source_descriptor(string_par x, bool allow_inv
     CHECK(false);  // never here
     return source_descriptor_invalid;
 }
+
+string cmakex_config_t::pkg_binary_dir(string_par pkg_name) const
+{
+    return cmakex_deps_binary_prefix + "/" + pkg_name.c_str();
+}
 }

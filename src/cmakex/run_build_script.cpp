@@ -82,7 +82,7 @@ string build_script_executor_cmakelists_checksum(const std::string& x)
     return stringf("# script hash: %s", hs.c_str());
 }
 
-void run_build_script(const cmakex_pars_t& pars)
+void run_build_script(string binary_dir, string source_desc, const vector<string>& config_args)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -95,20 +95,17 @@ void run_build_script(const cmakex_pars_t& pars)
     // prefix dir.
 
     // create source dir
-    CHECK(!pars.binary_dir.empty());
-    CHECK(pars.source_desc_kind == source_descriptor_build_script);
+    CHECK(!binary_dir.empty());
 
-    log_info("Running build script \"%s\"", pars.source_desc.c_str());
+    log_info("Running build script \"%s\"", source_desc.c_str());
 
-    string source_desc = pars.source_desc;
     if (fs::path(source_desc).is_relative())
         source_desc = fs::current_path().string() + "/" + source_desc;
 
-    string binary_dir = pars.binary_dir;
     if (fs::path(binary_dir).is_relative())
         binary_dir = fs::current_path().string() + "/" + binary_dir;
 
-    const cmakex_config_t cfg(pars.binary_dir);
+    const cmakex_config_t cfg(binary_dir);
 
     const string build_script_executor_binary_dir =
         cfg.cmakex_executor_dir + "/" + k_default_binary_dirname;
@@ -164,7 +161,7 @@ void run_build_script(const cmakex_pars_t& pars)
     args.emplace_back(string("-H") + cfg.cmakex_executor_dir);
     args.emplace_back(string("-B") + build_script_executor_binary_dir);
 
-    args.insert(args.end(), BEGINEND(pars.config_args));
+    args.insert(args.end(), BEGINEND(config_args));
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
     log_info("Configuring build script executor project.");
     log_exec("cmake", args);

@@ -14,6 +14,7 @@
 #include "installdb.h"
 #include "misc_utils.h"
 #include "print.h"
+#include "run_build_script.h"
 
 namespace cmakex {
 
@@ -107,8 +108,64 @@ void add_pkg(const string& pkg_name,
                 CHECK(false);
         }
 
-        if (do_build)
+        if (do_build) {
+            // find out if the build target is a dir containing CMakeList.txt or a build script
+            string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+            string d = clone_dir;
+            enum build_script_t
+            {
+                build_script_invalid,
+                build_script_cmakelists,
+                build_script_cmakex
+            };
+            build_script_t build_script = build_script_invalid;
+            string build_script_path;
+            if (req.source_dir.empty()) {
+                string cmakelists_path = clone_dir + "/CMakeLists.txt";
+                if (fs::is_regular_file(cmakelists_path))
+                    build_script = build_script_cmakelists;
+                else
+                    throwf(
+                        "The root of the repository does not contain 'CMakeLists.txt' (no "
+                        "SOURCE_DIR specified).");
+            } else {
+                string d = clone_dir + "/" + req.source_dir;
+                if (fs::is_directory(d)) {
+                    string cmakelists_path = d + "/CMakeLists.txt";
+                    if (fs::is_regular_file(d))
+                        build_script = build_script_cmakelists;
+                    else
+                        throwf(
+                            "The directory specified by the SOURCE_DIR option does not contain "
+                            "'CMakeLists.txt' (\"%s\")",
+                            d.c_str());
+                } else if (fs::path(d).extension().string() == ".cmake") {
+                    if (fs::is_regular_file(d)) {
+                        build_script = build_script_cmakex;
+                        build_script_path = d;
+                    } else
+                        throwf(
+                            "The '.cmake' file specified by the SOURCE_DIR option does not exist "
+                            "(\"%s\"",
+                            d.c_str());
+                } else
+                    throwf(
+                        "The path specified by the SOURCE_DIR option is neither a directory nor a "
+                        "file with the '.cmake' extension (\"%s\"",
+                        d.c_str());
+            }
+            if (build_script == build_script_cmakex) {
+                // execute the build script in an executor helper script for the project
+                cmakex_pars_t thispars = pars;
+                CHECK(!build_script_path.empty());
+
+                run_build_script(cfg.pkg_binary_dir(pkg_name), build_script_path, pars.config_args);
+                // outcome: the result of the add_pkg and build() commands
+                // merge the add_pkg to the pkg_requests and remember the build requests
+            } else
+                CHECK(build_script == build_script_cmakelists);
             add_pkg_after_clone(pkg_name, pars, pkg_requests, pkg_statuses);
+        }
     } catch (...) {
         cdd.pop(pkg_name);
         throw;
