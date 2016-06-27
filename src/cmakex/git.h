@@ -14,9 +14,9 @@ int exec_git(const vector<string>& args,
              exec_process_output_callback_t stdout_callback = nullptr,
              exec_process_output_callback_t stderr_callback = nullptr);
 
-int exec_git(const vector<string>& args,
-             exec_process_output_callback_t stdout_callback = nullptr,
-             exec_process_output_callback_t stderr_callback = nullptr)
+inline int exec_git(const vector<string>& args,
+                    exec_process_output_callback_t stdout_callback = nullptr,
+                    exec_process_output_callback_t stderr_callback = nullptr)
 {
     return exec_git(args, "", stdout_callback, stderr_callback);
 }

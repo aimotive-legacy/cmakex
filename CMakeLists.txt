@@ -4,7 +4,9 @@ project(cmakex)
 include(CMakePrintHelpers)
 
 set(CMAKE_DEBUG_POSTFIX d)
-set(CMAKE_CXX_STANDARD 11)
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 11)
+endif()
 
 set(gcc_opts "-Werror=return-type -Wformat=2 -Wall -Wextra -Wno-sign-compare")
 

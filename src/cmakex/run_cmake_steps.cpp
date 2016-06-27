@@ -17,9 +17,9 @@ namespace sx = adasworks::sx;
 void run_cmake_steps(const cmakex_pars_t& pars)
 {
     CHECK(pars.subcommand == cmakex_pars_t::subcommand_cmake_steps);
-    CHECK(pars.source_desc_kind != source_descriptor_build_script);
+    CHECK(!pars.source_dir.empty());
     CHECK(!pars.binary_dir.empty());
-    string source_dir = pars.source_desc;
+    string source_dir = pars.source_dir;
 
     auto main_tic = high_resolution_clock::now();
     log_info("Started at %s", current_datetime_string_for_log().c_str());
@@ -94,8 +94,8 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 "You specified cmake configuration arguments but the 'c' option is missing from "
                 "the command word. The specified configuration arguments: ";
             vector<string> a;
-            if (!pars.source_desc.empty())
-                a.emplace_back(string("-H") + pars.source_desc);
+            if (!pars.source_dir.empty())
+                a.emplace_back(string("-H") + pars.source_dir);
             a.insert(a.end(), BEGINEND(pars.config_args));
             s += join(a, " ");
             throw runtime_error(s);

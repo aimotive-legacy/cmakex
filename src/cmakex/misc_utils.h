@@ -82,7 +82,7 @@ void must_fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
 int fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
 // expects the file was opened in "r" mode which is text mode on windows
 string must_fgetline_if_not_eof(const file_t& f);
-bool feof(const file_t& f)
+inline bool feof(const file_t& f)
 {
     return feof(f.stream()) != 0;
 }

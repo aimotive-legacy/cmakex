@@ -5,7 +5,7 @@
 
 namespace cmakex {
 
-void run_build_script(string binary_dir, string source_desc, const vector<string>& config_args);
+void run_deps_script(string binary_dir, string deps_script_file, const vector<string>& config_args);
 }
 
 #endif

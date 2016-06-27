@@ -108,7 +108,7 @@ int exec_git(const vector<string>& args,
 
     // we have git here
 
-    log_exec(git_executable, args, working_directory);
+    log_exec("git", args, working_directory);
 
     return exec_process(git_executable, args, working_directory, stdout_callback, stderr_callback);
 }

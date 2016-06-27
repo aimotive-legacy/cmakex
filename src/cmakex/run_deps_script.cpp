@@ -1,4 +1,4 @@
-#include "run_build_script.h"
+#include "run_deps_script.h"
 
 #include <nowide/cstdio.hpp>
 
@@ -82,7 +82,7 @@ string build_script_executor_cmakelists_checksum(const std::string& x)
     return stringf("# script hash: %s", hs.c_str());
 }
 
-void run_build_script(string binary_dir, string source_desc, const vector<string>& config_args)
+void run_deps_script(string binary_dir, string deps_script_file, const vector<string>& config_args)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -97,10 +97,10 @@ void run_build_script(string binary_dir, string source_desc, const vector<string
     // create source dir
     CHECK(!binary_dir.empty());
 
-    log_info("Running build script \"%s\"", source_desc.c_str());
+    if (fs::path(deps_script_file).is_relative())
+        deps_script_file = fs::current_path().string() + "/" + deps_script_file;
 
-    if (fs::path(source_desc).is_relative())
-        source_desc = fs::current_path().string() + "/" + source_desc;
+    log_info("Processing dependency script \"%s\"", deps_script_file.c_str());
 
     if (fs::path(binary_dir).is_relative())
         binary_dir = fs::current_path().string() + "/" + binary_dir;
@@ -182,10 +182,10 @@ void run_build_script(string binary_dir, string source_desc, const vector<string
     {
         auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "w");
     }
-    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + source_desc +
-                      ";" + build_script_add_pkg_out_file);
+    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
+                      deps_script_file + ";" + build_script_add_pkg_out_file);
 
-    log_info("Executing build script by executor project.");
+    log_info("Executing dependencies script by executor project.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
@@ -194,5 +194,9 @@ void run_build_script(string binary_dir, string source_desc, const vector<string
                       string(k_build_script_executor_log_name) + "-run" + k_log_extension);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing build script by executor project, result: %d.", r);
+
+    // read the add_pkg_out
+    // for each pkg:
+    // 
 }
 }

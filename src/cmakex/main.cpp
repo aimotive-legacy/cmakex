@@ -1,31 +1,34 @@
-#include <adasworks/sx/log.h>
 #include <nowide/args.hpp>
 
+#include <adasworks/sx/check.h>
+#include <adasworks/sx/log.h>
+
+#include "cmakex_utils.h"
+#include "git.h"
 #include "process_command_line.h"
 #include "run_add_pkgs.h"
-#include "run_build_script.h"
 #include "run_cmake_steps.h"
-
-#include "git.h"
+#include "run_deps_script.h"
 
 namespace cmakex {
+
 int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
-    auto r = git_ls_remote("https://tamas.kenez@scm.adasworks.com/r/frameworks/cmakex.git", "HEAD");
-
-    fprintf(stderr, "%d, %s\n", std::get<0>(r), std::get<1>(r).c_str());
-    exit(0);
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     try {
         auto pars = process_command_line(argc, argv);
         if (!pars.add_pkgs.empty())
             run_add_pkgs(pars);
-        else if (pars.source_desc_kind == source_descriptor_build_script)
-            run_build_script(pars.binary_dir, pars.source_desc, pars.config_args);
-        else
+        else {
+            CHECK(!pars.source_dir.empty());
+            if (pars.deps) {
+                cmakex_config_t cfg(pars.binary_dir, pars.source_dir);
+                run_deps_script(pars.binary_dir, cfg.deps_script_file, pars.config_args);
+            }
             run_cmake_steps(pars);
+        }
     } catch (const exception& e) {
         LOG_FATAL("Exception: %s", e.what());
     } catch (...) {

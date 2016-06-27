@@ -26,7 +26,7 @@ const char* usage_text =
     "Execute Multiple `cmake` Commands\n"
     "=================================\n"
     "\n"
-    "    cmakex [c][b][i][t][d][r][w] [cmake-options]\n"
+    "    cmakex [c][b][i][t][d][r][w] [cmake-options] [--deps]\n"
     "\n"
     "Specify one or more of the characters c, b, i, t to execute one or more of\n"
     "these steps:\n"
@@ -59,6 +59,16 @@ const char* usage_text =
     "  --debug-trycompile, --debug-output, --trace, --trace-expand\n"
     "  --warn-uninitialized, --warn-unused-vars, --no-warn-unused-cli,\n"
     "  --check-system-vars, --graphwiz=\n"
+    "\n"
+    "\n"
+    "Additional Options\n"
+    "------------------\n"
+    "\n"
+    "- `--deps`  download or install dependencies first\n"
+    "            If the current source directory has a `deps.cmake` file it will\n"
+    "            be processed first.\n"
+    "            If -H specifies a dependency, its dependencies will be rebuilt\n"
+    "            first.\n"
     "\n"
     "Examples:\n"
     "=========\n"
@@ -133,12 +143,11 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
     }
 
     auto set_source_dir = [&pars](string_par x) -> void {
-        auto sdc = evaluate_source_descriptor(x);
-        if (!pars.source_desc.empty())
+        evaluate_source_dir(x);
+        if (!pars.source_dir.empty())
             badpars_exit(stringf("Multiple source paths specified: \"%s\", then \"%s\"",
-                                 pars.source_desc.c_str(), x.c_str()));
-        pars.source_desc_kind = sdc;
-        pars.source_desc = x.c_str();
+                                 pars.source_dir.c_str(), x.c_str()));
+        pars.source_dir = x.c_str();
     };
 
     auto set_binary_dir = [&pars](string_par x) -> void {
@@ -173,7 +182,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             pars.configs.emplace_back(argv[argix]);
         } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
             pars.build_args.emplace_back(arg);
-        else if (arg == "--lax") {
+        else if (arg == "--deps") {
+            pars.deps = true;
         } else {
             bool found = false;
             for (const char* c : {"-C", "-D", "-U", "-G", "-T", "-A"}) {
@@ -234,7 +244,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 } else
                     set_binary_dir(make_string(butleft(arg, 2)));
             } else if (!starts_with(arg, '-')) {
-                if (evaluate_source_descriptor(arg, true) != source_descriptor_invalid) {
+                if (evaluate_source_dir(arg, true)) {
                     set_source_dir(arg);
                     pars.config_args_besides_binary_dir = true;
                 } else if (evaluate_binary_dir(arg)) {
@@ -251,7 +261,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         }  // else: not one of specific args
     }      // foreach arg
     if (pars.binary_dir.empty()) {
-        if (pars.source_desc.empty())
+        if (pars.source_dir.empty())
             badpars_exit(
                 "Neither a source directory and nor a valid binary directory (path to an existing "
                 "build) specified.");
@@ -260,11 +270,53 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
     }
 
     if (!pars.add_pkgs.empty()) {
-        if (!pars.source_desc.empty())
+        if (!pars.source_dir.empty())
             badpars_exit(
                 "Don't specify source directory or build script (with or without '-H') together "
                 "with the '-P' option. Packages are assigned automatic source directories "
                 "under the 'cmakex_deps_clone_prefix' directory (see cmakex-config)");
+    }
+
+    // at this point we have a new or an existing binary dir
+    CHECK(!pars.binary_dir.empty());
+
+    // extract source dir from existing binary dir
+    string cmake_cache_file = pars.binary_dir + "/CMakeCache.txt";
+    if (fs::is_regular_file(cmake_cache_file)) {
+        // read CMAKE_HOME_DIRECTORY
+        string cmake_home_directory;
+        bool found = false;
+        auto f = must_fopen(cmake_cache_file, "r");
+        while (!feof(f)) {
+            auto line = must_fgetline_if_not_eof(f);
+            if (starts_with(line, "CMAKE_HOME_DIRECTORY:") ||
+                starts_with(line, "CMAKE_HOME_DIRECTORY=")) {
+                auto equal_pos = line.find('=');
+                if (equal_pos != string::npos) {
+                    cmake_home_directory = line.substr(equal_pos + 1);
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (found) {
+            if (fs::is_directory(cmake_home_directory)) {
+                if (pars.source_dir.empty())
+                    pars.source_dir = cmake_home_directory;
+                else {
+                    if (pars.source_dir != cmake_home_directory)
+                        throwf(
+                            "The source dir specified is different than the one found in the "
+                            "CMakeCache.txt: \"%s\" and \"%s\"",
+                            pars.source_dir.c_str(), cmake_home_directory.c_str());
+                }
+            } else
+                throwf(
+                    "CMAKE_HOME_DIRECTORY (\"%s\") is not an existing directory (read from "
+                    "(\"%s\")",
+                    cmake_home_directory.c_str(), cmake_cache_file.c_str());
+        } else
+            throwf("No CMAKE_HOME_DIRECTORY found in \"%s\"", cmake_cache_file.c_str());
     }
 
     return pars;

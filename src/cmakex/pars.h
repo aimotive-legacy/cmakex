@@ -5,13 +5,6 @@
 
 namespace cmakex {
 
-enum source_descriptor_kind_t
-{
-    source_descriptor_invalid,
-    source_descriptor_build_script,
-    source_descriptor_cmakelists_dir
-};
-
 struct cmakex_pars_t
 {
     enum subcommand_t
@@ -26,14 +19,14 @@ struct cmakex_pars_t
     vector<string> configs;
     bool binary_dir_valid = false;
     string binary_dir;
-    source_descriptor_kind_t source_desc_kind;
-    string source_desc;          // directory containing CMakeLists.txt or a *.cmake build script
+    string source_dir;           // directory containing CMakeLists.txt
     vector<string> config_args;  // not including the source and binary dir flags or paths
     vector<string> build_args;
     vector<string> native_tool_args;
     vector<string> build_targets;
     bool config_args_besides_binary_dir = false;
     vector<string> add_pkgs;
+    bool deps = false;
 };
 }
 

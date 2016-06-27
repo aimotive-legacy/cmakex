@@ -7,7 +7,7 @@ namespace cmakex {
 
 struct cmakex_config_t
 {
-    cmakex_config_t(string_par cmake_binary_dir);
+    cmakex_config_t(string_par cmake_binary_dir, string_par cmake_source_dir = "");
     string pkg_binary_dir(string_par pkg_name) const;
 
     string cmakex_dir;
@@ -18,13 +18,13 @@ struct cmakex_config_t
     string cmakex_tmp_dir;
     string cmakex_log_dir;
     bool strict_clone = true;  // accept only the clone at the commit exactly as specified
+    string deps_script_file;
 };
 
 void badpars_exit(string_par msg);
 
-// source descriptor is either a directory containing CMakeLists.txt or
-// path to a *.cmake file. This function finds out which.
-source_descriptor_kind_t evaluate_source_descriptor(string_par x, bool allow_invalid = false);
+// source dir is a directory containing CMakeLists.txt
+bool evaluate_source_dir(string_par x, bool allow_invalid = false);
 }
 
 #endif

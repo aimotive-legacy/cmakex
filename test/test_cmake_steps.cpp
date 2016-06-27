@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
             auto exe = install_dir + "/bin/exe";
             if (a == 'd')
                 exe += 'd';
-            cmakex::OutErrMessagesBuilder oeb(true);
+            cmakex::OutErrMessagesBuilder oeb(cmakex::pipe_capture, cmakex::pipe_capture);
             int r = cmakex::exec_process(exe, oeb.stdout_callback(), oeb.stderr_callback());
             CHECK(r == 0);
             string expected_err = a == 'd' ? "Debug" : "Release";

@@ -68,8 +68,8 @@ string escape_arg(string_par arg)
                 if (!quoted) {
                     quoted = true;
                     t.insert(t.begin(), '"');
-                    t.push_back(c);
                 }
+                t.push_back(c);
                 break;
             case '\\':
                 t.append("\\\\");
