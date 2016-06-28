@@ -22,8 +22,6 @@ namespace fs = filesystem;
 
 using pkg_requests_t = std::map<string, pkg_request_t>;
 
-pkg_request_t pkg_request_from_args(const string& pkg_arg_str);
-
 using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
 
 void add_pkg_after_clone(string_par pkg_name,
@@ -88,7 +86,6 @@ void add_pkg(const string& pkg_name,
                 {
                     auto cp = req.clone_pars;
                     cp.git_tag = installdb.try_get_installed_pkg_desc(pkg_name)->git_sha;
-                    cp.git_tag_is_sha = true;
                     make_sure_exactly_this_sha_is_cloned_or_fail(pkg_name, cp, pars.binary_dir);
                     do_build = true;
                 }
@@ -159,7 +156,7 @@ void run_add_pkgs(const cmakex_pars_t& pars)
     pkg_requests_t pkg_requests;
 
     for (auto& pkg_arg_str : pars.add_pkgs) {
-        auto request = pkg_request_from_args(pkg_arg_str);
+        auto request = pkg_request_from_arg_str(pkg_arg_str);
         if (pkg_requests.count(request.name) > 0)
             throwf("Package '%s' is duplicated.", request.name.c_str());
         pkg_requests[request.name] = move(request);
@@ -254,17 +251,50 @@ void add_pkg(const cmakex_pars_t& pars, const string& pkg_arg_str)
     }
 }
 #endif
-pkg_request_t pkg_request_from_args(const string& pkg_arg_str)
+
+template <class X, class UnaryOp>
+void transform_inplace(X& x, UnaryOp uo)
 {
-    auto pkg_args = separate_arguments(pkg_arg_str);
+    for (auto& y : x)
+        uo(y);
+}
+
+template <class X, class UnaryOp>
+bool all_of(X& x, UnaryOp uo)
+{
+    for (auto& y : x)
+        if (!uo(y))
+            return false;
+    return true;
+}
+
+bool eval_cmake_boolean_or_fail(string_par x)
+{
+    string s = x.str();
+    transform_inplace(x, ::tolower);
+    if (s == "1" || s == "on" || s == "yes" || s == "true" ||
+        (!s.empty() && s[0] != 0 && isdigit(s[0]) && all_of(s, ::isdigit)))
+        return true;
+    if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" ||
+        s.empty() || ends_with(s, "-notfound"))
+        return false;
+    throwf("Invalid boolean constant: %s", x.c_str());
+}
+
+pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str)
+{
+    return pkg_request_from_args(separate_arguments(pkg_arg_str));
+}
+
+pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
+{
     if (pkg_args.empty())
         throwf("Empty package descriptor, package name is missing.");
     pkg_request_t request;
     request.name = pkg_args[0];
-    pkg_args.erase(pkg_args.begin());
-    auto args =
-        parse_arguments({"FULL_CLONE"}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"},
-                        {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, pkg_args);
+    auto args = parse_arguments(
+        {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
+        {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
     for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
         auto count = args.count(c);
         CHECK(count == 0 || args[c].size() == 1);
@@ -285,8 +315,8 @@ pkg_request_t pkg_request_from_args(const string& pkg_arg_str)
 
     if (args.count("GIT_TAG") > 0)
         request.clone_pars.git_tag = args["GIT_TAG"][0];
-    if (args.count("FULL_CLONE") > 0)
-        request.clone_pars.full_clone = true;
+    if (args.count("GIT_SHALLOW") > 0)
+        request.clone_pars.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
     if (args.count("SOURCE_DIR") > 0) {
         request.source_dir = args["SOURCE_DIR"][0];
         if (fs::path(request.source_dir).is_absolute())

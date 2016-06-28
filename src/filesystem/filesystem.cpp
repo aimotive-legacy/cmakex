@@ -10,6 +10,7 @@
 #include <Poco/Path.h>
 
 #include <adasworks/sx/check.h>
+#include <adasworks/sx/log.h>
 #include <adasworks/sx/string_par.h>
 #include <adasworks/sx/stringf.h>
 
@@ -526,5 +527,15 @@ bool exists(const path& p)
 path temp_directory_path()
 {
     return Poco::Path::temp();
+}
+path canonical(const path& p, const path& base)
+{
+    auto ps = Poco::Path(p.string()).absolute(Poco::Path(base.string()));
+    if (ps.getFileName() == ".")
+        ps.makeParent();
+    auto s = ps.toString();
+    while (s.size() > 1 && (s.back() == '/' || s.back() == '\\'))
+        s.pop_back();
+    return s;
 }
 }

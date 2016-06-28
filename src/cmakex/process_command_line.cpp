@@ -148,6 +148,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             badpars_exit(stringf("Multiple source paths specified: \"%s\", then \"%s\"",
                                  pars.source_dir.c_str(), x.c_str()));
         pars.source_dir = x.c_str();
+        LOG_INFO("Source dir: %s", x.c_str());
     };
 
     auto set_binary_dir = [&pars](string_par x) -> void {
@@ -157,6 +158,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                         pars.binary_dir.c_str(), x.c_str()));
         pars.binary_dir_valid = evaluate_binary_dir(x);
         pars.binary_dir = x.c_str();
+        LOG_INFO("Binary dir: %s", x.c_str());
     };
 
     for (int argix = 2; argix < argc; ++argix) {
@@ -304,7 +306,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 if (pars.source_dir.empty())
                     pars.source_dir = cmake_home_directory;
                 else {
-                    if (pars.source_dir != cmake_home_directory)
+                    if (fs::canonical(pars.source_dir).string() !=
+                        fs::canonical(cmake_home_directory).string())
                         throwf(
                             "The source dir specified is different than the one found in the "
                             "CMakeCache.txt: \"%s\" and \"%s\"",

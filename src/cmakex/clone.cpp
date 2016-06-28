@@ -44,19 +44,20 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
     vector<string> clone_args = {"--recurse"};
     string checkout;
     if (cp.git_tag.empty()) {
-        if (!cp.full_clone)
+        if (cp.git_shallow)
             clone_args = {"--single-branch", "--depth", "1"};
     } else {
-        bool is_sha = cp.git_tag_is_sha;
-        if (!is_sha && sha_like(cp.git_tag)) {
-            // find out if it's an sha
+        auto git_tag_kind = initial_git_tag_kind(cp.git_tag);
+        if (git_tag_kind == git_tag_could_be_sha) {  // find out if it's an sha
             auto r = git_ls_remote(cp.git_url, cp.git_tag);
             if (std::get<0>(r) == 2)
-                is_sha = true;
+                git_tag_kind = git_tag_must_be_sha;
+            else
+                git_tag_kind = git_tag_is_not_sha;
         }
-        if (is_sha) {
+        if (git_tag_kind >= git_tag_must_be_sha) {
             checkout = cp.git_tag;
-            if (!cp.full_clone) {
+            if (cp.git_shallow) {
                 // try to resolve corresponding reference
                 auto git_tag = try_resolve_sha_to_tag(cp.git_url, cp.git_tag);
                 do {
@@ -84,7 +85,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
                 } while (false);
             }
         } else {
-            if (cp.full_clone)
+            if (!cp.git_shallow)
                 clone_args = {"--branch", cp.git_tag.c_str(), "--no-single-branch"};
             else
                 clone_args = {"--branch", cp.git_tag.c_str(), "--depth", "1"};
@@ -105,7 +106,7 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
                                                   const pkg_clone_pars_t& cp,
                                                   string_par binary_dir)
 {
-    CHECK(cp.git_tag_is_sha);
+    CHECK(sha_like(cp.git_tag));
 
     cmakex_config_t cfg(binary_dir);
     string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();

@@ -20,7 +20,8 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
                                                            string_par pkg_name);
 
 // executes git-clone
-void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_dir);
+// cp's git_tag_kind might get updated
+void clone(string_par pkg_name, pkg_clone_pars_t& cp, string_par binary_dir);
 
 // cp.git_tag must be an SHA
 void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,

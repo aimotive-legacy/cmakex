@@ -49,6 +49,22 @@ bool istarts_with(string_par x, string_par y)
     return true;
 }
 
+bool ends_with(string_par x, string_par y)
+{
+    const auto ys = y.size();
+    if (ys == 0)
+        return true;
+    const auto xs = x.size();
+    if (ys > xs)
+        return false;
+    auto o = xs - ys;
+    for (int i = 0; i < ys; ++i) {
+        if (x[o + i] != y[i])
+            return false;
+    }
+    return true;
+}
+
 bool starts_with(string_par x, char y)
 {
     return !x.empty() && x[0] == y;
@@ -219,9 +235,10 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
                 throwf("Single-value argument '%s' specified multiple times.", arg.c_str());
             r[arg] = vector<string>(1, args[ix]);
         } else if (is_one_of(arg, multivalue_args)) {
-            for (; ix < args.size(); ++ix) {
+            for (++ix; ix < args.size(); ++ix) {
                 const auto& v = args[ix];
-                if (is_one_of(v, options) || is_one_of(v, onevalue_args)) {
+                if (is_one_of(v, options) || is_one_of(v, onevalue_args) ||
+                    is_one_of(v, multivalue_args)) {
                     --ix;
                     break;
                 }
@@ -238,5 +255,33 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
                                                  string_par argstr)
 {
     return parse_arguments(options, onevalue_args, multivalue_args, separate_arguments(argstr));
+}
+
+vector<string> must_read_file_as_lines(string_par path)
+{
+    auto f = must_fopen(path, "r");
+    vector<string> r;
+
+    do
+        r.emplace_back(must_fgetline_if_not_eof(f));
+    while (!feof(f));
+
+    if (r.back().empty())
+        r.pop_back();
+    return r;
+}
+vector<string> split(string_par x, char y)
+{
+    vector<string> v;
+    if (x.empty())
+        return v;
+    v.emplace_back();
+    for (auto c : x) {
+        if (c == y)
+            v.emplace_back();
+        else
+            v.back().push_back(c);
+    }
+    return v;
 }
 }

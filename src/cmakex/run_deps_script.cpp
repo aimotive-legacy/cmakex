@@ -11,6 +11,7 @@
 #include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
+#include "run_add_pkgs.h"
 
 namespace cmakex {
 
@@ -41,9 +42,13 @@ string build_script_executor_cmakelists()
            "  if (NOT l EQUAL 1)\n"
            "    message(FATAL_ERROR \"\\\"${NAME}\\\" is an invalid name for a package\")\n"
            "  endif()\n"
-           "  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
-           "\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
-           "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${NAME};${ARGN}\\n\")\n"
+           //"  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
+           //"\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
+           "  set(line \"${NAME}\")\n"
+           "  foreach(x IN LISTS ARGN)\n"
+           "    set(line \"${line}\\t${x}\")\n"
+           "  endforeach()\n"
+           "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${line}\\n\")\n"
            "endfunction()\n\n"
 
            "# include build script within a function to protect local variables\n"
@@ -196,7 +201,11 @@ void run_deps_script(string binary_dir, string deps_script_file, const vector<st
         throwf("Failed executing build script by executor project, result: %d.", r);
 
     // read the add_pkg_out
+    auto addpkgs_lines = must_read_file_as_lines(build_script_add_pkg_out_file);
     // for each pkg:
-    // 
+    for (auto& addpkg_line : addpkgs_lines) {
+        auto pkg_request = pkg_request_from_args(split(addpkg_line, '\t'));
+        int a = 3;
+    }
 }
 }

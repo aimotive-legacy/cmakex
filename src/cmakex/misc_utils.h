@@ -26,6 +26,8 @@ bool istarts_with(string_par x, string_par y);
 // x starts with y
 bool starts_with(string_par x, char y);
 
+bool ends_with(string_par x, string_par y);
+
 // return x but the leftmost z characters. If x contains less then z characters, return empty
 array_view<const char> butleft(string_par x, int z);
 
@@ -80,8 +82,14 @@ file_t must_fopen(string_par path, string_par mode);
 maybe<file_t> try_fopen(string_par path, string_par mode);
 void must_fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
 int fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
+
 // expects the file was opened in "r" mode which is text mode on windows
+// reads f until eol or eof
+// fails on error
+// does not include eol
+// returns empty if it was eof before calling
 string must_fgetline_if_not_eof(const file_t& f);
+
 inline bool feof(const file_t& f)
 {
     return feof(f.stream()) != 0;
@@ -113,6 +121,9 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
                                                  const vector<string>& onevalue_args,
                                                  const vector<string>& multivalue_args,
                                                  string_par argstr);
+
+vector<string> must_read_file_as_lines(string_par filename);
+vector<string> split(string_par x, char y);
 }
 
 #endif
