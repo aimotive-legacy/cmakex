@@ -27,6 +27,7 @@ struct cmakex_pars_t
     bool config_args_besides_binary_dir = false;
     vector<string> add_pkgs;
     bool deps = false;
+    bool strict_commits = false;
 };
 }
 

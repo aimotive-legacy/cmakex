@@ -32,7 +32,10 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
     if (sha.empty())
         return make_tuple(pkg_clone_dir_nonempty_nongit, string{});
     // so it has valid sha
-    return make_tuple(pkg_clone_dir_git, sha);
+    auto git_status_result = git_status(clone_dir);
+    return make_tuple(git_status_result.clean_or_untracked_only() ? pkg_clone_dir_git
+                                                                  : pkg_clone_dir_git_local_changes,
+                      sha);
 }
 void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_dir)
 {
@@ -59,7 +62,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
             checkout = cp.git_tag;
             if (cp.git_shallow) {
                 // try to resolve corresponding reference
-                auto git_tag = try_resolve_sha_to_tag(cp.git_url, cp.git_tag);
+                auto git_tag = try_find_unique_ref_by_sha_with_ls_remote(cp.git_url, cp.git_tag);
                 do {
                     if (git_tag.empty())
                         break;  // couldn't resolve, do full clone
@@ -133,6 +136,12 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
                 throwf("The current working copy should be checked out at '%s' but it's at %s. %s",
                        cp.git_tag.c_str(), std::get<1>(cds).c_str(), errormsg.c_str());
             break;
+        case pkg_clone_dir_git_local_changes:
+            throwf(
+                "The current working copy should be checked out at '%s' but it has local changes. "
+                "%s",
+                cp.git_tag.c_str(), errormsg.c_str());
+            break;
         default:
             CHECK(false);
     }
@@ -167,11 +176,23 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
             break;
         case pkg_clone_dir_nonempty_nongit:
             if (strict)
-                throwf("The directory contains non-git files which are in the way. %s",
+                throwf("The directory \"%s\" contains non-git files which are in the way. %s",
+                       clone_dir.c_str(), errormsg.c_str());
+            else
+                log_warn(
+                    "The directory \"%s\" contains non-git files instead of the requested commit "
+                    "'%s'. "
+                    "%s",
+                    clone_dir.c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
+            break;
+        case pkg_clone_dir_git_local_changes:
+            if (strict)
+                throwf("The directory \"%s\" has local changes. %s", clone_dir.c_str(),
                        errormsg.c_str());
             else
                 log_warn(
-                    "The directory \"%s\" contains non-git files instead of the commit '%s'. "
+                    "The directory \"%s\" contains non-git files instead of the requested commit "
+                    "'%s'. "
                     "%s",
                     clone_dir.c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
             break;

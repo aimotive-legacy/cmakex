@@ -71,8 +71,7 @@ void add_pkg(const string& pkg_name,
         // - it may no be installed -> clone + satisfy dependencies than add it to the
         //   list of packages to be built + installed
 
-        string eval_result_reason;
-        tie(status, eval_result_reason) = installdb.evaluate_pkg_request(req);
+        status = installdb.evaluate_pkg_request(req);
         bool do_build = false;
         cmakex_config_t cfg(pars.binary_dir);
 
@@ -103,7 +102,7 @@ void add_pkg(const string& pkg_name,
                     "Package request for '%s' cannot be satisfied due to incompatible build "
                     "options. Remove the package manually to allow it build with the new options "
                     "or remove the conflicting options. The conflicting options: %s",
-                    pkg_name.c_str(), eval_result_reason.c_str());
+                    pkg_name.c_str(), status.incompatible_cmake_args.c_str());
             default:
                 CHECK(false);
         }

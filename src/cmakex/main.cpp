@@ -25,7 +25,8 @@ int main(int argc, char* argv[])
             CHECK(!pars.source_dir.empty());
             if (pars.deps) {
                 cmakex_config_t cfg(pars.binary_dir, pars.source_dir);
-                run_deps_script(pars.binary_dir, cfg.deps_script_file, pars.config_args);
+                run_deps_script(pars.binary_dir, cfg.deps_script_file, pars.config_args,
+                                pars.configs, pars.strict_commits);
             }
             run_cmake_steps(pars);
         }

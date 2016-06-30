@@ -6,6 +6,10 @@
 
 namespace cmakex {
 
+// special SHA value to indicate uncommited changes
+// when comparing SHA's this should be evaluted as different from every SHA string even from itself
+static const char* k_sha_uncommitted = "<uncommitted>";
+
 // find git with cmake's find_package(Git), on failure returns "git"
 string find_git_or_return_git();
 
@@ -28,7 +32,10 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref);
 string git_rev_parse(string_par ref, string_par dir);
 void git_clone(vector<string> args);
 int git_checkout(vector<string> args, string_par dir);
-string try_resolve_sha_to_tag(string_par git_url, string_par sha);
+
+// returns empty or unique result, fails otherwise
+string try_find_unique_ref_by_sha_with_ls_remote(string_par git_url, string_par sha);
+
 enum resolve_ref_status_t
 {
     resolve_ref_error,  // git-ls-remote failed
@@ -37,10 +44,23 @@ enum resolve_ref_status_t
                             // look like an SHA
     resolve_ref_sha_like,   // ref was not found but it's like an SHA
 };
-tuple<resolve_ref_status_t, string> git_resolve_ref_on_remote(string_par git_url, string_par ref);
-// true if x could be a git SHA1
 
+// no fail, reports error in result
+tuple<resolve_ref_status_t, string> git_resolve_ref_on_remote(string_par git_url, string_par ref);
+
+// returns valid result or fail
+// if allow_sha then sha-like unresolved refs will be returned
+string must_git_resolve_ref_on_remote(string_par git_url, string_par ref, bool allow_sha);
+
+// true if x could be a git SHA1
 bool sha_like(string_par x);
+
+struct git_status_result_t
+{
+    vector<string> lines;
+    bool clean_or_untracked_only() const;
+};
+git_status_result_t git_status(string_par dir);
 }
 
 #endif

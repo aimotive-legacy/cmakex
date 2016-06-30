@@ -55,13 +55,15 @@ public:
     {
         request_eval_result_status_t status = invalid_status;
         vector<string> missing_configs;
+        string incompatible_cmake_args;
+        installed_pkg_desc_t pkg_desc;
     };
 
     InstallDB(string_par binary_dir);
 
     // evaluate whether the current installation of the package satisfies the request. Provide
     // textual description on failure
-    tuple<request_eval_result_t, string> evaluate_pkg_request(const pkg_request_t& req);
+    request_eval_result_t evaluate_pkg_request(const pkg_request_t& req);
     maybe<installed_pkg_desc_t> try_get_installed_pkg_desc(string_par pkg_name) const;
     void put_installed_pkg_desc(const installed_pkg_desc_t& p);
 

@@ -181,15 +181,14 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
     return r;
 }
 
-tuple<InstallDB::request_eval_result_t, string> InstallDB::evaluate_pkg_request(
-    const pkg_request_t& req)
+InstallDB::request_eval_result_t InstallDB::evaluate_pkg_request(const pkg_request_t& req)
 {
     auto maybe_desc = try_get_installed_pkg_desc(req.name);
     request_eval_result_t r;
-    string msg;
     if (!maybe_desc)
         r.status = pkg_request_not_installed;
     else {
+        r.pkg_desc = move(*maybe_desc);
         auto ica = incompatible_cmake_args(maybe_desc->cmake_args, req.cmake_args);
         if (ica.empty()) {
             r.missing_configs = set_difference(req.configs, maybe_desc->configs);
@@ -200,9 +199,9 @@ tuple<InstallDB::request_eval_result_t, string> InstallDB::evaluate_pkg_request(
             }
         } else {
             r.status = pkg_request_not_compatible;
-            msg = join(ica, ", ");
+            r.incompatible_cmake_args = join(ica, ", ");
         }
     }
-    return {r, msg};
+    return r;
 }
 }

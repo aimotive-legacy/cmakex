@@ -28,6 +28,7 @@ using dur_sec = std::chrono::duration<double>;
 using std::tuple;
 using std::runtime_error;
 using std::pair;
+using std::get;
 
 using adasworks::sx::stringf;
 using adasworks::sx::string_par;

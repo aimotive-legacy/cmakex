@@ -5,9 +5,12 @@
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/log.h>
 
+#include "clone.h"
 #include "cmakex_utils.h"
 #include "exec_process.h"
 #include "filesystem.h"
+#include "git.h"
+#include "installdb.h"
 #include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
@@ -87,7 +90,47 @@ string build_script_executor_cmakelists_checksum(const std::string& x)
     return stringf("# script hash: %s", hs.c_str());
 }
 
-void run_deps_script(string binary_dir, string deps_script_file, const vector<string>& config_args)
+void fail_if_current_clone_has_different_commit(string req_git_tag,
+                                                string_par clone_dir,
+                                                string_par cloned_sha,
+                                                string_par git_url)
+{
+    // if HEAD/branch is requested need to check ls-remote
+    // if tag/SHA requested check local clone
+
+    if (req_git_tag.empty())
+        req_git_tag = "HEAD";
+
+    string msg = stringf(
+        "Because of the '--strict' option the directory \"%s\" should be "
+        "reset to the remote's '%s' commit in order to build it. Reset manually or remove the "
+        "directory.",
+        clone_dir.c_str(), req_git_tag.c_str());
+
+    if (cloned_sha == k_sha_uncommitted)  // no need to check further
+        throwf("%s", msg.c_str());
+    // find out if we have the exact same commit cloned out as req_git_tag
+    // req_git_tag can be empty=branch/tag/sha
+    if (cloned_sha != req_git_tag) {  // req_git_tag was an SHA
+        // check remote
+        auto lsr = git_ls_remote(git_url, req_git_tag);
+        if (get<0>(lsr) == 0) {
+            if (cloned_sha != get<1>(lsr))
+                throwf("%s", msg.c_str());
+        } else {
+            throwf(
+                "Because of the '--strict' option the requested ref '%s' "
+                "needs to be resolved by the remote \"%s\" but 'git "
+                "ls-remote' failed (%d)",
+                req_git_tag.c_str(), git_url.c_str(), get<0>(lsr));
+        }
+    }
+}
+void run_deps_script(string binary_dir,
+                     string deps_script_file,
+                     const vector<string>& config_args,
+                     const vector<string>& configs,
+                     bool strict_commits)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -205,7 +248,154 @@ void run_deps_script(string binary_dir, string deps_script_file, const vector<st
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
         auto pkg_request = pkg_request_from_args(split(addpkg_line, '\t'));
-        int a = 3;
+        // todo: get data from optional package registry here
+
+        // fill configs from global par if not specified
+        if (pkg_request.configs.empty())
+            pkg_request.configs = configs;
+
+        tuple<pkg_clone_dir_status_t, string> clone_status;
+        string cloned_sha;
+        bool cloned;
+
+        auto update_clone_status_vars = [&clone_status, &cloned_sha, &cloned, &pkg_request,
+                                         &binary_dir]() {
+            // determine cloned status
+            clone_status = pkg_clone_dir_status(binary_dir, pkg_request.name);
+            cloned = false;
+            switch (get<0>(clone_status)) {
+                case pkg_clone_dir_doesnt_exist:
+                case pkg_clone_dir_empty:
+                    break;
+                case pkg_clone_dir_git:
+                    cloned_sha = get<1>(clone_status);
+                    cloned = true;
+                    break;
+                case pkg_clone_dir_git_local_changes:
+                case pkg_clone_dir_nonempty_nongit:
+                    cloned_sha = k_sha_uncommitted;
+                    cloned = true;
+                    break;
+                default:
+                    CHECK(false);
+            }
+        };
+
+        update_clone_status_vars();
+
+        auto clone_this = []() {};
+        auto install_this = []() {};
+        auto uninstall_this = []() {};
+
+        // determine installed status
+        InstallDB installdb(binary_dir);
+        auto installed_result = installdb.evaluate_pkg_request(pkg_request);
+        string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_request.name;
+        switch (installed_result.status) {
+            case InstallDB::pkg_request_not_installed:
+                if (cloned)
+                    clone_this();
+                if (cloned && strict_commits)
+                    fail_if_current_clone_has_different_commit(
+                        pkg_request.clone_pars.git_tag,
+                        cfg.cmakex_deps_clone_prefix + "/" + pkg_request.name, cloned_sha,
+                        pkg_request.clone_pars.git_url);
+                // cloning it now, SHA will be as requested
+                install_this();
+                break;
+            case InstallDB::pkg_request_missing_configs: {
+                bool was_cloned = cloned;
+                if (!cloned) {
+                    clone_this();
+                    update_clone_status_vars();
+                }
+                if (was_cloned && strict_commits)
+                    fail_if_current_clone_has_different_commit(pkg_request.clone_pars.git_tag,
+                                                               clone_dir, cloned_sha,
+                                                               pkg_request.clone_pars.git_url);
+                if (cloned_sha == k_sha_uncommitted ||
+                    cloned_sha != installed_result.pkg_desc.git_sha)
+                    uninstall_this();
+                install_this();
+            } break;
+            case InstallDB::pkg_request_satisfied:
+                if (strict_commits) {
+                    string req_git_tag = pkg_request.clone_pars.git_url;
+                    if (req_git_tag.empty())
+                        req_git_tag = "HEAD";
+                    string remote_sha;
+                    try {
+                        remote_sha = must_git_resolve_ref_on_remote(
+                            req_git_tag, pkg_request.clone_pars.git_url, true);
+                    } catch (const exception& e) {
+                        throwf(
+                            "Because of the '--strict' option the directory \"%s\" should be reset "
+                            "to the remote's '%s' commit in order to build it. On resolving the "
+                            "commit 'git ls-remote' "
+                            "failed for \"%s\", reason: %s. Reset manually or remove the "
+                            "directory.",
+                            clone_dir.c_str(), req_git_tag.c_str(),
+                            pkg_request.clone_pars.git_url.c_str(), e.what());
+                    }
+                    if (remote_sha == installed_result.pkg_desc.git_sha)
+                        break;
+                    bool sha_like = remote_sha == req_git_tag;
+
+                    if (cloned) {
+                        string resolved_remote_sha;
+                        if (sha_like) {
+                            // if remote_sha is a shortened sha it can still be equal to
+                            // installed sha
+                            // check it in the clone
+                            resolved_remote_sha = git_rev_parse(remote_sha, clone_dir);
+                            if (resolved_remote_sha.empty())
+                                throwf(
+                                    "Because of the '--strict' option the requested commit "
+                                    "'%s' "
+                                    "has to be resolved but neither 'git ls-remote' on \"%s\" "
+                                    "nor "
+                                    "'git rev-parse' in \"%s\" was able to do it. Reset the "
+                                    "repository manually or remove the directory.",
+                                    req_git_tag.c_str(), pkg_request.clone_pars.git_url.c_str(),
+                                    clone_dir.c_str());
+                            if (resolved_remote_sha == installed_result.pkg_desc.git_sha)
+                                break;
+                        } else
+                            resolved_remote_sha = remote_sha;
+
+                        // we may still be able to build it
+                        if (resolved_remote_sha != cloned_sha)
+                            throwf(
+                                "Because of the '--strict' option the directory \"%s\" "
+                                "should be "
+                                "reset to the remote's '%s' commit in order to build "
+                                "it. Reset manually or remove the "
+                                "directory.",
+                                clone_dir.c_str(), req_git_tag.c_str());
+                        install_this();
+                    } else {
+                        // not cloned
+                        clone_this();
+                        update_clone_status_vars();
+                        if (cloned_sha != installed_result.pkg_desc.git_sha)
+                            install_this();
+                    }
+                }
+                break;
+            case InstallDB::pkg_request_not_compatible:
+                if (cloned) {
+                    if (strict_commits)
+                        fail_if_current_clone_has_different_commit(pkg_request.clone_pars.git_url,
+                                                                   clone_dir, cloned_sha,
+                                                                   pkg_request.clone_pars.git_url);
+                } else
+                    clone_this();
+                uninstall_this();
+                install_this();
+                break;
+            default:
+                CHECK(false);
+        }
     }
 }
 }

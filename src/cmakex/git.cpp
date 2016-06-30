@@ -4,6 +4,7 @@
 
 #include <nowide/cstdio.hpp>
 
+#include <adasworks/sx/check.h>
 #include <adasworks/sx/mutex.h>
 
 #include "filesystem.h"
@@ -165,7 +166,7 @@ int git_checkout(vector<string> args, string_par dir)
     args.insert(args.begin(), "checkout");
     return exec_git(args, dir);
 }
-string try_resolve_sha_to_tag(string_par git_url, string_par sha)
+string try_find_unique_ref_by_sha_with_ls_remote(string_par git_url, string_par sha)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
     int r = exec_git({"ls-remote", git_url.c_str()});
@@ -224,6 +225,26 @@ tuple<resolve_ref_status_t, string> git_resolve_ref_on_remote(string_par git_url
     return {resolve_ref_error, string{}};
 }
 
+string must_git_resolve_ref_on_remote(string_par git_url, string_par ref, bool allow_sha)
+{
+    auto r = git_resolve_ref_on_remote(git_url, ref);
+    switch (get<0>(r)) {
+        case resolve_ref_error:
+            throwf("'git ls-remote' failed.");
+        case resolve_ref_success:
+            return get<1>(r);
+        case resolve_ref_not_found:
+            throwf("Ref '%s' not found with 'git ls-remote'", ref.c_str());
+        case resolve_ref_sha_like:
+            if (allow_sha)
+                return ref.str();
+            else
+                throwf("Ref '%s' not found with 'git ls-remote'", ref.c_str());
+        default:
+            CHECK(false);
+    }
+}
+
 bool sha_like(string_par x)
 {
     if (x.size() < 4 || x.size() > 40)
@@ -232,5 +253,31 @@ bool sha_like(string_par x)
         if (!isxdigit(*c))
             return false;
     return true;
+}
+
+bool git_status_result_t::clean_or_untracked_only() const
+{
+    for (auto& l : lines) {
+        if (l[0] != '?' || l[1] != '?')
+            return false;
+    }
+    return true;
+}
+
+git_status_result_t git_status(string_par dir)
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
+    int r = exec_git({"status", "-s", "--porcelain"}, oeb.stdout_callback(), nullptr);
+    THROW_UNLESS(!r, "git status failed (%d) for directory \"%s\"", r, dir.c_str());
+    auto oem = oeb.move_result();
+    git_status_result_t result;
+    for (int i = 0; i < oem.size(); ++i) {
+        auto msg = oem.at(i);
+        if (msg.source != out_err_message_base_t::source_stdout)
+            continue;
+        CHECK(msg.text.size() >= 4);  // 2-char status code + space + single char path
+        result.lines.emplace_back(move(msg.text));
+    }
+    return result;
 }
 }
