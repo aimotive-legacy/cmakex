@@ -30,13 +30,15 @@ using std::runtime_error;
 using std::pair;
 using std::get;
 
-using adasworks::sx::stringf;
-using adasworks::sx::string_par;
-using adasworks::sx::array_view;
-using adasworks::sx::maybe;
-using adasworks::sx::nothing;
-using adasworks::sx::just;
-using adasworks::sx::in_place;
+namespace sx = adasworks::sx;
+
+using sx::stringf;
+using sx::string_par;
+using sx::array_view;
+using sx::maybe;
+using sx::nothing;
+using sx::just;
+using sx::in_place;
 }
 
 #endif

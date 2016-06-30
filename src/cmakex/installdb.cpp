@@ -24,7 +24,7 @@ template <class Archive>
 void serialize(Archive& archive, installed_pkg_desc_t::depends_item_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(pkg_name), A(source));
+    archive(A(pkg_name));
 }
 
 template <class Archive>

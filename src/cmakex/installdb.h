@@ -13,15 +13,14 @@ struct installed_pkg_desc_t
     struct depends_item_t
     {
         string pkg_name;
-        string source;  // source of the installation: empty = local install
     };
 
     string name;
     string git_url;
     string git_sha;
     string source_dir;
-    vector<depends_item_t> depends;
-    vector<string> cmake_args;
+    vector<depends_item_t> depends;  // all dependencies not only immediate/listed
+    vector<string> cmake_args;  // all cmake args including global ones
     vector<string> configs;
 };
 
@@ -37,6 +36,7 @@ struct installed_pkg_files_t
 
     files_of_configs_t files_of_configs;
 };
+
 // stores, adds and removes and queries the list of packages and corresponding files
 // installed into a directory
 class InstallDB
