@@ -11,7 +11,7 @@ namespace cmakex {
 namespace fs = filesystem;
 
 circular_dependency_detector::circular_dependency_detector(string_par binary_dir)
-    : path(cmakex_config_t(binary_dir).cmakex_tmp_dir + "/dependency_stack.txt")
+    : path(cmakex_config_t(binary_dir).cmakex_tmp_dir() + "/dependency_stack.txt")
 {
 }
 

@@ -17,9 +17,9 @@ namespace sx = adasworks::sx;
 void run_cmake_steps(const cmakex_pars_t& pars)
 {
     CHECK(pars.subcommand == cmakex_pars_t::subcommand_cmake_steps);
-    CHECK(!pars.source_dir.empty());
+    CHECK(!pars.b.source_dir.empty());
     CHECK(!pars.binary_dir.empty());
-    string source_dir = pars.source_dir;
+    string source_dir = pars.b.source_dir;
 
     auto main_tic = high_resolution_clock::now();
     log_info("Started at %s", current_datetime_string_for_log().c_str());
@@ -30,17 +30,17 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 steps += ", ";
         };
         int c = 0;
-        if (pars.c) {
+        if (pars.flag_c) {
             add_comma();
             steps += "configure";
             ++c;
         }
-        if (pars.b) {
+        if (pars.flag_b) {
             add_comma();
             steps += "build";
             ++c;
         }
-        if (pars.t) {
+        if (pars.flag_t) {
             add_comma();
             steps += "test";
             ++c;
@@ -55,22 +55,22 @@ void run_cmake_steps(const cmakex_pars_t& pars)
     }
     if (!pars.build_targets.empty())
         log_info("Targets: %s", join(pars.build_targets, " ").c_str());
-    if (!pars.configs.empty())
-        log_info("Configurations: %s", join(pars.configs, " ").c_str());
+    if (!pars.b.configs.empty())
+        log_info("Configurations: %s", join(pars.b.configs, " ").c_str());
 
     // add a single, neutral config, if no configs specified
-    auto configs = pars.configs;
+    auto configs = pars.b.configs;
     if (configs.empty())
         configs = {""};
 
     // if need to build but no build targets specified, add a single, default build target
     auto build_targets = pars.build_targets;
-    if (pars.b && build_targets.empty())
+    if (pars.flag_b && build_targets.empty())
         build_targets = {""};
 
     for (auto& config : configs) {
         // configure step
-        if (pars.c) {
+        if (pars.flag_c) {
             auto tic = high_resolution_clock::now();
             string step_string = stringf(
                 "configure step%s", config.empty() ? "" : (string(" (") + config + ")").c_str());
@@ -81,7 +81,7 @@ void run_cmake_steps(const cmakex_pars_t& pars)
             args.emplace_back(string("-B") + pars.binary_dir);
             if (!config.empty())
                 args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
-            args.insert(args.end(), BEGINEND(pars.config_args));
+            args.insert(args.end(), BEGINEND(pars.b.cmake_args));
             log_exec("cmake", args);
             int r = exec_process("cmake", args);
             if (r != EXIT_SUCCESS)
@@ -94,9 +94,9 @@ void run_cmake_steps(const cmakex_pars_t& pars)
                 "You specified cmake configuration arguments but the 'c' option is missing from "
                 "the command word. The specified configuration arguments: ";
             vector<string> a;
-            if (!pars.source_dir.empty())
-                a.emplace_back(string("-H") + pars.source_dir);
-            a.insert(a.end(), BEGINEND(pars.config_args));
+            if (!pars.b.source_dir.empty())
+                a.emplace_back(string("-H") + pars.b.source_dir);
+            a.insert(a.end(), BEGINEND(pars.b.cmake_args));
             s += join(a, " ");
             throw runtime_error(s);
         }
@@ -133,7 +133,7 @@ void run_cmake_steps(const cmakex_pars_t& pars)
         }
 
         // test step
-        if (pars.t) {
+        if (pars.flag_t) {
             auto tic = high_resolution_clock::now();
             string step_string =
                 stringf("test step%s", config.empty() ? "" : (string(" (") + config + ")").c_str());

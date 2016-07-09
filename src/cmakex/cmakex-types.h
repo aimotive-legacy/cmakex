@@ -5,9 +5,12 @@
 
 namespace cmakex {
 
+static const char* k_deps_script_filename = "deps.cmake";
+
 enum git_tag_kind_t
 {
     // order is important
+    git_tag_not_checked,
     git_tag_is_not_sha,    // it's not sha-like
     git_tag_could_be_sha,  // it's sha-like but not checked
     git_tag_must_be_sha,   // it's sha-like and server returned not found
@@ -28,17 +31,46 @@ struct pkg_clone_pars_t
     bool git_shallow = true;  // if false, clone only the requested branch at depth=1
 };
 
-// pkg request is what comes from the registry (to be implemented)
-// and from the local package definition script (the ExternalProject-like
-// parameters)
-struct pkg_request_t
+struct pkg_build_pars_t
+{
+    string source_dir;  // (relative) directory containing CMakeLists.txt
+    // cmake_args:
+    // - never contains source and binary dir flags or paths
+    // - contains CMAKE_INSTALL_PREFIX, CMAKE_PREFIX_PATH, CMAKE_MODULE_PATH only when describes
+    //   command line
+    // - contains global args when used as package request / installed package description
+    vector<string> cmake_args;  // all cmake args including global ones
+    vector<string> configs;     // Debug, Release, etc..
+};
+
+struct pkg_desc_t
 {
     string name;
-    pkg_clone_pars_t clone_pars;
-    string source_dir;
-    vector<string> depends;
-    vector<string> cmake_args;
-    vector<string> configs;
+    pkg_clone_pars_t c;
+    pkg_build_pars_t b;
+    vector<string> depends;  // all dependencies not only immediate/listed
+};
+
+struct cmakex_pars_t : public pkg_desc_t
+{
+    enum subcommand_t
+    {
+        subcommand_invalid,
+        subcommand_cmake_steps
+    } subcommand = subcommand_invalid;
+
+    bool flag_c = false;
+    bool flag_b = false;
+    bool flag_t = false;
+    bool binary_dir_valid = false;
+    string binary_dir;
+    vector<string> build_args;
+    vector<string> native_tool_args;
+    vector<string> build_targets;
+    bool config_args_besides_binary_dir = false;
+    vector<string> add_pkgs;
+    bool deps = false;
+    bool strict_commits = false;
 };
 }
 

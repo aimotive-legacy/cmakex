@@ -9,18 +9,45 @@ namespace cmakex {
 namespace fs = filesystem;
 
 cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir, string_par cmake_source_dir)
+    : cmake_binary_dir(cmake_binary_dir.c_str()), cmake_source_dir(cmake_source_dir.c_str())
 {
-    const string bd = cmake_binary_dir.c_str();
-    cmakex_dir = bd + "/_cmakex";
-    cmakex_deps_binary_prefix = bd + "/../_deps/b";
-    cmakex_deps_clone_prefix = bd + "/../_deps/src";
-    cmakex_deps_clone_prefix = bd + "/../_deps/o";
-    cmakex_executor_dir = cmakex_dir + "/build_script_executor_project";
-    cmakex_tmp_dir = cmakex_dir + "/tmp";
-    cmakex_log_dir = cmakex_dir + "/log";
-    if (!cmake_source_dir.empty()) {
-        deps_script_file = cmake_source_dir.str() + "/deps.cmake";
-    }
+    // cmakex_deps_binary_prefix = bd + "/../_deps/b";
+    // cmakex_deps_clone_prefix = bd + "/../_deps/src";
+    // cmakex_deps_clone_prefix = bd + "/../_deps/o";
+    // cmakex_executor_dir = cmakex_dir + "/build_script_executor_project";
+    // if (!cmake_source_dir.empty()) {
+    //    deps_script_file = cmake_source_dir.str() + "/deps.cmake";
+    // }
+}
+
+string cmakex_config_t::cmakex_dir() const
+{
+    return cmake_binary_dir + "/_cmakex";
+}
+
+string cmakex_config_t::cmakex_executor_dir() const
+{
+    return cmakex_dir() + "/deps_script_executor_project";
+}
+
+string cmakex_config_t::cmakex_tmp_dir() const
+{
+    return cmakex_dir() + "/tmp";
+}
+
+string cmakex_config_t::cmakex_log_dir() const
+{
+    return cmakex_dir() + "/log";
+}
+
+string cmakex_config_t::pkg_clone_dir(string_par pkg_name) const
+{
+    return cmake_binary_dir + "/_deps/" + pkg_name.c_str();
+}
+
+string cmakex_config_t::pkg_binary_dir(string_par pkg_name) const
+{
+    return cmake_binary_dir + "/_deps/" + pkg_name.c_str() + "-build";
 }
 
 void badpars_exit(string_par msg)
@@ -46,10 +73,5 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
 
     CHECK(false);  // never here
     return false;
-}
-
-string cmakex_config_t::pkg_binary_dir(string_par pkg_name) const
-{
-    return cmakex_deps_binary_prefix + "/" + pkg_name.c_str();
 }
 }

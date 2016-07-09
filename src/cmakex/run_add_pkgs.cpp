@@ -20,13 +20,13 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-using pkg_requests_t = std::map<string, pkg_request_t>;
+using pkg_desc_map_t = std::map<string, pkg_desc_t>;
 
 using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
 
 void add_pkg_after_clone(string_par pkg_name,
                          const cmakex_pars_t& pars,
-                         pkg_requests_t& pkg_requests,
+                         pkg_desc_map_t& pkg_requests,
                          pkg_processing_statuses& pkg_statuses)
 {
     CHECK(false);
@@ -35,7 +35,7 @@ void add_pkg_after_clone(string_par pkg_name,
 void add_pkg(const string& pkg_name,
              const string& pkg_that_needs_it,
              const cmakex_pars_t& pars,
-             pkg_requests_t& pkg_requests,
+             pkg_desc_map_t& pkg_requests,
              pkg_processing_statuses& pkg_statuses)
 {
     if (pkg_statuses.count(pkg_name) > 0)
@@ -83,8 +83,8 @@ void add_pkg(const string& pkg_name,
                 // - make sure the package is cloned out exactly with clone-related options it was
                 // installed
                 {
-                    auto cp = req.clone_pars;
-                    cp.git_tag = installdb.try_get_installed_pkg_desc(pkg_name)->git_sha;
+                    auto cp = req.c;
+                    cp.git_tag = installdb.try_get_installed_pkg_desc(pkg_name)->c.git_tag;
                     make_sure_exactly_this_sha_is_cloned_or_fail(pkg_name, cp, pars.binary_dir);
                     do_build = true;
                 }
@@ -93,8 +93,8 @@ void add_pkg(const string& pkg_name,
                 // - make sure the package is cloned out: there are two modes of operation:
                 //   - strict (default) build only exactly the required clone
                 //   - permissive: build whatever is there, issue warning
-                make_sure_exactly_this_git_tag_is_cloned(pkg_name, req.clone_pars, pars.binary_dir,
-                                                         cfg.strict_clone);
+                make_sure_exactly_this_git_tag_is_cloned(pkg_name, req.c, pars.binary_dir,
+                                                         pars.strict_commits);
                 do_build = true;
                 break;
             case InstallDB::pkg_request_not_compatible:
@@ -109,11 +109,11 @@ void add_pkg(const string& pkg_name,
 
         if (do_build) {
             // find out if the build target is a dir containing CMakeList.txt or a build script
-            string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+            string clone_dir = cfg.pkg_clone_dir(pkg_name);
             string d = clone_dir;
             bool build_script_valid = false;
             string build_script_path;
-            if (req.source_dir.empty()) {
+            if (req.b.source_dir.empty()) {
                 string cmakelists_path = clone_dir + "/CMakeLists.txt";
                 if (fs::is_regular_file(cmakelists_path))
                     build_script_valid = true;
@@ -122,7 +122,7 @@ void add_pkg(const string& pkg_name,
                         "The root of the repository does not contain 'CMakeLists.txt' (no "
                         "SOURCE_DIR specified).");
             } else {
-                string d = clone_dir + "/" + req.source_dir;
+                string d = clone_dir + "/" + req.b.source_dir;
                 if (fs::is_directory(d)) {
                     string cmakelists_path = d + "/CMakeLists.txt";
                     if (fs::is_regular_file(d))
@@ -150,9 +150,9 @@ void add_pkg(const string& pkg_name,
 void run_add_pkgs(const cmakex_pars_t& pars)
 {
     CHECK(!pars.add_pkgs.empty());
-    CHECK(pars.source_dir.empty());
+    CHECK(pars.b.source_dir.empty());
 
-    pkg_requests_t pkg_requests;
+    pkg_desc_map_t pkg_requests;
 
     for (auto& pkg_arg_str : pars.add_pkgs) {
         auto request = pkg_request_from_arg_str(pkg_arg_str);
@@ -280,16 +280,16 @@ bool eval_cmake_boolean_or_fail(string_par x)
     throwf("Invalid boolean constant: %s", x.c_str());
 }
 
-pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str)
+pkg_desc_t pkg_request_from_arg_str(const string& pkg_arg_str)
 {
     return pkg_request_from_args(separate_arguments(pkg_arg_str));
 }
 
-pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
+pkg_desc_t pkg_request_from_args(const vector<string>& pkg_args)
 {
     if (pkg_args.empty())
         throwf("Empty package descriptor, package name is missing.");
-    pkg_request_t request;
+    pkg_desc_t request;
     request.name = pkg_args[0];
     auto args = parse_arguments(
         {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
@@ -306,34 +306,34 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
     if (args.count("GIT_URL") > 0)
         b = args["GIT_URL"][0];
     if (!a.empty()) {
-        request.clone_pars.git_url = a;
+        request.c.git_url = a;
         if (!b.empty())
             throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
     } else
-        request.clone_pars.git_url = b;
+        request.c.git_url = b;
 
     if (args.count("GIT_TAG") > 0)
-        request.clone_pars.git_tag = args["GIT_TAG"][0];
+        request.c.git_tag = args["GIT_TAG"][0];
     if (args.count("GIT_SHALLOW") > 0)
-        request.clone_pars.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
+        request.c.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
     if (args.count("SOURCE_DIR") > 0) {
-        request.source_dir = args["SOURCE_DIR"][0];
-        if (fs::path(request.source_dir).is_absolute())
-            throwf("SOURCE_DIR must be a relative path: \"%s\"", request.source_dir.c_str());
+        request.b.source_dir = args["SOURCE_DIR"][0];
+        if (fs::path(request.b.source_dir).is_absolute())
+            throwf("SOURCE_DIR must be a relative path: \"%s\"", request.b.source_dir.c_str());
     }
     if (args.count("DEPENDS") > 0)
         request.depends = args["DEPENDS"];
     if (args.count("CMAKE_ARGS") > 0) {
         // join some cmake options for easier search
         for (auto& a : args["CMAKE_ARGS"]) {
-            if (!request.cmake_args.empty() &&
-                is_one_of(request.cmake_args.back(), {"-C", "-D", "-U", "-G", "-T", "-A"})) {
-                request.cmake_args.back() += a;
+            if (!request.b.cmake_args.empty() &&
+                is_one_of(request.b.cmake_args.back(), {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+                request.b.cmake_args.back() += a;
             } else
-                request.cmake_args.emplace_back(a);
+                request.b.cmake_args.emplace_back(a);
         }
-        request.cmake_args = args["CMAKE_ARGS"];
-        for (auto& a : request.cmake_args) {
+        request.b.cmake_args = args["CMAKE_ARGS"];
+        for (auto& a : request.b.cmake_args) {
             if (starts_with(a, "-D")) {
                 int i = 2;
                 while (i < a.size() && a[i] != '=' && a[i] != ':')
@@ -346,7 +346,7 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
         }
     }
     if (args.count("CONFIGS") > 0)
-        request.configs = args["CONFIGS"];
+        request.b.configs = args["CONFIGS"];
 
     return request;
 }

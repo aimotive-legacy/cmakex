@@ -1,24 +1,29 @@
 #ifndef CMAKEX_UTILS_23094
 #define CMAKEX_UTILS_23094
 
-#include "pars.h"
+#include "using-decls.h"
 
 namespace cmakex {
 
 struct cmakex_config_t
 {
+    // specify main binary/source dirs.
+    // source dir is optional, certain value will not be available if omitted
     cmakex_config_t(string_par cmake_binary_dir, string_par cmake_source_dir = "");
-    string pkg_binary_dir(string_par pkg_name) const;
 
-    string cmakex_dir;
-    string cmakex_deps_binary_prefix;
-    string cmakex_deps_clone_prefix;
-    string cmakex_deps_install_prefix;
-    string cmakex_executor_dir;
-    string cmakex_tmp_dir;
-    string cmakex_log_dir;
-    bool strict_clone = true;  // accept only the clone at the commit exactly as specified
-    string deps_script_file;
+    // returns main dirs if pkg_name is empty
+    string pkg_binary_dir(string_par pkg_name) const;
+    string pkg_clone_dir(string_par pkg_name) const;
+    // string pkg_deps_script_file(string_par pkg_name) const;
+
+    string cmakex_dir() const;  // cmakex internal directory, within main cmake_binary_dir
+    string cmakex_executor_dir() const;
+    string cmakex_tmp_dir() const;
+    string cmakex_log_dir() const;
+
+private:
+    const string cmake_binary_dir;
+    const string cmake_source_dir;
 };
 
 void badpars_exit(string_par msg);

@@ -117,25 +117,25 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
     for (auto c : command) {
         switch (c) {
             case 'c':
-                pars.c = true;
+                pars.flag_c = true;
                 break;
             case 'b':
-                pars.b = true;
+                pars.flag_b = true;
                 break;
             case 'i':
                 pars.build_targets.emplace_back("install");
                 break;
             case 't':
-                pars.t = true;
+                pars.flag_t = true;
                 break;
             case 'd':
-                pars.configs.emplace_back("Debug");
+                pars.b.configs.emplace_back("Debug");
                 break;
             case 'r':
-                pars.configs.emplace_back("Release");
+                pars.b.configs.emplace_back("Release");
                 break;
             case 'w':
-                pars.configs.emplace_back("RelWithDebInfo");
+                pars.b.configs.emplace_back("RelWithDebInfo");
                 break;
             default:
                 badpars_exit(stringf("Invalid character in subcommand: %c", c));
@@ -144,10 +144,10 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
 
     auto set_source_dir = [&pars](string_par x) -> void {
         evaluate_source_dir(x);
-        if (!pars.source_dir.empty())
+        if (!pars.b.source_dir.empty())
             badpars_exit(stringf("Multiple source paths specified: \"%s\", then \"%s\"",
-                                 pars.source_dir.c_str(), x.c_str()));
-        pars.source_dir = x.c_str();
+                                 pars.b.source_dir.c_str(), x.c_str()));
+        pars.b.source_dir = x.c_str();
         LOG_INFO("Source dir: %s", x.c_str());
     };
 
@@ -181,7 +181,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         } else if (arg == "--config") {
             if (++argix >= argc)
                 badpars_exit("Missing config name after '--config'");
-            pars.configs.emplace_back(argv[argix]);
+            pars.b.configs.emplace_back(argv[argix]);
         } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
             pars.build_args.emplace_back(arg);
         else if (arg == "--deps") {
@@ -192,13 +192,13 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 if (arg == c) {
                     if (++argix >= argc)
                         badpars_exit(stringf("Missing argument after '%s'", c));
-                    pars.config_args.emplace_back(string(c) + argv[argix]);
+                    pars.b.cmake_args.emplace_back(string(c) + argv[argix]);
                     found = true;
                     pars.config_args_besides_binary_dir = true;
                     break;
                 }
                 if (starts_with(arg, c)) {
-                    pars.config_args.emplace_back(arg);
+                    pars.b.cmake_args.emplace_back(arg);
                     found = true;
                     break;
                 }
@@ -212,7 +212,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                            "--warn-uninitialized", "--warn-unused-vars", "--no-warn-unused-cli",
                            "--check-system-vars"}) {
                 if (arg == c) {
-                    pars.config_args.emplace_back(arg);
+                    pars.b.cmake_args.emplace_back(arg);
                     found = true;
                     pars.config_args_besides_binary_dir = true;
                     break;
@@ -223,8 +223,8 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 continue;
 
             if (starts_with(arg, "--graphwiz=")) {
-                pars.config_args.emplace_back(arg);
-                pars.config_args_besides_binary_dir = true;
+                pars.b.cmake_args.emplace_back(arg);
+                pars.flag_b = true;
                 continue;
             }
 
@@ -263,7 +263,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         }  // else: not one of specific args
     }      // foreach arg
     if (pars.binary_dir.empty()) {
-        if (pars.source_dir.empty())
+        if (pars.b.source_dir.empty())
             badpars_exit(
                 "Neither a source directory and nor a valid binary directory (path to an existing "
                 "build) specified.");
@@ -272,7 +272,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
     }
 
     if (!pars.add_pkgs.empty()) {
-        if (!pars.source_dir.empty())
+        if (!pars.b.source_dir.empty())
             badpars_exit(
                 "Don't specify source directory or build script (with or without '-H') together "
                 "with the '-P' option. Packages are assigned automatic source directories "
@@ -303,15 +303,15 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
         }
         if (found) {
             if (fs::is_directory(cmake_home_directory)) {
-                if (pars.source_dir.empty())
-                    pars.source_dir = cmake_home_directory;
+                if (pars.b.source_dir.empty())
+                    pars.b.source_dir = cmake_home_directory;
                 else {
-                    if (fs::canonical(pars.source_dir).string() !=
+                    if (fs::canonical(pars.b.source_dir).string() !=
                         fs::canonical(cmake_home_directory).string())
                         throwf(
                             "The source dir specified is different than the one found in the "
                             "CMakeCache.txt: \"%s\" and \"%s\"",
-                            pars.source_dir.c_str(), cmake_home_directory.c_str());
+                            pars.b.source_dir.c_str(), cmake_home_directory.c_str());
                 }
             } else
                 throwf(

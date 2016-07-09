@@ -18,7 +18,7 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
                                                            string_par pkg_name)
 {
     cmakex_config_t cfg(binary_dir);
-    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    string clone_dir = cfg.pkg_clone_dir(pkg_name);
     if (!fs::exists(clone_dir))
         return make_tuple(pkg_clone_dir_doesnt_exist, string{});
     // so it exists
@@ -43,7 +43,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
              cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str());
 
     cmakex_config_t cfg(binary_dir);
-    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    string clone_dir = cfg.pkg_clone_dir(pkg_name);
     vector<string> clone_args = {"--recurse"};
     string checkout;
     if (cp.git_tag.empty()) {
@@ -112,7 +112,7 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
     CHECK(sha_like(cp.git_tag));
 
     cmakex_config_t cfg(binary_dir);
-    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    string clone_dir = cfg.pkg_clone_dir(pkg_name);
 
     log_info("Making sure the working copy in \"%s\" is checked out at remote's '%s'",
              clone_dir.c_str(), cp.git_tag.c_str());
@@ -152,7 +152,7 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                                               bool strict)
 {
     cmakex_config_t cfg(binary_dir);
-    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_name.c_str();
+    string clone_dir = cfg.pkg_clone_dir(pkg_name);
     string git_tag_or_head = cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str();
 
     if (strict)

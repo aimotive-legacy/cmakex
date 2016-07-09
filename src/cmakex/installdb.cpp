@@ -37,7 +37,7 @@ void serialize(Archive& archive, installed_pkg_desc_t& m, uint32_t version)
 #undef A
 
 InstallDB::InstallDB(string_par binary_dir)
-    : dbpath(cmakex_config_t(binary_dir).cmakex_dir + "/" + "installed")
+    : dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installed")
 {
     if (!fs::exists(dbpath))
         fs::create_directories(dbpath);  // must be able to create the path

@@ -128,12 +128,58 @@ void fail_if_current_clone_has_different_commit(string req_git_tag,
     }
 }
 
-vector<string> run_deps_script(string binary_dir,
-                               string deps_script_file,
-                               const vector<string>& config_args,
-                               const vector<string>& configs,
-                               bool strict_commits,
-                               deps_recursion_wsp_t& wsp)
+vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
+                                                  string_par deps_script_filename,
+                                                  const vector<string>& config_args,
+                                                  const vector<string>& configs,
+                                                  bool strict_commits,
+                                                  deps_recursion_wsp_t& wsp);
+
+vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
+                                                   vector<string> request_deps,
+                                                   const vector<string>& config_args,
+                                                   const vector<string>& configs,
+                                                   bool strict_commits,
+                                                   deps_recursion_wsp_t& wsp)
+{
+    vector<string> pkgs_encountered;
+
+    // for each pkg:
+    for (auto& d : request_deps) {
+        auto pkgs_encountered_below =
+            run_deps_add_pkg({{d}}, binary_dir, config_args, configs, strict_commits, wsp);
+        pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
+    }
+
+    return pkgs_encountered;
+}
+
+vector<string> install_deps_phase_one(string_par binary_dir,
+                                      string_par source_dir,
+                                      vector<string> request_deps,
+                                      const vector<string>& config_args,
+                                      const vector<string>& configs,
+                                      bool strict_commits,
+                                      deps_recursion_wsp_t& wsp)
+{
+    CHECK(!binary_dir.empty());
+    if (!source_dir.empty()) {
+        string deps_script_file =
+            fs::canonical(source_dir.c_str()).string() + "/" + k_deps_script_filename;
+        if (fs::is_regular_file(deps_script_file))
+            return install_deps_phase_one_deps_script(binary_dir, deps_script_file, config_args,
+                                                      configs, strict_commits, wsp);
+    }
+    return install_deps_phase_one_request_deps(binary_dir, request_deps, config_args, configs,
+                                               strict_commits, wsp);
+}
+
+vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
+                                                  string_par deps_script_file,
+                                                  const vector<string>& config_args,
+                                                  const vector<string>& configs,
+                                                  bool strict_commits,
+                                                  deps_recursion_wsp_t& wsp)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -146,28 +192,24 @@ vector<string> run_deps_script(string binary_dir,
     // prefix dir.
 
     // create source dir
-    CHECK(!binary_dir.empty());
-
-    if (fs::path(deps_script_file).is_relative())
-        deps_script_file = fs::current_path().string() + "/" + deps_script_file;
 
     log_info("Processing dependency script \"%s\"", deps_script_file.c_str());
 
     if (fs::path(binary_dir).is_relative())
-        binary_dir = fs::current_path().string() + "/" + binary_dir;
+        binary_dir = fs::current_path().string() + "/" + binary_dir.c_str();
 
     const cmakex_config_t cfg(binary_dir);
 
     const string build_script_executor_binary_dir =
-        cfg.cmakex_executor_dir + "/" + k_default_binary_dirname;
+        cfg.cmakex_executor_dir() + "/" + k_default_binary_dirname;
 
     const string build_script_add_pkg_out_file =
-        cfg.cmakex_tmp_dir + "/" + k_build_script_add_pkg_out_filename;
+        cfg.cmakex_tmp_dir() + "/" + k_build_script_add_pkg_out_filename;
 
     const string build_script_cmakex_out_file =
-        cfg.cmakex_tmp_dir + "/" + k_build_script_cmakex_out_filename;
+        cfg.cmakex_tmp_dir() + "/" + k_build_script_cmakex_out_filename;
 
-    for (auto d : {cfg.cmakex_executor_dir, cfg.cmakex_tmp_dir}) {
+    for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
         if (!fs::is_directory(d)) {
             string msg;
             try {
@@ -187,7 +229,7 @@ vector<string> run_deps_script(string binary_dir,
     const string cmakelists_text_hash = build_script_executor_cmakelists_checksum(cmakelists_text);
 
     // force write if not exists or first hash line differs
-    string cmakelists_path = cfg.cmakex_executor_dir + "/CMakeLists.txt";
+    string cmakelists_path = cfg.cmakex_executor_dir() + "/CMakeLists.txt";
     bool cmakelists_exists = fs::exists(cmakelists_path);
     if (cmakelists_exists) {
         cmakelists_exists = false;  // if anything goes wrong, pretend it doesn't exist
@@ -209,7 +251,7 @@ vector<string> run_deps_script(string binary_dir,
     }
 
     vector<string> args;
-    args.emplace_back(string("-H") + cfg.cmakex_executor_dir);
+    args.emplace_back(string("-H") + cfg.cmakex_executor_dir());
     args.emplace_back(string("-B") + build_script_executor_binary_dir);
 
     args.insert(args.end(), BEGINEND(config_args));
@@ -220,7 +262,7 @@ vector<string> run_deps_script(string binary_dir,
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
-    save_log_from_oem(oem, cfg.cmakex_log_dir,
+    save_log_from_oem(oem, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
     if (r != EXIT_SUCCESS)
@@ -234,14 +276,14 @@ vector<string> run_deps_script(string binary_dir,
         auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "w");
     }
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
-                      deps_script_file + ";" + build_script_add_pkg_out_file);
+                      deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
 
     log_info("Executing dependencies script by executor project.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     auto oem2 = oeb2.move_result();
-    save_log_from_oem(oem2, cfg.cmakex_log_dir,
+    save_log_from_oem(oem2, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-run" + k_log_extension);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing build script by executor project, result: %d.", r);
@@ -253,8 +295,8 @@ vector<string> run_deps_script(string binary_dir,
 
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
-        auto pkgs_encountered_below =
-            run_deps_add_pkg(split(addpkg_line, '\t'), binary_dir, configs, strict_commits, wsp);
+        auto pkgs_encountered_below = run_deps_add_pkg(split(addpkg_line, '\t'), binary_dir,
+                                                       config_args, configs, strict_commits, wsp);
         pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
     }
 
@@ -262,7 +304,8 @@ vector<string> run_deps_script(string binary_dir,
 }
 
 vector<string> run_deps_add_pkg(const vector<string>& args,
-                                string binary_dir,
+                                string_par binary_dir,
+                                const vector<string>& config_args,
                                 const vector<string>& configs,
                                 bool strict_commits,
                                 deps_recursion_wsp_t& wsp)
@@ -285,19 +328,47 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         throwf("Circular dependency: %s", s.c_str());
     }
 
-    const bool already_installed = wsp.pkg_request_map.count(pkg_request.name) > 0;
-
     // if it's already installed we still need to process this:
     // - to enumerate all dependencies
     // - to check if only compatible installations are requested
 
-    wsp.requester_stack.emplace_back(pkg_request.name);
-
     // todo: get data from optional package registry here
 
     // fill configs from global par if not specified
-    if (pkg_request.configs.empty())
-        pkg_request.configs = configs;
+    if (pkg_request.b.configs.empty())
+        pkg_request.b.configs = configs;
+
+    // it's already processed
+    // 1. we may add a new configs to the planned ones
+    // 2. must check if other args are compatible
+    const bool already_processed = wsp.pkg_map.count(pkg_request.name) > 0;
+    if (already_processed) {
+        auto& pd = wsp.pkg_map[pkg_request.name];
+        // compare SOURCE_DIR
+        auto& s1 = pd.planned_desc.b.source_dir;
+        auto& s2 = pkg_request.b.source_dir;
+        if (s1 != s2) {
+            throwf(
+                "Different SOURCE_DIR args for the same package. The package '%s' is being added "
+                "for the second time. The first time the SOURCE_DIR was \"%s\" and not it's "
+                "\"%s\".",
+                pkg_request.name.c_str(), s1.c_str(), s2.c_str());
+        }
+        // compare CMAKE_ARGS
+        auto v = incompatible_cmake_args(pd.planned_desc.b.cmake_args, pkg_request.b.cmake_args);
+        if (!v.empty()) {
+            throwf(
+                "Different CMAKE_ARGS args for the same package. The package '%s' is being added "
+                "for the second time but the following CMAKE_ARGS are incompatible with the first "
+                "request: %s",
+                pkg_request.name.c_str(), join(v, ", ").c_str());
+        }
+        // there are two things left:
+        // - add missing configs if second addition defines configs not present in the planned
+        //   package. Also, there can be that a previous addition did not initiate a new build
+        //   because it's covered by the current installation but the second one does
+        // - compare clone pars between the planned and second addition
+    }
 
     tuple<pkg_clone_dir_status_t, string> clone_status;
     string cloned_sha;
@@ -328,34 +399,52 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     update_clone_status_vars();
 
-    auto clone_this = [&pkg_request, &binary_dir]() {
-        clone(pkg_request.name, pkg_request.clone_pars, binary_dir);
+    auto clone_this = [&pkg_request, &binary_dir, &wsp]() {
+        auto ct = get<0>(pkg_clone_dir_status(binary_dir, pkg_request.name));
+        CHECK(ct == pkg_clone_dir_doesnt_exist || ct == pkg_clone_dir_empty);
+        clone(pkg_request.name, pkg_request.c, binary_dir);
+        wsp.pkg_map[pkg_request.name].just_cloned = true;
     };
 
-    auto install_this = [&pkg_request, &binary_dir]() {
-    cfg
-        auto pkgs_encountered_below = run_deps_script(
-            binary_dir, string deps_script_file, const vector<string>& config_args,
-            const vector<string>& configs, bool strict_commits, deps_recursion_wsp_t& wsp);
-        wsp.build_order.emplace_back(pkg_request.name);
+    string pkg_source_dir = cfg.pkg_clone_dir(pkg_request.name);
+    if (!pkg_request.b.source_dir.empty())
+        pkg_source_dir += "/" + pkg_request.b.source_dir;
+
+    auto process_deps = [&cfg, &pkg_request, &binary_dir, &wsp, &configs, &config_args,
+                         strict_commits, &pkgs_encountered, &pkg_source_dir]() {
+
+        wsp.requester_stack.emplace_back(pkg_request.name);
+
+        auto pkgs_encountered_below =
+            install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends, config_args,
+                                   configs, strict_commits, wsp);
+
+        pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
+
+        CHECK(wsp.requester_stack.back() == pkg_request.name);
+        wsp.requester_stack.pop_back();
     };
+
+    // todo put this somewhere
+    // wsp.build_order.emplace_back(pkg_request.name);
+
     auto uninstall_this = []() {};
+
+    auto encountered_below = install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends,
+                                                    config_args, configs, strict_commits, wsp);
 
     // determine installed status
     InstallDB installdb(binary_dir);
     auto installed_result = installdb.evaluate_pkg_request(pkg_request);
-    string clone_dir = cfg.cmakex_deps_clone_prefix + "/" + pkg_request.name;
+    string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
     switch (installed_result.status) {
         case InstallDB::pkg_request_not_installed:
-            if (cloned)
-                clone_this();
             if (cloned && strict_commits)
-                fail_if_current_clone_has_different_commit(
-                    pkg_request.clone_pars.git_tag,
-                    cfg.cmakex_deps_clone_prefix + "/" + pkg_request.name, cloned_sha,
-                    pkg_request.clone_pars.git_url);
-            // cloning it now, SHA will be as requested
-            install_this();
+                fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
+                                                           cloned_sha, pkg_request.c.git_url);
+            if (!cloned)
+                clone_this();
+            process_deps();
             break;
         case InstallDB::pkg_request_missing_configs: {
             bool was_cloned = cloned;
@@ -364,22 +453,22 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                 update_clone_status_vars();
             }
             if (was_cloned && strict_commits)
-                fail_if_current_clone_has_different_commit(pkg_request.clone_pars.git_tag,
-                                                           clone_dir, cloned_sha,
-                                                           pkg_request.clone_pars.git_url);
-            if (cloned_sha == k_sha_uncommitted || cloned_sha != installed_result.pkg_desc.git_sha)
+                fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
+                                                           cloned_sha, pkg_request.c.git_url);
+            if (cloned_sha == k_sha_uncommitted ||
+                cloned_sha != installed_result.pkg_desc.c.git_tag)
                 uninstall_this();
-            install_this();
+            process_deps();
         } break;
         case InstallDB::pkg_request_satisfied:
             if (strict_commits) {
-                string req_git_tag = pkg_request.clone_pars.git_url;
+                string req_git_tag = pkg_request.c.git_url;
                 if (req_git_tag.empty())
                     req_git_tag = "HEAD";
                 string remote_sha;
                 try {
-                    remote_sha = must_git_resolve_ref_on_remote(
-                        req_git_tag, pkg_request.clone_pars.git_url, true);
+                    remote_sha =
+                        must_git_resolve_ref_on_remote(req_git_tag, pkg_request.c.git_url, true);
                 } catch (const exception& e) {
                     throwf(
                         "Because of the '--strict' option the directory \"%s\" should be reset "
@@ -387,10 +476,10 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                         "commit 'git ls-remote' "
                         "failed for \"%s\", reason: %s. Reset manually or remove the "
                         "directory.",
-                        clone_dir.c_str(), req_git_tag.c_str(),
-                        pkg_request.clone_pars.git_url.c_str(), e.what());
+                        clone_dir.c_str(), req_git_tag.c_str(), pkg_request.c.git_url.c_str(),
+                        e.what());
                 }
-                if (remote_sha == installed_result.pkg_desc.git_sha)
+                if (remote_sha == installed_result.pkg_desc.c.git_tag)
                     break;
                 bool sha_like = remote_sha == req_git_tag;
 
@@ -409,9 +498,9 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                                 "nor "
                                 "'git rev-parse' in \"%s\" was able to do it. Reset the "
                                 "repository manually or remove the directory.",
-                                req_git_tag.c_str(), pkg_request.clone_pars.git_url.c_str(),
+                                req_git_tag.c_str(), pkg_request.c.git_url.c_str(),
                                 clone_dir.c_str());
-                        if (resolved_remote_sha == installed_result.pkg_desc.git_sha)
+                        if (resolved_remote_sha == installed_result.pkg_desc.c.git_tag)
                             break;
                     } else
                         resolved_remote_sha = remote_sha;
@@ -430,7 +519,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                     // not cloned
                     clone_this();
                     update_clone_status_vars();
-                    if (cloned_sha != installed_result.pkg_desc.git_sha)
+                    if (cloned_sha != installed_result.pkg_desc.c.git_tag)
                         install_this();
                 }
             }
@@ -438,9 +527,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         case InstallDB::pkg_request_not_compatible:
             if (cloned) {
                 if (strict_commits)
-                    fail_if_current_clone_has_different_commit(pkg_request.clone_pars.git_url,
-                                                               clone_dir, cloned_sha,
-                                                               pkg_request.clone_pars.git_url);
+                    fail_if_current_clone_has_different_commit(pkg_request.c.git_url, clone_dir,
+                                                               cloned_sha, pkg_request.c.git_url);
             } else
                 clone_this();
             uninstall_this();
@@ -452,9 +540,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     std::sort(BEGINEND(pkgs_encountered));
     sx::unique_trunc(pkgs_encountered);
-    wsp.pkg_request_map[pkg_request.name].depends = pkgs_encountered;
-    CHECK(wsp.requester_stack.back() == pkg_request.name);
-    wsp.requester_stack.pop_back();
+    wsp.pkg_map[pkg_request.name].planned_desc.depends = pkgs_encountered;
     return pkgs_encountered;
 }
 }

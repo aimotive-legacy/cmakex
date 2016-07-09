@@ -10,9 +10,11 @@
 #include "run_cmake_steps.h"
 #include "run_deps_script.h"
 
+#include <cmath>
+
 namespace cmakex {
 
-void install(const pkg_request_t& pkg_request)
+void install(const pkg_desc_t& pkg_request)
 {
     LOG_INFO("Installing %s", pkg_request.name.c_str());
     // todo
@@ -28,14 +30,14 @@ int main(int argc, char* argv[])
         if (!pars.add_pkgs.empty())
             run_add_pkgs(pars);
         else {
-            CHECK(!pars.source_dir.empty());
+            CHECK(!pars.b.source_dir.empty());
             if (pars.deps) {
-                cmakex_config_t cfg(pars.binary_dir, pars.source_dir);
+                cmakex_config_t cfg(pars.binary_dir, pars.b.source_dir);
                 deps_recursion_wsp_t wsp;
-                run_deps_script(pars.binary_dir, cfg.deps_script_file, pars.config_args,
-                                pars.configs, pars.strict_commits, wsp);
+                install_deps_phase_one(pars.binary_dir, pars.b.source_dir, {}, pars.b.cmake_args,
+                                       pars.b.configs, pars.strict_commits, wsp);
                 for (auto& p : wsp.build_order)
-                    install(wsp.pkg_request_map[p]);
+                    install(wsp.pkg_map[p].planned_desc);
             }
             run_cmake_steps(pars);
         }
