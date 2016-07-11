@@ -5,7 +5,7 @@ add_executable(cmakex
     print.h print.cpp
     main.cpp
     process_command_line.h process_command_line.cpp
-    run_deps_script.cpp run_deps_script.h
+    install_deps_phase_one.cpp install_deps_phase_one.h
     run_add_pkgs.cpp run_add_pkgs.h
     cmakex_utils.h cmakex_utils.cpp
     git.cpp git.h

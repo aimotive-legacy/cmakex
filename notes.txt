@@ -1,14 +1,12 @@
-set(PKG_CONFIGS Release)
-add_pkg(ZIB GIT_URL x GIT_TAG y)
-set(PKG_CONFIGS Debug)
-set(PKG_CLONE_DIR ./)
-add_pkg(IZE GIT_URL x GIT_TAG y)
-build(CMAKE_ARGS ize bize SOURCE_DIR ..)
+TODO:
 
-build/cmakex-install
-build/cmakex-build
-build/cmakex-clone
-cmakex cbdrit
+- implement install_deps_phase_two
+- add installing main project
+- test local builds
+- check what's with the deprecated? run_add_pkgs
+- add diagnostic features, env.txt, packages_resolved
+- start using this for local builds in jenkins
+
 
 
 add_pkg:

@@ -8,7 +8,7 @@
 #include "process_command_line.h"
 #include "run_add_pkgs.h"
 #include "run_cmake_steps.h"
-#include "run_deps_script.h"
+#include "install_deps_phase_one.h"
 
 #include <cmath>
 

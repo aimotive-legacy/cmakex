@@ -14,7 +14,7 @@
 #include "installdb.h"
 #include "misc_utils.h"
 #include "print.h"
-#include "run_deps_script.h"
+#include "install_deps_phase_one.h"
 
 namespace cmakex {
 
