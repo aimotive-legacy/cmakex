@@ -37,7 +37,10 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
                                                                   : pkg_clone_dir_git_local_changes,
                       sha);
 }
-void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_dir)
+void clone(string_par pkg_name,
+           const pkg_clone_pars_t& cp,
+           const bool git_shallow,
+           string_par binary_dir)
 {
     log_info("Cloning package '%s'@%s", pkg_name.c_str(),
              cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str());
@@ -47,7 +50,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
     vector<string> clone_args = {"--recurse"};
     string checkout;
     if (cp.git_tag.empty()) {
-        if (cp.git_shallow)
+        if (git_shallow)
             clone_args = {"--single-branch", "--depth", "1"};
     } else {
         auto git_tag_kind = initial_git_tag_kind(cp.git_tag);
@@ -60,7 +63,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
         }
         if (git_tag_kind >= git_tag_must_be_sha) {
             checkout = cp.git_tag;
-            if (cp.git_shallow) {
+            if (git_shallow) {
                 // try to resolve corresponding reference
                 auto git_tag = try_find_unique_ref_by_sha_with_ls_remote(cp.git_url, cp.git_tag);
                 do {
@@ -88,7 +91,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
                 } while (false);
             }
         } else {
-            if (!cp.git_shallow)
+            if (!git_shallow)
                 clone_args = {"--branch", cp.git_tag.c_str(), "--no-single-branch"};
             else
                 clone_args = {"--branch", cp.git_tag.c_str(), "--depth", "1"};
@@ -107,6 +110,7 @@ void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_di
 }
 void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
                                                   const pkg_clone_pars_t& cp,
+                                                  const bool git_shallow,
                                                   string_par binary_dir)
 {
     CHECK(sha_like(cp.git_tag));
@@ -126,7 +130,7 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
     switch (std::get<0>(cds)) {
         case pkg_clone_dir_doesnt_exist:
         case pkg_clone_dir_empty:
-            clone(pkg_name, cp, binary_dir);
+            clone(pkg_name, cp, git_shallow, binary_dir);
             break;
         case pkg_clone_dir_nonempty_nongit:
             throwf("The directory contains non-git files which are in the way. %s",
@@ -148,6 +152,7 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
 }
 void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                                               const pkg_clone_pars_t& cp,
+                                              const bool git_shallow,
                                               string_par binary_dir,
                                               bool strict)
 {
@@ -172,7 +177,7 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
     switch (std::get<0>(cds)) {
         case pkg_clone_dir_doesnt_exist:
         case pkg_clone_dir_empty:
-            clone(pkg_name, cp, binary_dir);
+            clone(pkg_name, cp, git_shallow, binary_dir);
             break;
         case pkg_clone_dir_nonempty_nongit:
             if (strict)

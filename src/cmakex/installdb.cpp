@@ -11,8 +11,7 @@
 #include "filesystem.h"
 #include "misc_utils.h"
 
-CEREAL_CLASS_VERSION(cmakex::installed_pkg_desc_t, 1)
-CEREAL_CLASS_VERSION(cmakex::installed_pkg_desc_t::depends_item_t, 1)
+CEREAL_CLASS_VERSION(cmakex::pkg_desc_t, 1)
 
 namespace cmakex {
 
@@ -21,17 +20,24 @@ namespace fs = filesystem;
 #define A(X) cereal::make_nvp(#X, m.X)
 
 template <class Archive>
-void serialize(Archive& archive, installed_pkg_desc_t::depends_item_t& m, uint32_t version)
+void serialize(Archive& archive, pkg_build_pars_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(pkg_name));
+    archive(A(source_dir), A(cmake_args), A(configs));
 }
 
 template <class Archive>
-void serialize(Archive& archive, installed_pkg_desc_t& m, uint32_t version)
+void serialize(Archive& archive, pkg_clone_pars_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(name), A(git_url), A(git_sha), A(source_dir), A(depends), A(cmake_args), A(configs));
+    archive(A(git_url), A(git_tag));
+}
+
+template <class Archive>
+void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(A(name), A(c), A(b), A(depends));
 }
 
 #undef A
@@ -43,7 +49,7 @@ InstallDB::InstallDB(string_par binary_dir)
         fs::create_directories(dbpath);  // must be able to create the path
 }
 
-maybe<installed_pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg_name) const
+maybe<pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg_name) const
 {
     auto path = installed_pkg_desc_path(pkg_name);
     nowide::ifstream f(path);
@@ -53,7 +59,7 @@ maybe<installed_pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg
     try {
         // otherwise it must succeed
         cereal::JSONInputArchive a(f);
-        maybe<installed_pkg_desc_t> r(in_place);
+        maybe<pkg_desc_t> r(in_place);
         a(*r);
         return r;
     } catch (const exception& e) {
@@ -67,7 +73,7 @@ maybe<installed_pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg
     return nothing;
 }
 
-void InstallDB::put_installed_pkg_desc(const installed_pkg_desc_t& p)
+void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
 {
     auto path = installed_pkg_desc_path(p.name);
     nowide::ofstream f(path, std::ios_base::trunc);
@@ -150,14 +156,6 @@ vector<string> make_canonical_cmake_args(const vector<string>& x)
     return canonical_args;
 }
 
-template <class C>
-C set_difference(const C& x, const C& y)
-{
-    C r(std::max(x.size(), y.size()));
-    r.erase(std::set_difference(BEGINEND(x), BEGINEND(y), r.begin()), r.end());
-    return r;
-}
-
 bool is_critical_cmake_arg(const string& s)
 {
     for (auto p : {"-C", "-D", "-G", "-T", "-A"}) {
@@ -181,7 +179,7 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
     return r;
 }
 
-InstallDB::request_eval_result_t InstallDB::evaluate_pkg_request(const pkg_request_t& req)
+InstallDB::request_eval_result_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req)
 {
     auto maybe_desc = try_get_installed_pkg_desc(req.name);
     request_eval_result_t r;
@@ -189,9 +187,9 @@ InstallDB::request_eval_result_t InstallDB::evaluate_pkg_request(const pkg_reque
         r.status = pkg_request_not_installed;
     else {
         r.pkg_desc = move(*maybe_desc);
-        auto ica = incompatible_cmake_args(maybe_desc->cmake_args, req.cmake_args);
+        auto ica = incompatible_cmake_args(maybe_desc->b.cmake_args, req.b.cmake_args);
         if (ica.empty()) {
-            r.missing_configs = set_difference(req.configs, maybe_desc->configs);
+            r.missing_configs = set_difference(req.b.configs, maybe_desc->b.configs);
             if (r.missing_configs.empty())
                 r.status = pkg_request_satisfied;
             else {

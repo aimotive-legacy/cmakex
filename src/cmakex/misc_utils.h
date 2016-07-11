@@ -124,6 +124,16 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
 
 vector<string> must_read_file_as_lines(string_par filename);
 vector<string> split(string_par x, char y);
+
+template <class C>
+C set_difference(const C& x, const C& y)
+{
+    CHECK(std::is_sorted(BEGINEND(x)));
+    CHECK(std::is_sorted(BEGINEND(y)));
+    C r(std::max(x.size(), y.size()));
+    r.erase(std::set_difference(BEGINEND(x), BEGINEND(y), r.begin()), r.end());
+    return r;
+}
 }
 
 #endif

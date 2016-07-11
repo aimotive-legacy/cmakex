@@ -20,13 +20,13 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-using pkg_desc_map_t = std::map<string, pkg_desc_t>;
+using pkg_request_map_t = std::map<string, pkg_request_t>;
 
 using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
 
 void add_pkg_after_clone(string_par pkg_name,
                          const cmakex_pars_t& pars,
-                         pkg_desc_map_t& pkg_requests,
+                         pkg_request_map_t& pkg_requests,
                          pkg_processing_statuses& pkg_statuses)
 {
     CHECK(false);
@@ -35,7 +35,7 @@ void add_pkg_after_clone(string_par pkg_name,
 void add_pkg(const string& pkg_name,
              const string& pkg_that_needs_it,
              const cmakex_pars_t& pars,
-             pkg_desc_map_t& pkg_requests,
+             pkg_request_map_t& pkg_requests,
              pkg_processing_statuses& pkg_statuses)
 {
     if (pkg_statuses.count(pkg_name) > 0)
@@ -85,7 +85,8 @@ void add_pkg(const string& pkg_name,
                 {
                     auto cp = req.c;
                     cp.git_tag = installdb.try_get_installed_pkg_desc(pkg_name)->c.git_tag;
-                    make_sure_exactly_this_sha_is_cloned_or_fail(pkg_name, cp, pars.binary_dir);
+                    make_sure_exactly_this_sha_is_cloned_or_fail(pkg_name, cp, req.git_shallow,
+                                                                 pars.binary_dir);
                     do_build = true;
                 }
                 break;
@@ -93,8 +94,8 @@ void add_pkg(const string& pkg_name,
                 // - make sure the package is cloned out: there are two modes of operation:
                 //   - strict (default) build only exactly the required clone
                 //   - permissive: build whatever is there, issue warning
-                make_sure_exactly_this_git_tag_is_cloned(pkg_name, req.c, pars.binary_dir,
-                                                         pars.strict_commits);
+                make_sure_exactly_this_git_tag_is_cloned(pkg_name, req.c, req.git_shallow,
+                                                         pars.binary_dir, pars.strict_commits);
                 do_build = true;
                 break;
             case InstallDB::pkg_request_not_compatible:
@@ -152,7 +153,7 @@ void run_add_pkgs(const cmakex_pars_t& pars)
     CHECK(!pars.add_pkgs.empty());
     CHECK(pars.b.source_dir.empty());
 
-    pkg_desc_map_t pkg_requests;
+    pkg_request_map_t pkg_requests;
 
     for (auto& pkg_arg_str : pars.add_pkgs) {
         auto request = pkg_request_from_arg_str(pkg_arg_str);
@@ -280,16 +281,16 @@ bool eval_cmake_boolean_or_fail(string_par x)
     throwf("Invalid boolean constant: %s", x.c_str());
 }
 
-pkg_desc_t pkg_request_from_arg_str(const string& pkg_arg_str)
+pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str)
 {
     return pkg_request_from_args(separate_arguments(pkg_arg_str));
 }
 
-pkg_desc_t pkg_request_from_args(const vector<string>& pkg_args)
+pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
 {
     if (pkg_args.empty())
         throwf("Empty package descriptor, package name is missing.");
-    pkg_desc_t request;
+    pkg_request_t request;
     request.name = pkg_args[0];
     auto args = parse_arguments(
         {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
@@ -315,7 +316,7 @@ pkg_desc_t pkg_request_from_args(const vector<string>& pkg_args)
     if (args.count("GIT_TAG") > 0)
         request.c.git_tag = args["GIT_TAG"][0];
     if (args.count("GIT_SHALLOW") > 0)
-        request.c.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
+        request.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
     if (args.count("SOURCE_DIR") > 0) {
         request.b.source_dir = args["SOURCE_DIR"][0];
         if (fs::path(request.b.source_dir).is_absolute())

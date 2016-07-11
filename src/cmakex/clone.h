@@ -21,16 +21,21 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
                                                            string_par pkg_name);
 
 // executes git-clone
-void clone(string_par pkg_name, const pkg_clone_pars_t& cp, string_par binary_dir);
+void clone(string_par pkg_name,
+           const pkg_clone_pars_t& cp,
+           const bool git_shallow,
+           string_par binary_dir);
 
 // cp.git_tag must be an SHA
 void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
                                                   const pkg_clone_pars_t& cp,
+                                                  const bool git_shallow,
                                                   string_par binary_dir);
 
 // throws if strict, warns otherwise
 void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                                               const pkg_clone_pars_t& cp,
+                                              const bool git_shallow,
                                               string_par binary_dir,
                                               bool strict);
 }

@@ -343,9 +343,9 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     // 2. must check if other args are compatible
     const bool already_processed = wsp.pkg_map.count(pkg_request.name) > 0;
     if (already_processed) {
-        auto& pd = wsp.pkg_map[pkg_request.name];
+        auto& pd = wsp.pkg_map[pkg_request.name].planned_desc;
         // compare SOURCE_DIR
-        auto& s1 = pd.planned_desc.b.source_dir;
+        auto& s1 = pd.b.source_dir;
         auto& s2 = pkg_request.b.source_dir;
         if (s1 != s2) {
             throwf(
@@ -355,7 +355,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                 pkg_request.name.c_str(), s1.c_str(), s2.c_str());
         }
         // compare CMAKE_ARGS
-        auto v = incompatible_cmake_args(pd.planned_desc.b.cmake_args, pkg_request.b.cmake_args);
+        auto v = incompatible_cmake_args(pd.b.cmake_args, pkg_request.b.cmake_args);
         if (!v.empty()) {
             throwf(
                 "Different CMAKE_ARGS args for the same package. The package '%s' is being added "
@@ -363,11 +363,6 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                 "request: %s",
                 pkg_request.name.c_str(), join(v, ", ").c_str());
         }
-        // there are two things left:
-        // - add missing configs if second addition defines configs not present in the planned
-        //   package. Also, there can be that a previous addition did not initiate a new build
-        //   because it's covered by the current installation but the second one does
-        // - compare clone pars between the planned and second addition
     }
 
     tuple<pkg_clone_dir_status_t, string> clone_status;
@@ -399,39 +394,17 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     update_clone_status_vars();
 
-    auto clone_this = [&pkg_request, &binary_dir, &wsp]() {
+    auto clone_this = [&pkg_request, &binary_dir, &wsp, update_clone_status_vars]() {
         auto ct = get<0>(pkg_clone_dir_status(binary_dir, pkg_request.name));
         CHECK(ct == pkg_clone_dir_doesnt_exist || ct == pkg_clone_dir_empty);
-        clone(pkg_request.name, pkg_request.c, binary_dir);
+        clone(pkg_request.name, pkg_request.c, pkg_request.git_shallow, binary_dir);
         wsp.pkg_map[pkg_request.name].just_cloned = true;
+        update_clone_status_vars();
     };
 
     string pkg_source_dir = cfg.pkg_clone_dir(pkg_request.name);
     if (!pkg_request.b.source_dir.empty())
         pkg_source_dir += "/" + pkg_request.b.source_dir;
-
-    auto process_deps = [&cfg, &pkg_request, &binary_dir, &wsp, &configs, &config_args,
-                         strict_commits, &pkgs_encountered, &pkg_source_dir]() {
-
-        wsp.requester_stack.emplace_back(pkg_request.name);
-
-        auto pkgs_encountered_below =
-            install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends, config_args,
-                                   configs, strict_commits, wsp);
-
-        pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
-
-        CHECK(wsp.requester_stack.back() == pkg_request.name);
-        wsp.requester_stack.pop_back();
-    };
-
-    // todo put this somewhere
-    // wsp.build_order.emplace_back(pkg_request.name);
-
-    auto uninstall_this = []() {};
-
-    auto encountered_below = install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends,
-                                                    config_args, configs, strict_commits, wsp);
 
     // determine installed status
     InstallDB installdb(binary_dir);
@@ -444,21 +417,14 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                                                            cloned_sha, pkg_request.c.git_url);
             if (!cloned)
                 clone_this();
-            process_deps();
             break;
         case InstallDB::pkg_request_missing_configs: {
             bool was_cloned = cloned;
-            if (!cloned) {
+            if (!cloned)
                 clone_this();
-                update_clone_status_vars();
-            }
             if (was_cloned && strict_commits)
                 fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
                                                            cloned_sha, pkg_request.c.git_url);
-            if (cloned_sha == k_sha_uncommitted ||
-                cloned_sha != installed_result.pkg_desc.c.git_tag)
-                uninstall_this();
-            process_deps();
         } break;
         case InstallDB::pkg_request_satisfied:
             if (strict_commits) {
@@ -514,13 +480,9 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                             "it. Reset manually or remove the "
                             "directory.",
                             clone_dir.c_str(), req_git_tag.c_str());
-                    install_this();
                 } else {
                     // not cloned
                     clone_this();
-                    update_clone_status_vars();
-                    if (cloned_sha != installed_result.pkg_desc.c.git_tag)
-                        install_this();
                 }
             }
             break;
@@ -531,16 +493,75 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                                                                cloned_sha, pkg_request.c.git_url);
             } else
                 clone_this();
-            uninstall_this();
-            install_this();
             break;
         default:
             CHECK(false);
     }
 
+    string unresolved_git_tag = pkg_request.c.git_tag;
+
+    if (cloned) {
+        pkg_request.c.git_tag = cloned_sha;
+    } else {
+        CHECK(installed_result.status == InstallDB::pkg_request_satisfied);
+        pkg_request.c.git_tag = installed_result.pkg_desc.c.git_tag;
+    }
+
+    if (already_processed) {
+        // verify final, resolved commit SHAs
+        auto& pm = wsp.pkg_map[pkg_request.name];
+        string prev_git_tag = pm.planned_desc.c.git_tag;
+        if (pkg_request.c.git_tag != prev_git_tag) {
+            throwf(
+                "Different GIT_TAG's: this package has already been added but with different "
+                "GIT_TAG specification. Previous GIT_TAG was '%s', resolved as %s, current GIT_TAG "
+                "is '%s', resolved as %s",
+                pm.unresolved_git_tag.c_str(), prev_git_tag.c_str(), unresolved_git_tag.c_str(),
+                pkg_request.c.git_tag.c_str());
+        }
+    }
+
+    // process_deps
+    {
+        if (cloned) {
+            wsp.requester_stack.emplace_back(pkg_request.name);
+
+            auto pkgs_encountered_below =
+                install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends, config_args,
+                                       configs, strict_commits, wsp);
+
+            pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
+
+            CHECK(wsp.requester_stack.back() == pkg_request.name);
+            wsp.requester_stack.pop_back();
+        } else {
+            // enumerate dependencies from description of installed package
+            CHECK(installed_result.status == InstallDB::pkg_request_satisfied);
+            auto pkgs_encountered_below = installed_result.pkg_desc.depends;
+            pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
+        }
+    }
+
     std::sort(BEGINEND(pkgs_encountered));
     sx::unique_trunc(pkgs_encountered);
-    wsp.pkg_map[pkg_request.name].planned_desc.depends = pkgs_encountered;
+
+    auto& pm = wsp.pkg_map[pkg_request.name];
+    auto& pd = pm.planned_desc;
+    if (already_processed) {
+        // extend configs if needed
+        pd.b.configs.insert(pd.b.configs.end(), BEGINEND(pkg_request.b.configs));
+        std::sort(BEGINEND(pd.b.configs));
+        sx::unique_trunc(pd.b.configs);
+        // extend depends if needed
+        pd.depends.insert(pd.depends.end(), BEGINEND(pkgs_encountered));
+        std::sort(BEGINEND(pd.depends));
+        sx::unique_trunc(pd.depends);
+    } else {
+        wsp.build_order.push_back(pkg_request.name);
+        pm.unresolved_git_tag = unresolved_git_tag;
+        pd = pkg_request;
+        pd.depends = pkgs_encountered;
+    }
     return pkgs_encountered;
 }
 }

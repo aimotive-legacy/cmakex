@@ -28,7 +28,6 @@ struct pkg_clone_pars_t
 {
     string git_url;
     string git_tag;
-    bool git_shallow = true;  // if false, clone only the requested branch at depth=1
 };
 
 struct pkg_build_pars_t
@@ -51,7 +50,12 @@ struct pkg_desc_t
     vector<string> depends;  // all dependencies not only immediate/listed
 };
 
-struct cmakex_pars_t : public pkg_desc_t
+struct pkg_request_t : public pkg_desc_t
+{
+    bool git_shallow = true;  // if false, clone only the requested branch at depth=1
+};
+
+struct cmakex_pars_t : public pkg_request_t
 {
     enum subcommand_t
     {
