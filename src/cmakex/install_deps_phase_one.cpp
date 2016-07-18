@@ -365,41 +365,13 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         }
     }
 
-    tuple<pkg_clone_dir_status_t, string> clone_status;
-    string cloned_sha;
-    bool cloned;
+    clone_helper_t clone_helper(binary_dir, pkg_request.name);
+    auto& cloned = clone_helper.cloned;
+    auto& cloned_sha = clone_helper.cloned_sha;
 
-    auto update_clone_status_vars = [&clone_status, &cloned_sha, &cloned, &pkg_request,
-                                     &binary_dir]() {
-        // determine cloned status
-        clone_status = pkg_clone_dir_status(binary_dir, pkg_request.name);
-        cloned = false;
-        switch (get<0>(clone_status)) {
-            case pkg_clone_dir_doesnt_exist:
-            case pkg_clone_dir_empty:
-                break;
-            case pkg_clone_dir_git:
-                cloned_sha = get<1>(clone_status);
-                cloned = true;
-                break;
-            case pkg_clone_dir_git_local_changes:
-            case pkg_clone_dir_nonempty_nongit:
-                cloned_sha = k_sha_uncommitted;
-                cloned = true;
-                break;
-            default:
-                CHECK(false);
-        }
-    };
-
-    update_clone_status_vars();
-
-    auto clone_this = [&pkg_request, &binary_dir, &wsp, update_clone_status_vars]() {
-        auto ct = get<0>(pkg_clone_dir_status(binary_dir, pkg_request.name));
-        CHECK(ct == pkg_clone_dir_doesnt_exist || ct == pkg_clone_dir_empty);
-        clone(pkg_request.name, pkg_request.c, pkg_request.git_shallow, binary_dir);
+    auto clone_this = [&pkg_request, &wsp, &clone_helper] {
+        clone_helper.clone(pkg_request.c, pkg_request.git_shallow);
         wsp.pkg_map[pkg_request.name].just_cloned = true;
-        update_clone_status_vars();
     };
 
     string pkg_source_dir = cfg.pkg_clone_dir(pkg_request.name);
@@ -411,14 +383,14 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     auto installed_result = installdb.evaluate_pkg_request(pkg_request);
     string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
     switch (installed_result.status) {
-        case InstallDB::pkg_request_not_installed:
+        case pkg_request_not_installed:
             if (cloned && strict_commits)
                 fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
                                                            cloned_sha, pkg_request.c.git_url);
             if (!cloned)
                 clone_this();
             break;
-        case InstallDB::pkg_request_missing_configs: {
+        case pkg_request_missing_configs: {
             bool was_cloned = cloned;
             if (!cloned)
                 clone_this();
@@ -426,7 +398,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                 fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
                                                            cloned_sha, pkg_request.c.git_url);
         } break;
-        case InstallDB::pkg_request_satisfied:
+        case pkg_request_satisfied:
             if (strict_commits) {
                 string req_git_tag = pkg_request.c.git_url;
                 if (req_git_tag.empty())
@@ -486,7 +458,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
                 }
             }
             break;
-        case InstallDB::pkg_request_not_compatible:
+        case pkg_request_not_compatible:
             if (cloned) {
                 if (strict_commits)
                     fail_if_current_clone_has_different_commit(pkg_request.c.git_url, clone_dir,
@@ -503,7 +475,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     if (cloned) {
         pkg_request.c.git_tag = cloned_sha;
     } else {
-        CHECK(installed_result.status == InstallDB::pkg_request_satisfied);
+        CHECK(installed_result.status == pkg_request_satisfied);
         pkg_request.c.git_tag = installed_result.pkg_desc.c.git_tag;
     }
 
@@ -536,7 +508,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
             wsp.requester_stack.pop_back();
         } else {
             // enumerate dependencies from description of installed package
-            CHECK(installed_result.status == InstallDB::pkg_request_satisfied);
+            CHECK(installed_result.status == pkg_request_satisfied);
             auto pkgs_encountered_below = installed_result.pkg_desc.depends;
             pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
         }

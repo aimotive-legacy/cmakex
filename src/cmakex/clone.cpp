@@ -7,6 +7,7 @@
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "git.h"
+#include "git.h"
 #include "misc_utils.h"
 #include "print.h"
 
@@ -271,6 +272,37 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                             warnmsg.c_str());
                 }
             }
+            break;
+        default:
+            CHECK(false);
+    }
+}
+
+void clone_helper_t::clone(const pkg_clone_pars_t& c, bool git_shallow)
+{
+    auto ct = get<0>(pkg_clone_dir_status(binary_dir, pkg_name));
+    CHECK(ct == pkg_clone_dir_doesnt_exist || ct == pkg_clone_dir_empty);
+    cmakex::clone(pkg_name, c, git_shallow, binary_dir);
+    update_clone_status_vars();
+}
+
+void clone_helper_t::update_clone_status_vars()
+{
+    // determine cloned status
+    clone_status = pkg_clone_dir_status(binary_dir, pkg_name);
+    cloned = false;
+    switch (get<0>(clone_status)) {
+        case pkg_clone_dir_doesnt_exist:
+        case pkg_clone_dir_empty:
+            break;
+        case pkg_clone_dir_git:
+            cloned_sha = get<1>(clone_status);
+            cloned = true;
+            break;
+        case pkg_clone_dir_git_local_changes:
+        case pkg_clone_dir_nonempty_nongit:
+            cloned_sha = k_sha_uncommitted;
+            cloned = true;
             break;
         default:
             CHECK(false);

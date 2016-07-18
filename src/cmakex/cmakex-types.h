@@ -1,6 +1,8 @@
 #ifndef CMAKEX_TYPES_29034023
 #define CMAKEX_TYPES_29034023
 
+#include <map>
+
 #include "using-decls.h"
 
 namespace cmakex {
@@ -48,6 +50,8 @@ struct pkg_desc_t
     pkg_clone_pars_t c;
     pkg_build_pars_t b;
     vector<string> depends;  // all dependencies not only immediate/listed
+    string sha_of_installed_files;
+    std::map<string, string> dep_shas;  // sha's of dependencies at the time of the build
 };
 
 struct pkg_request_t : public pkg_desc_t
@@ -75,6 +79,24 @@ struct cmakex_pars_t : public pkg_request_t
     vector<string> add_pkgs;
     bool deps = false;
     bool strict_commits = false;
+};
+
+enum pkg_request_eval_against_installed_t
+{
+    invalid_status,
+    pkg_request_satisfied,        // the request is satisfied by what is installed
+    pkg_request_missing_configs,  // the request is partly satisfied, there are missing configs
+    pkg_request_not_installed,    // the requested package is not installed at all
+    pkg_request_not_compatible    // the request package is installed with incompatible build
+                                  // options
+};
+
+struct pkg_request_eval_details_t
+{
+    pkg_request_eval_against_installed_t status = invalid_status;
+    vector<string> missing_configs;
+    string incompatible_cmake_args;
+    pkg_desc_t pkg_desc;
 };
 }
 

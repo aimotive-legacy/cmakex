@@ -22,7 +22,7 @@ namespace fs = filesystem;
 
 using pkg_request_map_t = std::map<string, pkg_request_t>;
 
-using pkg_processing_statuses = std::map<string, InstallDB::request_eval_result_t>;
+using pkg_processing_statuses = std::map<string, pkg_request_eval_details_t>;
 
 void add_pkg_after_clone(string_par pkg_name,
                          const cmakex_pars_t& pars,
@@ -76,10 +76,10 @@ void add_pkg(const string& pkg_name,
         cmakex_config_t cfg(pars.binary_dir);
 
         switch (status.status) {
-            case InstallDB::pkg_request_satisfied:
+            case pkg_request_satisfied:
                 log_info("Package %s already installed", pkg_name.c_str());
                 break;
-            case InstallDB::pkg_request_missing_configs:
+            case pkg_request_missing_configs:
                 // - make sure the package is cloned out exactly with clone-related options it was
                 // installed
                 {
@@ -90,7 +90,7 @@ void add_pkg(const string& pkg_name,
                     do_build = true;
                 }
                 break;
-            case InstallDB::pkg_request_not_installed:
+            case pkg_request_not_installed:
                 // - make sure the package is cloned out: there are two modes of operation:
                 //   - strict (default) build only exactly the required clone
                 //   - permissive: build whatever is there, issue warning
@@ -98,7 +98,7 @@ void add_pkg(const string& pkg_name,
                                                          pars.binary_dir, pars.strict_commits);
                 do_build = true;
                 break;
-            case InstallDB::pkg_request_not_compatible:
+            case pkg_request_not_compatible:
                 throwf(
                     "Package request for '%s' cannot be satisfied due to incompatible build "
                     "options. Remove the package manually to allow it build with the new options "

@@ -6,6 +6,7 @@ add_executable(cmakex
     main.cpp
     process_command_line.h process_command_line.cpp
     install_deps_phase_one.cpp install_deps_phase_one.h
+    install_deps_phase_two.cpp install_deps_phase_two.h
     run_add_pkgs.cpp run_add_pkgs.h
     cmakex_utils.h cmakex_utils.cpp
     git.cpp git.h
@@ -13,6 +14,7 @@ add_executable(cmakex
     circular_dependency_detector.cpp circular_dependency_detector.h
     clone.h clone.cpp
     cmakex-types.h
+    build.h build.cpp install.h install.cpp
 )
 
 target_link_libraries(cmakex PRIVATE

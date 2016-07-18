@@ -5,20 +5,15 @@
 
 #include "cmakex_utils.h"
 #include "git.h"
+#include "install_deps_phase_one.h"
+#include "install_deps_phase_two.h"
 #include "process_command_line.h"
 #include "run_add_pkgs.h"
 #include "run_cmake_steps.h"
-#include "install_deps_phase_one.h"
 
 #include <cmath>
 
 namespace cmakex {
-
-void install(const pkg_desc_t& pkg_request)
-{
-    LOG_INFO("Installing %s", pkg_request.name.c_str());
-    // todo
-}
 
 int main(int argc, char* argv[])
 {
@@ -36,8 +31,7 @@ int main(int argc, char* argv[])
                 deps_recursion_wsp_t wsp;
                 install_deps_phase_one(pars.binary_dir, pars.b.source_dir, {}, pars.b.cmake_args,
                                        pars.b.configs, pars.strict_commits, wsp);
-                for (auto& p : wsp.build_order)
-                    install(wsp.pkg_map[p].planned_desc);
+                install_deps_phase_two(pars.binary_dir, wsp);
             }
             run_cmake_steps(pars);
         }

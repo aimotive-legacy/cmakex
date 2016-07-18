@@ -179,10 +179,10 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
     return r;
 }
 
-InstallDB::request_eval_result_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req)
+pkg_request_eval_details_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req)
 {
     auto maybe_desc = try_get_installed_pkg_desc(req.name);
-    request_eval_result_t r;
+    pkg_request_eval_details_t r;
     if (!maybe_desc)
         r.status = pkg_request_not_installed;
     else {

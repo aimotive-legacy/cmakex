@@ -38,6 +38,29 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                                               const bool git_shallow,
                                               string_par binary_dir,
                                               bool strict);
+
+struct clone_helper_t
+{
+    tuple<pkg_clone_dir_status_t, string> clone_status;
+    string cloned_sha;
+    bool cloned = false;
+
+    clone_helper_t(string_par binary_dir, string_par pkg_name)
+        : binary_dir(binary_dir.str()), pkg_name(pkg_name.str())
+    {
+        update_clone_status_vars();
+    }
+
+    // calls ::clone and updates *this
+    void clone(const pkg_clone_pars_t& c, bool git_shallow);
+
+private:
+    const string binary_dir;
+    const string pkg_name;
+
+    // updates *this
+    void update_clone_status_vars();
+};
 }
 
 #endif
