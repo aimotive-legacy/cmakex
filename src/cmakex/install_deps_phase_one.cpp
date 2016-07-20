@@ -26,7 +26,6 @@ const char* k_build_script_cmakex_out_filename = "cmakex_out.txt";
 const char* k_default_binary_dirname = "b";
 const char* k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
 const char* k_build_script_executor_log_name = "build_script_executor";
-const char* k_log_extension = ".log";
 
 string build_script_executor_cmakelists()
 {

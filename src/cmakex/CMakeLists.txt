@@ -14,7 +14,7 @@ add_executable(cmakex
     circular_dependency_detector.cpp circular_dependency_detector.h
     clone.h clone.cpp
     cmakex-types.h
-    build.h build.cpp install.h install.cpp
+    build.h build.cpp
 )
 
 target_link_libraries(cmakex PRIVATE

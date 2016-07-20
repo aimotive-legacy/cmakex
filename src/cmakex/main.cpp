@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
         else {
             CHECK(!pars.b.source_dir.empty());
             if (pars.deps) {
-                cmakex_config_t cfg(pars.binary_dir, pars.b.source_dir);
+                cmakex_config_t cfg(pars.binary_dir);
                 deps_recursion_wsp_t wsp;
                 install_deps_phase_one(pars.binary_dir, pars.b.source_dir, {}, pars.b.cmake_args,
                                        pars.b.configs, pars.strict_commits, wsp);

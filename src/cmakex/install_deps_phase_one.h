@@ -14,7 +14,6 @@ struct deps_recursion_wsp_t
         pkg_desc_t planned_desc;    // pkg_desc planned after this deps recursion
         bool just_cloned = false;   // cloned in this run of install_deps_phase_one
         string unresolved_git_tag;  // the original, unresolved GIT_TAG, for error messages
-        pkg_request_eval_details_t request_eval;
     };
 
     vector<string> requester_stack;
