@@ -104,4 +104,16 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
     CHECK(false);  // never here
     return false;
 }
+
+string pkg_bin_dir_helper(const cmakex_config_t& cfg, const pkg_desc_t& request, string_par config)
+{
+    string cmake_generator;
+    for (auto& c : request.b.cmake_args) {
+        if (starts_with(c, "-G")) {
+            cmake_generator = make_string(butleft(c, 2));  // 2 is length of "-G"
+            break;
+        }
+    }
+    return cfg.pkg_binary_dir(request.name, config, cmake_generator);
+}
 }

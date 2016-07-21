@@ -82,6 +82,14 @@ file_t must_fopen(string_par path, string_par mode);
 maybe<file_t> try_fopen(string_par path, string_par mode);
 void must_fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
 int fprintf(const file_t& f, const char* format, ...) AW_PRINTFLIKE(2, 3);
+inline int ferror(const file_t& f)
+{
+    return ::ferror(f.stream());
+}
+inline size_t fread(void* buffer, size_t size, size_t count, const file_t& f)
+{
+    return ::fread(buffer, size, count, f.stream());
+}
 
 // expects the file was opened in "r" mode which is text mode on windows
 // reads f until eol or eof
@@ -134,6 +142,8 @@ C set_difference(const C& x, const C& y)
     r.erase(std::set_difference(BEGINEND(x), BEGINEND(y), r.begin()), r.end());
     return r;
 }
+
+string file_sha(string_par path);
 }
 
 #endif

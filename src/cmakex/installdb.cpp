@@ -1,17 +1,22 @@
 #include "installdb.h"
 
+#include <Poco/DirectoryIterator.h>
+#include <Poco/SHA1Engine.h>
+#include <adasworks/sx/check.h>
 #include <cereal/archives/json.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <nowide/fstream.hpp>
 
-#include <adasworks/sx/check.h>
-
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "misc_utils.h"
+#include "print.h"
 
 CEREAL_CLASS_VERSION(cmakex::pkg_desc_t, 1)
+CEREAL_CLASS_VERSION(cmakex::pkg_build_pars_t, 1)
+CEREAL_CLASS_VERSION(cmakex::pkg_clone_pars_t, 1)
+CEREAL_CLASS_VERSION(cmakex::pkg_files_t, 1)
 
 namespace cmakex {
 
@@ -40,10 +45,24 @@ void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
     archive(A(name), A(c), A(b), A(depends));
 }
 
+template <class Archive>
+void serialize(Archive& archive, pkg_files_t::file_item_t& m)
+{
+    archive(A(path), A(sha));
+}
+
+template <class Archive>
+void serialize(Archive& archive, pkg_files_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(A(files));
+}
+
 #undef A
 
 InstallDB::InstallDB(string_par binary_dir)
-    : dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installed")
+    : binary_dir(binary_dir.str()),
+      dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installed")
 {
     if (!fs::exists(dbpath))
         fs::create_directories(dbpath);  // must be able to create the path
@@ -73,6 +92,29 @@ maybe<pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg_name) con
     return nothing;
 }
 
+maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) const
+{
+    auto path = installed_pkg_files_path(pkg_name);
+    nowide::ifstream f(path);
+    if (!f.good())
+        return nothing;
+    string what;
+    try {
+        // otherwise it must succeed
+        cereal::JSONInputArchive a(f);
+        maybe<pkg_files_t> r(in_place);
+        a(*r);
+        return r;
+    } catch (const exception& e) {
+        what = e.what();
+    } catch (...) {
+        what = "unknown exception.";
+    }
+    throwf("Can't read installed package file list \"%s\", reason: %s", path.c_str(), what.c_str());
+    // never here
+    return nothing;
+}
+
 void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
 {
     auto path = installed_pkg_desc_path(p.name);
@@ -98,6 +140,11 @@ void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
 string InstallDB::installed_pkg_desc_path(string_par pkg_name) const
 {
     return dbpath + "/" + pkg_name.c_str() + ".json";
+}
+
+string InstallDB::installed_pkg_files_path(string_par pkg_name) const
+{
+    return dbpath + "/" + pkg_name.c_str() + "-files.json";
 }
 
 string varname_from_dash_d_cmake_arg(const string& x)
@@ -201,5 +248,85 @@ pkg_request_eval_details_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req
         }
     }
     return r;
+}
+
+void enumerate_files_recursively(string_par dir, vector<string>& u)
+{
+    for (Poco::DirectoryIterator it(dir.str()); it != Poco::DirectoryIterator(); ++it) {
+        if (it->isDirectory()) {
+            enumerate_files_recursively(it->path(), u);
+        } else {
+            u.emplace_back(it->path());
+        }
+    }
+}
+vector<string> enumerate_files_recursively(string_par dir)
+{
+    vector<string> u;
+    enumerate_files_recursively(dir, u);
+    return u;
+}
+
+void InstallDB::install(pkg_desc_t desc)
+{
+    auto maybe_desc = try_get_installed_pkg_desc(desc.name);
+    if (maybe_desc)
+        uninstall(maybe_desc->name);
+    // install files, that is copy from pkg install dir to deps install dir (use symlinks if
+    // possible)
+    cmakex_config_t cfg(binary_dir);
+
+    auto pkg_install_dir = cfg.pkg_install_dir(desc.name);
+    auto deps_install_dir = cfg.deps_install_dir();
+
+    pkg_files_t pkg_files;
+
+    Poco::SHA1Engine e;
+    auto files = enumerate_files_recursively(pkg_install_dir);
+    std::sort(BEGINEND(files));
+    for (auto& f : files) {
+        pkg_files_t::file_item_t item;
+        CHECK(starts_with(f, pkg_install_dir));
+        // todo make certain files relocatable and calc the sha for updated file
+        item.path = make_string(butleft(f, pkg_install_dir.size()));
+        item.sha = file_sha(f);
+        e.update(item.path.data(), item.path.size());
+        e.update(item.sha.data(), item.sha.size());
+
+        Poco::File(f).copyTo(deps_install_dir + "/" + item.path);
+        // todo create symlink or move?
+    }
+
+    // update pkg_desc along the way
+    desc.sha_of_installed_files = Poco::DigestEngine::digestToHex(e.digest());
+    // write out pkg_desc and file desc jsons
+}
+
+namespace {
+// remove, catch and log errors
+void remove_and_log_error(string_par f)
+{
+    // todo instead of exceptions we should call the error_code returning remove()
+    try {
+        fs::remove(f.c_str());
+    } catch (const exception& e) {
+        log_error("Failed to remove \"%s\", reason: %s", f.c_str(), e.what());
+    } catch (...) {
+        log_error("Failed to remove \"%s\", reason is unknown.", f.c_str());
+    }
+}
+}
+
+void InstallDB::uninstall(string_par pkg_name)
+{
+    auto maybe_files = try_get_installed_pkg_files(pkg_name);
+    CHECK(maybe_files);
+    auto& files = *maybe_files;
+    // remove the files
+    for (auto& f : files.files)
+        remove_and_log_error(f.path);
+    // remove the jsons
+    remove_and_log_error(installed_pkg_desc_path(pkg_name));
+    remove_and_log_error(installed_pkg_files_path(pkg_name));
 }
 }

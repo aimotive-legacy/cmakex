@@ -8,19 +8,13 @@
 #include "print.h"
 
 namespace cmakex {
+
 void build(string_par binary_dir, const pkg_desc_t& request, string_par config)
 {
     // create binary dir
     cmakex_config_t cfg(binary_dir);
 
-    string cmake_generator;
-    for (auto& c : request.b.cmake_args) {
-        if (starts_with(c, "-G")) {
-            cmake_generator = make_string(butleft(c, 2));  // 2 is length of "-G"
-            break;
-        }
-    }
-    auto pkg_bin_dir = cfg.pkg_binary_dir(request.name, config, cmake_generator);
+    auto pkg_bin_dir = pkg_bin_dir_helper(cfg, request, config);
     auto pkg_clone_dir = cfg.pkg_clone_dir(request.name);
     string source_dir = pkg_clone_dir;
 
@@ -57,6 +51,7 @@ void build(string_par binary_dir, const pkg_desc_t& request, string_par config)
     // todo add build_args
     // todo add --clean-first if it's needed but not yet added
     // todo add native tool args
+    // todo clear install dir if --clean-first
 
     log_info("Building '%s'-%s", request.name.c_str(), config.c_str());
 

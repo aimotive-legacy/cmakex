@@ -55,7 +55,21 @@ struct pkg_desc_t
     std::map<string, string> dep_shas;  // sha's of dependencies at the time of the build
 };
 
-struct pkg_request_t : public pkg_desc_t
+struct pkg_files_t
+{
+    struct file_item_t
+    {
+        string path;  // relative to install prefix
+        string sha;
+    };
+    vector<file_item_t> files;
+};
+
+struct pkg_desc_with_files_t : pkg_desc_t, pkg_files_t
+{
+};
+
+struct pkg_request_t : pkg_desc_t
 {
     bool git_shallow = true;  // if false, clone only the requested branch at depth=1
 };

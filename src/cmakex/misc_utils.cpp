@@ -2,6 +2,7 @@
 
 #include <cerrno>
 
+#include <Poco/SHA1Engine.h>
 #include <nowide/cstdio.hpp>
 
 #include <adasworks/sx/check.h>
@@ -283,5 +284,20 @@ vector<string> split(string_par x, char y)
             v.back().push_back(c);
     }
     return v;
+}
+
+string file_sha(string_par path)
+{
+    Poco::SHA1Engine e;
+    auto f = must_fopen(path, "rb");
+    vector<char> buf(1000000);
+    size_t bytes_read;
+    do {
+        bytes_read = fread(buf.data(), 1, buf.size(), f);
+        if (ferror(f))
+            throwf("Error reading \"%s\" for SHA calculation.", path.c_str());
+        e.update(buf.data(), bytes_read);
+    } while (bytes_read == buf.size());
+    return Poco::DigestEngine::digestToHex(e.digest());
 }
 }

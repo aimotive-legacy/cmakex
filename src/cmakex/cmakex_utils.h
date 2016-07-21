@@ -1,6 +1,7 @@
 #ifndef CMAKEX_UTILS_23094
 #define CMAKEX_UTILS_23094
 
+#include "cmakex-types.h"
 #include "using-decls.h"
 
 namespace cmakex {
@@ -37,6 +38,7 @@ void badpars_exit(string_par msg);
 
 // source dir is a directory containing CMakeLists.txt
 bool evaluate_source_dir(string_par x, bool allow_invalid = false);
+string pkg_bin_dir_helper(const cmakex_config_t& cfg, const pkg_desc_t& request, string_par config);
 }
 
 #endif
