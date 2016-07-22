@@ -43,13 +43,13 @@ void clone(string_par pkg_name,
            const bool git_shallow,
            string_par binary_dir)
 {
-    log_info("Cloning package '%s'@%s", pkg_name.c_str(),
+    log_info("Cloning package '%s' @%s", pkg_name.c_str(),
              cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str());
 
     cmakex_config_t cfg(binary_dir);
     string clone_dir = cfg.pkg_clone_dir(pkg_name);
     vector<string> clone_args = {"--recurse"};
-    string checkout;
+    bool do_checkout = false;
     if (cp.git_tag.empty()) {
         if (git_shallow)
             clone_args = {"--single-branch", "--depth", "1"};
@@ -63,7 +63,7 @@ void clone(string_par pkg_name,
                 git_tag_kind = git_tag_is_not_sha;
         }
         if (git_tag_kind >= git_tag_must_be_sha) {
-            checkout = cp.git_tag;
+            do_checkout = true;
             if (git_shallow) {
                 // try to resolve corresponding reference
                 auto git_tag = try_find_unique_ref_by_sha_with_ls_remote(cp.git_url, cp.git_tag);
@@ -101,8 +101,8 @@ void clone(string_par pkg_name,
     clone_args.insert(clone_args.end(), {cp.git_url.c_str(), clone_dir.c_str()});
     log_exec("git", clone_args);
     git_clone(clone_args);
-    if (checkout.empty()) {
-        if (git_checkout({checkout}, clone_dir) != 0) {
+    if (do_checkout) {
+        if (git_checkout({cp.git_tag}, clone_dir) != 0) {
             fs::remove_all(clone_dir.c_str());
             throwf("Failed to checkout the requested commit '%s' after a successful full clone.",
                    cp.git_tag.c_str());

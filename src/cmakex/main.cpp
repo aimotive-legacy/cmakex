@@ -1,9 +1,12 @@
 #include <nowide/args.hpp>
 
+#include <cmath>
+
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/log.h>
 
 #include "cmakex_utils.h"
+#include "filesystem.h"
 #include "git.h"
 #include "install_deps_phase_one.h"
 #include "install_deps_phase_two.h"
@@ -11,7 +14,7 @@
 #include "run_add_pkgs.h"
 #include "run_cmake_steps.h"
 
-#include <cmath>
+#include <Poco/Path.h>
 
 namespace cmakex {
 
@@ -19,6 +22,19 @@ int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
+#if 0
+    {
+        namespace fs = filesystem;
+        const char* x = "./";
+        Poco::Path p(x);
+        for (int i = 0; i <= p.depth(); ++i) {
+            printf("%d: \"%s\"\n", i, p[i].c_str());
+        }
+        auto y = fs::lexically_normal(x);
+        printf("\"%s\" -> \"%s\"\n", x, y.c_str());
+        exit(0);
+    }
+#endif
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     try {
         auto pars = process_command_line(argc, argv);

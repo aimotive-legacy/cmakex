@@ -530,12 +530,155 @@ path temp_directory_path()
 }
 path canonical(const path& p, const path& base)
 {
-    auto ps = Poco::Path(p.string()).absolute(Poco::Path(base.string()));
-    if (ps.getFileName() == ".")
-        ps.makeParent();
-    auto s = ps.toString();
-    while (s.size() > 1 && (s.back() == '/' || s.back() == '\\'))
-        s.pop_back();
-    return s;
+    // todo resolve symlinks
+    return lexically_normal(absolute(p, base));
+}
+
+path absolute(const path& p, const path& base)
+{
+    return Poco::Path(p.string()).absolute(Poco::Path(base.string())).toString();
+}
+
+path lexically_normal(const path& p)
+{
+    auto ps = p.string();
+    if (ps.empty())
+        return {};
+    if (ps == "/" || ps == "\\")
+        return Poco::Path(true).toString();
+
+    auto pp = Poco::Path(p.string());
+    std::vector<std::string> comps;
+    bool trailing_dot = false;
+
+    for (int i = 0; i <= pp.depth(); ++i) {
+        auto& c = pp[i];
+        if (c == "." || c.empty()) {
+            if (i == pp.depth())
+                trailing_dot = true;
+            continue;
+        }
+        if (c == ".." && !comps.empty())
+            comps.pop_back();
+        else
+            comps.emplace_back(c);
+    }
+    if (trailing_dot)
+        comps.emplace_back(".");
+
+    Poco::Path pq(pp.isAbsolute());
+    pq.setNode(pp.getNode());
+    pq.setDevice(pp.getDevice());
+
+    for (int i = 0; i + 1 < comps.size(); ++i)
+        pq.pushDirectory(comps[i]);
+    if (!comps.empty())
+        pq.setFileName(comps.back());
+
+    return pq.toString();
+}
+
+#ifdef _WIN32
+struct handle_wrapper
+{
+    HANDLE handle;
+    handle_wrapper(HANDLE h) : handle(h) {}
+    ~handle_wrapper()
+    {
+        if (handle != INVALID_HANDLE_VALUE)
+            ::CloseHandle(handle);
+    }
+};
+HANDLE create_file_handle(const path& p,
+                          DWORD dwDesiredAccess,
+                          DWORD dwShareMode,
+                          LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                          DWORD dwCreationDisposition,
+                          DWORD dwFlagsAndAttributes,
+                          HANDLE hTemplateFile)
+{
+    return ::CreateFileW(p.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                         dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+}
+#endif
+
+bool equivalent(const path& p1, const path& p2)
+{
+#ifndef _WIN32
+    struct stat s2;
+    int e2(::stat(p2.c_str(), &s2));
+    struct stat s1;
+    int e1(::stat(p1.c_str(), &s1));
+
+    if (e1 != 0 || e2 != 0) {
+        // if one is invalid and the other isn't then they aren't equivalent,
+        // but if both are invalid then it is an error
+        auto e = e1 != 0 && e2 != 0;
+        if (e)
+            throw_filesystem_error_from_errno_code(e, "Both paths are invalid", &p1, &p2);
+        return false;
+    }
+
+    // both stats now known to be valid
+    return s1.st_dev == s2.st_dev && s1.st_ino == s2.st_ino
+           // According to the POSIX stat specs, "The st_ino and st_dev fields
+           // taken together uniquely identify the file within the system."
+           // Just to be sure, size and mod time are also checked.
+           && s1.st_size == s2.st_size && s1.st_mtime == s2.st_mtime;
+
+#else  // Windows
+
+    // Note well: Physical location on external media is part of the
+    // equivalence criteria. If there are no open handles, physical location
+    // can change due to defragmentation or other relocations. Thus handles
+    // must be held open until location information for both paths has
+    // been retrieved.
+
+    // p2 is done first, so any error reported is for p1
+    handle_wrapper h2(create_file_handle(p2.c_str(), 0,
+                                         FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
+                                         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0));
+
+    handle_wrapper h1(create_file_handle(p1.c_str(), 0,
+                                         FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
+                                         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0));
+
+    if (h1.handle == INVALID_HANDLE_VALUE || h2.handle == INVALID_HANDLE_VALUE) {
+        // if one is invalid and the other isn't, then they aren't equivalent,
+        // but if both are invalid then it is an error
+        auto e = (h1.handle == INVALID_HANDLE_VALUE && h2.handle == INVALID_HANDLE_VALUE)
+                     ? ERROR_NOT_SUPPORTED
+                     : 0;
+        if (e)
+            throw_filesystem_error_from_windows_system_error_code(e, "Both paths are invalid", &p1,
+                                                                  &p2);
+        return false;
+    }
+
+    // at this point, both handles are known to be valid
+
+    BY_HANDLE_FILE_INFORMATION info1, info2;
+
+    auto e1 = !::GetFileInformationByHandle(h1.handle, &info1) ? ::GetLastError() : 0;
+    if (e1)
+        throw_filesystem_error_from_windows_system_error_code(
+            e1, "GetFileInformationByHandle() failed", &p1);
+
+    auto e2 = !::GetFileInformationByHandle(h2.handle, &info2) ? ::GetLastError() : 0;
+    if (e2)
+        throw_filesystem_error_from_windows_system_error_code(
+            e2, "GetFileInformationByHandle() failed", &p2);
+
+    // In theory, volume serial numbers are sufficient to distinguish between
+    // devices, but in practice VSN's are sometimes duplicated, so last write
+    // time and file size are also checked.
+    return info1.dwVolumeSerialNumber == info2.dwVolumeSerialNumber &&
+           info1.nFileIndexHigh == info2.nFileIndexHigh &&
+           info1.nFileIndexLow == info2.nFileIndexLow &&
+           info1.nFileSizeHigh == info2.nFileSizeHigh && info1.nFileSizeLow == info2.nFileSizeLow &&
+           info1.ftLastWriteTime.dwLowDateTime == info2.ftLastWriteTime.dwLowDateTime &&
+           info1.ftLastWriteTime.dwHighDateTime == info2.ftLastWriteTime.dwHighDateTime;
+
+#endif
 }
 }

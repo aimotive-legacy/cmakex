@@ -4,6 +4,7 @@
 
 #include "cmakex_utils.h"
 #include "misc_utils.h"
+#include "print.h"
 #include "process_command_line.h"
 
 namespace cmakex {
@@ -104,6 +105,17 @@ bool evaluate_binary_dir(string_par x)
     return fs::is_regular_file(x.str() + "/CMakeCache.txt");
 }
 
+fs::path strip_trailing_dot(const fs::path& x)
+{
+    string s = x.string();
+    if (s.size() >= 2) {
+        auto t = s.substr(s.size() - 2);
+        if (t == "/." || t == "\\.")
+            return s.substr(0, s.size() - 2);
+    }
+    return x;
+}
+
 cmakex_pars_t process_command_line(int argc, char* argv[])
 {
     cmakex_pars_t pars;
@@ -148,7 +160,11 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
             badpars_exit(stringf("Multiple source paths specified: \"%s\", then \"%s\"",
                                  pars.b.source_dir.c_str(), x.c_str()));
         pars.b.source_dir = x.c_str();
-        LOG_INFO("Source dir: %s", x.c_str());
+        string y = strip_trailing_dot(fs::lexically_normal(fs::absolute(x.c_str())));
+        if (fs::path(x.str()).is_absolute())
+            log_info("Source dir: \"%s\"", pars.b.source_dir.c_str());
+        else
+            log_info("Source dir: \"%s\" -> \"%s\"", pars.b.source_dir.c_str(), y.c_str());
     };
 
     auto set_binary_dir = [&pars](string_par x) -> void {
@@ -158,7 +174,11 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                         pars.binary_dir.c_str(), x.c_str()));
         pars.binary_dir_valid = evaluate_binary_dir(x);
         pars.binary_dir = x.c_str();
-        LOG_INFO("Binary dir: %s", x.c_str());
+        string y = strip_trailing_dot(fs::lexically_normal(fs::absolute(x.c_str())));
+        if (fs::path(x.str()).is_absolute())
+            log_info("Binary dir: \"%s\"", pars.binary_dir.c_str());
+        else
+            log_info("Binary dir: \"%s\" -> \"%s\"", pars.binary_dir.c_str(), y.c_str());
     };
 
     for (int argix = 2; argix < argc; ++argix) {
@@ -306,8 +326,7 @@ cmakex_pars_t process_command_line(int argc, char* argv[])
                 if (pars.b.source_dir.empty())
                     pars.b.source_dir = cmake_home_directory;
                 else {
-                    if (fs::canonical(pars.b.source_dir).string() !=
-                        fs::canonical(cmake_home_directory).string())
+                    if (!fs::equivalent(pars.b.source_dir, cmake_home_directory))
                         throwf(
                             "The source dir specified is different than the one found in the "
                             "CMakeCache.txt: \"%s\" and \"%s\"",

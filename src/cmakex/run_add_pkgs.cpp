@@ -273,7 +273,7 @@ bool eval_cmake_boolean_or_fail(string_par x)
     string s = x.str();
     transform_inplace(x, ::tolower);
     if (s == "1" || s == "on" || s == "yes" || s == "true" ||
-        (!s.empty() && s[0] != 0 && isdigit(s[0]) && all_of(s, ::isdigit)))
+        (!s.empty() && s[0] != '0' && isdigit(s[0]) && all_of(s, ::isdigit)))
         return true;
     if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" ||
         s.empty() || ends_with(s, "-notfound"))

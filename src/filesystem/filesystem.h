@@ -127,6 +127,9 @@ void remove_all(const path& p);
 void create_directories(const path& p);
 path temp_directory_path();
 path canonical(const path& p, const path& base = current_path());
+path absolute(const path& p, const path& base = current_path());
+path lexically_normal(const path& p);
+bool equivalent(const path& x, const path& y);
 }
 
 #endif

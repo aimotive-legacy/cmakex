@@ -267,7 +267,7 @@ bool git_status_result_t::clean_or_untracked_only() const
 git_status_result_t git_status(string_par dir)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git({"status", "-s", "--porcelain"}, oeb.stdout_callback(), nullptr);
+    int r = exec_git({"status", "-s", "--porcelain"}, dir, oeb.stdout_callback(), nullptr);
     THROW_UNLESS(!r, "git status failed (%d) for directory \"%s\"", r, dir.c_str());
     auto oem = oeb.move_result();
     git_status_result_t result;

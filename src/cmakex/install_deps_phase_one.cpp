@@ -163,8 +163,8 @@ vector<string> install_deps_phase_one(string_par binary_dir,
 {
     CHECK(!binary_dir.empty());
     if (!source_dir.empty()) {
-        string deps_script_file =
-            fs::canonical(source_dir.c_str()).string() + "/" + k_deps_script_filename;
+        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
+                                                       "/" + k_deps_script_filename);
         if (fs::is_regular_file(deps_script_file))
             return install_deps_phase_one_deps_script(binary_dir, deps_script_file, config_args,
                                                       configs, strict_commits, wsp);
@@ -173,7 +173,7 @@ vector<string> install_deps_phase_one(string_par binary_dir,
                                                strict_commits, wsp);
 }
 
-vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
+vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
                                                   string_par deps_script_file,
                                                   const vector<string>& config_args,
                                                   const vector<string>& configs,
@@ -194,8 +194,10 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
 
     log_info("Processing dependency script \"%s\"", deps_script_file.c_str());
 
+    auto binary_dir = binary_dir_sp.str();
+
     if (fs::path(binary_dir).is_relative())
-        binary_dir = fs::current_path().string() + "/" + binary_dir.c_str();
+        binary_dir = fs::absolute(binary_dir.c_str()).string();
 
     const cmakex_config_t cfg(binary_dir);
 
