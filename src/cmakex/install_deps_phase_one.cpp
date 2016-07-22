@@ -315,8 +315,6 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     auto pkg_request = pkg_request_from_args(args);
 
-    vector<string> pkgs_encountered = {pkg_request.name};
-
     if (std::find(BEGINEND(wsp.requester_stack), pkg_request.name) != wsp.requester_stack.end()) {
         string s;
         for (auto& x : wsp.requester_stack) {
@@ -494,24 +492,23 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         }
     }
 
+    vector<string> pkgs_encountered;
+
     // process_deps
     {
         if (cloned) {
             wsp.requester_stack.emplace_back(pkg_request.name);
 
-            auto pkgs_encountered_below =
+            pkgs_encountered =
                 install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends, config_args,
                                        configs, strict_commits, wsp);
-
-            pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
 
             CHECK(wsp.requester_stack.back() == pkg_request.name);
             wsp.requester_stack.pop_back();
         } else {
             // enumerate dependencies from description of installed package
             CHECK(installed_result.status == pkg_request_satisfied);
-            auto pkgs_encountered_below = installed_result.pkg_desc.depends;
-            pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
+            pkgs_encountered = installed_result.pkg_desc.depends;
         }
     }
 
@@ -535,6 +532,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         pd = pkg_request;
         pd.depends = pkgs_encountered;
     }
+    pkgs_encountered.emplace_back(pkg_request.name);
     return pkgs_encountered;
 }
 }

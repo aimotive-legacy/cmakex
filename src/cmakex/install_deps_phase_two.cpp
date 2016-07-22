@@ -47,6 +47,8 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         if (clone_helper.cloned) {
             if (clone_helper.cloned_sha == k_sha_uncommitted) {
                 build_reason = "workspace contains uncommited changes";
+            } else if (request_eval.pkg_desc.c.git_tag.empty()) {
+                build_reason = "initial build";
             } else if (clone_helper.cloned_sha != request_eval.pkg_desc.c.git_tag) {
                 build_reason = "workspace contains new commit";
             }
@@ -86,9 +88,12 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
 
         log_info("Building '%s', reason: %s", p.c_str(), build_reason.c_str());
 
-        log_info("Uninstalling previously installed configurations (%s)",
-                 join(request_eval.pkg_desc.b.configs, ", ").c_str());
-        installdb.uninstall(p);
+        if (request_eval.status != pkg_request_not_installed) {
+            CHECK(!request_eval.pkg_desc.b.configs.empty());
+            log_info("Uninstalling previously installed configurations (%s)",
+                     join(request_eval.pkg_desc.b.configs, ", ").c_str());
+            installdb.uninstall(p);
+        }
 
         auto& pd = wsp.pkg_map[p].planned_desc;
         CHECK(!pd.b.configs.empty(),

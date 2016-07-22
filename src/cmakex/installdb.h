@@ -30,6 +30,7 @@ public:
 
 private:
     void put_installed_pkg_desc(const pkg_desc_t& p);
+    void put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p);
 
     string installed_pkg_desc_path(string_par pkg_name) const;
     string installed_pkg_files_path(string_par pkg_name) const;

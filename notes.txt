@@ -66,3 +66,33 @@ deps_install_prefix = deps/o
 deps_binary_dir = deps/b
 deps_clone_dir = deps/c
 package_registry = url or urls
+
+
+
+cmakex: Cloning package 'aw-sx' @HEAD
+$ git --recurse https://scm.adasworks.com/r/frameworks/adasworks-std-extras /Users/tamas.kenez/git/cmakex/test-b/_deps/aw-sx
+-- Using git: /opt/local/bin/git.
+$ git clone --recurse https://scm.adasworks.com/r/frameworks/adasworks-std-extras /Users/tamas.kenez/git/cmakex/test-b/_deps/aw-sx
+-- Cloning into '/Users/tamas.kenez/git/cmakex/test-b/_deps/aw-sx'...
+remote: Counting objects: 697, done
+remote: Finding sources: 100% (697/697)
+remote: Getting sizes: 100% (278/278)
+remote: Compressing objects: 100% (134659/134659)
+remote: Total 697 (delta 327), reused 652 (delta 316)
+Receiving objects: 100% (697/697), 162.95 KiB | 0 bytes/s, done.
+Resolving deltas: 100% (338/338), done.
+Checking connectivity... done.
+-- [aw-sx] No uncommitted changes, checked out @309472384723 
+
+********************
+* Building [aw-sx] *
+********************
+-- Reason: initial build
+-- Configuration: Debug
+$ cmake -Htest-b/_deps/aw-sx -Btest-b/_deps/aw-sx-build -DBUILD_TESTING=0 -DOPT_BUILD_DOCUMENTATION=0 -DCMAKE_INSTALL_PREFIX=test-b/_deps/aw-sx-install -DCMAKE_PREFIX_PATH=test-b/_deps-install
+Configuring for 12:34, Log size: 1234, path: "test-b/_cmakex/log/aw-sx-Debug-configure.log".
+$ cmake --build test-b/_deps/aw-sx-build --config Debug
+Building for 12:34, log size: 1234, path: "test-b/_cmakex/log/aw-sx-Debug-build.log".
+$ cmake --build test-b/_deps/aw-sx-build --config Debug --target install
+Installing for 12:34, log size: 1234, path: "test-b/_cmakex/log/aw-sx-Debug-install.log".
+

@@ -1,7 +1,7 @@
 add_pkg(aw-sx
     GIT_URL https://scm.adasworks.com/r/frameworks/adasworks-std-extras
     GIT_SHALLOW 0
-    CMAKE_ARGS -DBUILD_TESTING=0)
+    CMAKE_ARGS -DBUILD_TESTING=0 -DOPT_BUILD_DOCUMENTATION=0)
 
 add_pkg(yaml-cpp
     GIT_URL https://github.com/adasworks/yaml-cpp

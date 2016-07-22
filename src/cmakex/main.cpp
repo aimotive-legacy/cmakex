@@ -10,11 +10,10 @@
 #include "git.h"
 #include "install_deps_phase_one.h"
 #include "install_deps_phase_two.h"
+#include "print.h"
 #include "process_command_line.h"
 #include "run_add_pkgs.h"
 #include "run_cmake_steps.h"
-
-#include <Poco/Path.h>
 
 namespace cmakex {
 
@@ -36,6 +35,7 @@ int main(int argc, char* argv[])
     }
 #endif
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
+    int result = EXIT_SUCCESS;
     try {
         auto pars = process_command_line(argc, argv);
         if (!pars.add_pkgs.empty())
@@ -52,11 +52,13 @@ int main(int argc, char* argv[])
             run_cmake_steps(pars);
         }
     } catch (const exception& e) {
-        LOG_FATAL("cmakex: %s", e.what());
+        log_fatal("%s", e.what());
+        result = EXIT_FAILURE;
     } catch (...) {
-        LOG_FATAL("Unhandled exception");
+        log_fatal("Unhandled exception");
+        result = EXIT_FAILURE;
     }
-    return EXIT_SUCCESS;
+    return result;
 }
 }
 

@@ -4,6 +4,7 @@
 #include <Poco/SHA1Engine.h>
 #include <adasworks/sx/check.h>
 #include <cereal/archives/json.hpp>
+#include <cereal/types/map.hpp>
 #include <cereal/types/string.hpp>
 #include <cereal/types/vector.hpp>
 #include <nowide/fstream.hpp>
@@ -42,7 +43,7 @@ template <class Archive>
 void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(name), A(c), A(b), A(depends));
+    archive(A(name), A(c), A(b), A(depends), A(sha_of_installed_files), A(dep_shas));
 }
 
 template <class Archive>
@@ -62,7 +63,7 @@ void serialize(Archive& archive, pkg_files_t& m, uint32_t version)
 
 InstallDB::InstallDB(string_par binary_dir)
     : binary_dir(binary_dir.str()),
-      dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installed")
+      dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installdb")
 {
     if (!fs::exists(dbpath))
         fs::create_directories(dbpath);  // must be able to create the path
@@ -134,6 +135,27 @@ void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
     }
     throwf("Can't write installed package descriptor \"%s\", reason: %s", path.c_str(),
            what.c_str());
+    // never here
+}
+
+void InstallDB::put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p)
+{
+    auto path = installed_pkg_files_path(pkg_name);
+    nowide::ofstream f(path, std::ios_base::trunc);
+    if (!f.good())
+        throwf("Can't open installed package files \"%s\" for writing.", path.c_str());
+    string what;
+    try {
+        cereal::JSONOutputArchive a(f);
+        a(p);
+        f.close();
+        return;
+    } catch (const exception& e) {
+        what = e.what();
+    } catch (...) {
+        what = "unknown exception.";
+    }
+    throwf("Can't write installed package files \"%s\", reason: %s", path.c_str(), what.c_str());
     // never here
 }
 
@@ -286,20 +308,25 @@ void InstallDB::install(pkg_desc_t desc)
     std::sort(BEGINEND(files));
     for (auto& f : files) {
         pkg_files_t::file_item_t item;
-        CHECK(starts_with(f, pkg_install_dir));
+        CHECK(starts_with(f, pkg_install_dir) && f.size() > pkg_install_dir.size() + 1);
         // todo make certain files relocatable and calc the sha for updated file
-        item.path = make_string(butleft(f, pkg_install_dir.size()));
+        item.path = make_string(butleft(f, pkg_install_dir.size() + 1));
         item.sha = file_sha(f);
         e.update(item.path.data(), item.path.size());
         e.update(item.sha.data(), item.sha.size());
-
+        auto target_path = deps_install_dir + "/" + item.path;
+        Poco::File(Poco::Path(target_path).parent()).createDirectories();
         Poco::File(f).copyTo(deps_install_dir + "/" + item.path);
         // todo create symlink or move?
+        pkg_files.files.emplace_back(move(item));
     }
 
     // update pkg_desc along the way
     desc.sha_of_installed_files = Poco::DigestEngine::digestToHex(e.digest());
     // write out pkg_desc and file desc jsons
+
+    put_installed_pkg_desc(desc);
+    put_installed_pkg_files(desc.name, pkg_files);
 }
 
 namespace {

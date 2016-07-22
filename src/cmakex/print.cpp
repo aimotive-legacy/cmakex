@@ -37,7 +37,16 @@ void log_error(const char* s, ...)
     fprintf(stderr, "cmakex: [ERROR] ");
     va_list ap;
     va_start(ap, s);
-    fprintf(stderr, s, ap);
+    vfprintf(stderr, s, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+}
+void log_fatal(const char* s, ...)
+{
+    fprintf(stderr, "cmakex: [FATAL] ");
+    va_list ap;
+    va_start(ap, s);
+    vfprintf(stderr, s, ap);
     va_end(ap);
     fprintf(stderr, "\n");
 }
@@ -47,7 +56,7 @@ void log_error_errno(const char* s, ...)
     fprintf(stderr, "cmakex: [ERROR]");
     va_list ap;
     va_start(ap, s);
-    fprintf(stderr, s, ap);
+    vfprintf(stderr, s, ap);
     va_end(ap);
     if (was_errno)
         fprintf(stderr, ", reason: %s (%d)\n", strerror(was_errno), was_errno);
