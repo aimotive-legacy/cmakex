@@ -43,7 +43,7 @@ void clone(string_par pkg_name,
            const bool git_shallow,
            string_par binary_dir)
 {
-    log_info("Cloning package '%s' @%s", pkg_name.c_str(),
+    log_info("Cloning %s @%s", pkg_for_log(pkg_name).c_str(),
              cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str());
 
     cmakex_config_t cfg(binary_dir);
@@ -99,7 +99,6 @@ void clone(string_par pkg_name,
         }
     }
     clone_args.insert(clone_args.end(), {cp.git_url.c_str(), clone_dir.c_str()});
-    log_exec("git", clone_args);
     git_clone(clone_args);
     if (do_checkout) {
         if (git_checkout({cp.git_tag}, clone_dir) != 0) {
@@ -124,9 +123,9 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
 
     auto cds = pkg_clone_dir_status(binary_dir, pkg_name);
 
-    string errormsg = stringf(
-        "Remove the directory \"%s\" or the checkout the '%s' manually, then restart the build.",
-        clone_dir.c_str(), cp.git_tag.c_str());
+    string errormsg =
+        stringf("Remove the directory \"%s\" or checkout '%s' manually, then restart the build.",
+                clone_dir.c_str(), cp.git_tag.c_str());
 
     switch (std::get<0>(cds)) {
         case pkg_clone_dir_doesnt_exist:
@@ -169,7 +168,7 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
     string errormsg, warnmsg;
     if (strict)
         errormsg = stringf(
-            "Remove the directory \"%s\" or the checkout the '%s' manually, then restart the "
+            "Remove the directory \"%s\" or checkout '%s' manually, then restart the "
             "build.",
             clone_dir.c_str(), git_tag_or_head.c_str());
     else
@@ -294,15 +293,24 @@ void clone_helper_t::update_clone_status_vars()
     switch (get<0>(clone_status)) {
         case pkg_clone_dir_doesnt_exist:
         case pkg_clone_dir_empty:
+            log_info("%s local repo nonexistent or empty.", pkg_for_log(pkg_name).c_str());
             break;
         case pkg_clone_dir_git:
             cloned_sha = get<1>(clone_status);
             cloned = true;
+            log_info("%s local repo checked out @%s.", pkg_for_log(pkg_name).c_str(),
+                     cloned_sha.c_str());
             break;
         case pkg_clone_dir_git_local_changes:
+            cloned_sha = k_sha_uncommitted;
+            cloned = true;
+            log_info("%s local repo has uncommitted changes, checked out @%s.",
+                     pkg_for_log(pkg_name).c_str(), get<1>(clone_status).c_str());
+            break;
         case pkg_clone_dir_nonempty_nongit:
             cloned_sha = k_sha_uncommitted;
             cloned = true;
+            log_info("%s local repo is not a valid git repository.", pkg_for_log(pkg_name).c_str());
             break;
         default:
             CHECK(false);

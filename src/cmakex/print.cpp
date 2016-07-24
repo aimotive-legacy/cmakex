@@ -16,7 +16,7 @@ namespace fs = filesystem;
 
 void log_info(const char* s, ...)
 {
-    printf("cmakex: ");
+    printf("-- ");
     va_list ap;
     va_start(ap, s);
     vprintf(s, ap);
@@ -25,7 +25,7 @@ void log_info(const char* s, ...)
 }
 void log_warn(const char* s, ...)
 {
-    printf("cmakex: [WARN] ");
+    printf("-- Warning: ");
     va_list ap;
     va_start(ap, s);
     vprintf(s, ap);
@@ -125,7 +125,25 @@ string datetime_string_for_log(std::chrono::system_clock::time_point x)
     return datetime_string_for_log(dt);
 }
 
-void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par log_filename)
+struct slf_helper_t
+{
+    slf_helper_t(int result, FILE* f) : result(result), f(f) {}
+    int result;
+    FILE* f;
+};
+
+void slf_printf(slf_helper_t& h, string_par s)
+{
+    fprintf(h.f, "%s", s.c_str());
+    if (h.result != EXIT_SUCCESS)
+        printf("%s", s.c_str());
+}
+
+void save_log_from_oem(string_par prefix_msg,
+                       int result,
+                       const OutErrMessages& oem,
+                       string_par log_dir,
+                       string_par log_filename)
 {
     if (!fs::is_directory(log_dir.c_str())) {
         string msg;
@@ -150,7 +168,10 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
     }
     auto f = move(*maybe_f);
 
-    fprintf(f, "Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str());
+    slf_helper_t h(result, f.stream());
+
+    slf_printf(
+        h, stringf("Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str()));
     const char c_line_feed = 10;
     const char c_carriage_return = 13;
     const int c_stderr_marker_length = 4;
@@ -173,12 +194,13 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
             // print the newline-free section
             if (x0 < x1) {
                 if (indent < 0)
-                    fprintf(f, "%s[%.2f] %n%.*s\n", stderr_marker, msg.t, &indent, x1 - x0,
-                            msg.text.c_str() + x0);
+                    slf_printf(h, stringf("%s[%.2f] %n%.*s\n", stderr_marker, msg.t, &indent,
+                                          x1 - x0, msg.text.c_str() + x0));
                 else {
                     assert(indent - c_stderr_marker_length <= strlen(c_spaces));
-                    fprintf(f, "%s%.*s%.*s\n", stderr_marker, indent - c_stderr_marker_length,
-                            c_spaces, x1 - x0, msg.text.c_str() + x0);
+                    slf_printf(
+                        h, stringf("%s%.*s%.*s\n", stderr_marker, indent - c_stderr_marker_length,
+                                   c_spaces, x1 - x0, msg.text.c_str() + x0));
                 }
             }
             // find the next newline section
@@ -194,15 +216,17 @@ void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par
             // print at most one extra newline
             if (newline_count > 1) {
                 if (msg.source == out_err_message_base_t::source_stderr)
-                    fprintf(f, "%s\n", stderr_marker);
+                    slf_printf(h, stringf("%s\n", stderr_marker));
                 else
-                    fprintf(f, "\n");
+                    slf_printf(h, "\n");
             }
 
             x0 = x1;
         }
     }
-    fprintf(f, "Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str());
-    log_info("Log saved to \"%s\".", log_path.c_str());
+    slf_printf(h,
+               stringf("Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str()));
+
+    log_info("%s log saved to \"%s\".", prefix_msg.c_str(), log_path.c_str());
 }
 }

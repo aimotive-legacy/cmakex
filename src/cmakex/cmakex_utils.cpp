@@ -56,18 +56,23 @@ string cmakex_config_t::pkg_binary_dir(string_par pkg_name,
     return r;
 }
 
+bool is_generator_multiconfig(string_par cmake_generator)
+{
+    if (cmake_generator == "Xcode" || cmake_generator == "Green Hills MULTI" ||
+        starts_with(cmake_generator, "Visual Studio"))
+        return true;
+#ifdef _WIN32
+    if (cmake_generator.empty())  // the default is Visual Studio on windows
+        return true;
+#endif
+    return false;
+}
+
 bool cmakex_config_t::per_config_binary_dirs(string_par cmake_generator) const
 {
     if (!per_config_binary_dirs_)
         return false;
-    if (cmake_generator == "Xcode" || cmake_generator == "Green Hills MULTI" ||
-        starts_with(cmake_generator, "Visual Studio"))
-        return false;
-#ifdef _WIN32
-    if (cmake_generator.empty())  // the default is Visual Studio on windows
-        return false;
-#endif
-    return true;
+    return !is_generator_multiconfig(cmake_generator);
 }
 
 string cmakex_config_t::pkg_install_dir(string_par pkg_name) const
@@ -105,7 +110,9 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
     return false;
 }
 
-string pkg_bin_dir_helper(const cmakex_config_t& cfg, const pkg_desc_t& request, string_par config)
+configuration_helper_t::configuration_helper_t(const cmakex_config_t& cfg,
+                                               const pkg_desc_t& request,
+                                               string_par config)
 {
     string cmake_generator;
     for (auto& c : request.b.cmake_args) {
@@ -114,6 +121,12 @@ string pkg_bin_dir_helper(const cmakex_config_t& cfg, const pkg_desc_t& request,
             break;
         }
     }
-    return cfg.pkg_binary_dir(request.name, config, cmake_generator);
+    pkg_bin_dir = cfg.pkg_binary_dir(request.name, config, cmake_generator);
+    multiconfig_generator = is_generator_multiconfig(cmake_generator);
+}
+
+string pkg_for_log(string_par pkg_name)
+{
+    return stringf("[%s]", pkg_name.c_str());
 }
 }

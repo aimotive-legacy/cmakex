@@ -19,7 +19,14 @@ void log_fatal(const char* s, ...) AW_PRINTFLIKE(1, 2);
 
 void log_exec(string_par command, const vector<string>& args, string_par working_directory = "");
 string current_datetime_string_for_log();
-void save_log_from_oem(const OutErrMessages& oem, string_par log_dir, string_par log_filename);
+
+// saves log from oem to specified location and prints informational message
+// if result!=EXIT_SUCCESS also prints to console
+void save_log_from_oem(string_par prefix_msg,
+                       int result,
+                       const OutErrMessages& oem,
+                       string_par log_dir,
+                       string_par log_filename);
 }
 
 #endif

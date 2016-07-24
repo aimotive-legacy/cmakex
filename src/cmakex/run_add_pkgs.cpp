@@ -41,7 +41,7 @@ void add_pkg(const string& pkg_name,
     if (pkg_statuses.count(pkg_name) > 0)
         return;  // already delt with
 
-    log_info("Adding package '%s'", pkg_name.c_str());
+    log_info("Adding %s", pkg_for_log(pkg_name).c_str());
 
     auto& status = pkg_statuses[pkg_name];
 
@@ -100,10 +100,10 @@ void add_pkg(const string& pkg_name,
                 break;
             case pkg_request_not_compatible:
                 throwf(
-                    "Package request for '%s' cannot be satisfied due to incompatible build "
+                    "Package request for %s cannot be satisfied due to incompatible build "
                     "options. Remove the package manually to allow it build with the new options "
                     "or remove the conflicting options. The conflicting options: %s",
-                    pkg_name.c_str(), status.incompatible_cmake_args.c_str());
+                    pkg_for_log(pkg_name).c_str(), status.incompatible_cmake_args.c_str());
             default:
                 CHECK(false);
         }
@@ -209,7 +209,7 @@ void f()
         if (!maybe_def)
             maybe_def = registry.try_get_pkg_def(d);
         if (!maybe_def)
-            throwf("Dependency '%s' is not installed and not found in registry.", d.c_str());
+            throwf("Dependency %s is not installed and not found in registry.", pkg_for_log(d).c_str());
         pkg_requests[d] = *maybe_def;
     }
 
@@ -235,7 +235,7 @@ void add_pkg(const cmakex_pars_t& pars, const string& pkg_arg_str)
 {
     auto request = pkg_request_from_args(pkg_arg_str);
 
-    log_info("Adding package '%s'", request.name.c_str());
+    log_info("Adding %s", pkg_for_log(request.name).c_str());
 
     // Add 'Release' if no configs specified
     if (request.configs.empty())

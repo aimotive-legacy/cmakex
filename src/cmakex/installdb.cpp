@@ -116,8 +116,9 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
     return nothing;
 }
 
-void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
+void InstallDB::put_installed_pkg_desc(pkg_desc_t p)
 {
+    p.b.cmake_args = make_canonical_cmake_args(p.b.cmake_args);
     auto path = installed_pkg_desc_path(p.name);
     nowide::ofstream f(path, std::ios_base::trunc);
     if (!f.good())
@@ -126,7 +127,6 @@ void InstallDB::put_installed_pkg_desc(const pkg_desc_t& p)
     try {
         cereal::JSONOutputArchive a(f);
         a(p);
-        f.close();
         return;
     } catch (const exception& e) {
         what = e.what();
@@ -148,7 +148,6 @@ void InstallDB::put_installed_pkg_files(string_par pkg_name, const pkg_files_t& 
     try {
         cereal::JSONOutputArchive a(f);
         a(p);
-        f.close();
         return;
     } catch (const exception& e) {
         what = e.what();
@@ -256,9 +255,9 @@ pkg_request_eval_details_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req
         r.status = pkg_request_not_installed;
     else {
         r.pkg_desc = move(*maybe_desc);
-        auto ica = incompatible_cmake_args(maybe_desc->b.cmake_args, req.b.cmake_args);
+        auto ica = incompatible_cmake_args(r.pkg_desc.b.cmake_args, req.b.cmake_args);
         if (ica.empty()) {
-            r.missing_configs = set_difference(req.b.configs, maybe_desc->b.configs);
+            r.missing_configs = set_difference(req.b.configs, r.pkg_desc.b.configs);
             if (r.missing_configs.empty())
                 r.status = pkg_request_satisfied;
             else {
@@ -350,8 +349,11 @@ void InstallDB::uninstall(string_par pkg_name)
     CHECK(maybe_files);
     auto& files = *maybe_files;
     // remove the files
-    for (auto& f : files.files)
-        remove_and_log_error(f.path);
+    cmakex_config_t cfg(binary_dir);
+    auto deps_install_dir = cfg.deps_install_dir();
+    for (auto& f : files.files) {
+        remove_and_log_error(deps_install_dir + "/" + f.path);
+    }
     // remove the jsons
     remove_and_log_error(installed_pkg_desc_path(pkg_name));
     remove_and_log_error(installed_pkg_files_path(pkg_name));

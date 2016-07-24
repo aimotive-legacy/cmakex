@@ -95,4 +95,3 @@ $ cmake --build test-b/_deps/aw-sx-build --config Debug
 Building for 12:34, log size: 1234, path: "test-b/_cmakex/log/aw-sx-Debug-build.log".
 $ cmake --build test-b/_deps/aw-sx-build --config Debug --target install
 Installing for 12:34, log size: 1234, path: "test-b/_cmakex/log/aw-sx-Debug-install.log".
-

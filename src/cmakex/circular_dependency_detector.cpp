@@ -50,11 +50,11 @@ void circular_dependency_detector::pop(string_par pkg_name)
 {
     auto stack = load();
     if (stack.empty() || stack.back() != pkg_name) {
-        throwf(
-            "Internal error: dependency stack %s",
-            (stack.empty() ? string("was empty.") : stringf("top was '%s' while popping '%s'",
-                                                            stack.back().c_str(), pkg_name.c_str()))
-                .c_str());
+        throwf("Internal error: dependency stack %s",
+               (stack.empty() ? string("was empty.") : stringf("top was %s while popping %s",
+                                                               pkg_for_log(stack.back()).c_str(),
+                                                               pkg_for_log(pkg_name).c_str()))
+                   .c_str());
     }
     save(stack);
 }

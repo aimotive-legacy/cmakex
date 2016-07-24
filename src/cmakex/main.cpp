@@ -17,13 +17,14 @@
 
 namespace cmakex {
 
+namespace fs = filesystem;
+
 int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
 #if 0
     {
-        namespace fs = filesystem;
         const char* x = "./";
         Poco::Path p(x);
         for (int i = 0; i <= p.depth(); ++i) {
@@ -36,6 +37,7 @@ int main(int argc, char* argv[])
 #endif
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     int result = EXIT_SUCCESS;
+    log_info("Current directory: \"%s\"", fs::current_path().c_str());
     try {
         auto pars = process_command_line(argc, argv);
         if (!pars.add_pkgs.empty())
@@ -48,6 +50,12 @@ int main(int argc, char* argv[])
                 install_deps_phase_one(pars.binary_dir, pars.b.source_dir, {}, pars.b.cmake_args,
                                        pars.b.configs, pars.strict_commits, wsp);
                 install_deps_phase_two(pars.binary_dir, wsp);
+                log_info("");
+                log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
+                         wsp.pkg_map.size() == 1 ? "y" : "ies",
+                         wsp.pkg_map.size() == 1 ? "has" : "have");
+                log_info("Building main project.");
+                log_info("");
             }
             run_cmake_steps(pars);
         }

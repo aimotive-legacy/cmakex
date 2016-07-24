@@ -87,7 +87,8 @@ string find_git_or_return_git()
 int exec_git(const vector<string>& args,
              string_par working_directory,
              exec_process_output_callback_t stdout_callback,
-             exec_process_output_callback_t stderr_callback)
+             exec_process_output_callback_t stderr_callback,
+             log_git_command_t quiet_mode)
 {
     string git_executable;
     {
@@ -109,9 +110,31 @@ int exec_git(const vector<string>& args,
 
     // we have git here
 
-    log_exec("git", args, working_directory);
+    if (quiet_mode == log_git_command_always)
+        log_exec("git", args, working_directory);
+    else
+        CHECK(stderr_callback == nullptr);
 
-    return exec_process(git_executable, args, working_directory, stdout_callback, stderr_callback);
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+
+    auto result = exec_process(
+        git_executable, args, working_directory,
+        quiet_mode != log_git_command_always && stdout_callback == nullptr ? oeb.stdout_callback()
+                                                                           : stdout_callback,
+        quiet_mode != log_git_command_always && stderr_callback == nullptr ? oeb.stderr_callback()
+                                                                           : stderr_callback);
+
+    if (quiet_mode == log_git_command_on_error && result) {
+        log_exec("git", args, working_directory);
+        OutErrMessages oem(oeb.move_result());
+        for (int i = 0; i < oem.size(); ++i) {
+            auto m = oem.at(i);
+            fprintf(m.source == out_err_message_base_t::source_stdout ? stdout : stderr, "%s\n",
+                    m.text.c_str());
+        }
+    }
+
+    return result;
 }
 
 string first_line(const OutErrMessages& oem, out_err_message_base_t::source_t source)
@@ -131,7 +154,7 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref)
 {
     vector<string> args = {"ls-remote", "--exit-code", url.c_str(), ref.c_str()};
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git(args, oeb.stdout_callback(), nullptr);
+    int r = exec_git(args, oeb.stdout_callback(), nullptr, log_git_command_never);
     auto oem = oeb.move_result();
     auto s = first_line(oem, out_err_message_base_t::source_stdout);
     for (int i = 0; i < s.size(); ++i) {
@@ -147,7 +170,7 @@ string git_rev_parse(string_par ref, string_par dir)
 {
     vector<string> args = {"rev-parse", ref.c_str()};
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    if (exec_git(args, dir, oeb.stdout_callback(), nullptr))
+    if (exec_git(args, dir, oeb.stdout_callback(), nullptr, log_git_command_on_error))
         return {};
     auto oem = oeb.move_result();
     auto s = first_line(oem, out_err_message_base_t::source_stdout);
@@ -157,19 +180,19 @@ string git_rev_parse(string_par ref, string_par dir)
 void git_clone(vector<string> args)
 {
     args.insert(args.begin(), "clone");
-    int r = exec_git(args);
+    int r = exec_git(args, nullptr, nullptr, log_git_command_always);
     if (r)
         throwf("git-clone failed with error code %d.", r);
 }
 int git_checkout(vector<string> args, string_par dir)
 {
     args.insert(args.begin(), "checkout");
-    return exec_git(args, dir);
+    return exec_git(args, dir, nullptr, nullptr, log_git_command_always);
 }
 string try_find_unique_ref_by_sha_with_ls_remote(string_par git_url, string_par sha)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git({"ls-remote", git_url.c_str()});
+    int r = exec_git({"ls-remote", git_url.c_str()}, nullptr, nullptr, log_git_command_never);
     if (r)
         return {};
     auto oem = oeb.move_result();
@@ -267,7 +290,8 @@ bool git_status_result_t::clean_or_untracked_only() const
 git_status_result_t git_status(string_par dir)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git({"status", "-s", "--porcelain"}, dir, oeb.stdout_callback(), nullptr);
+    int r = exec_git({"status", "-s", "--porcelain"}, dir, oeb.stdout_callback(), nullptr,
+                     log_git_command_on_error);
     THROW_UNLESS(!r, "git status failed (%d) for directory \"%s\"", r, dir.c_str());
     auto oem = oeb.move_result();
     git_status_result_t result;

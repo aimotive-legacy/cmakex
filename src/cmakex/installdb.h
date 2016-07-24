@@ -29,7 +29,7 @@ public:
     void uninstall(string_par pkg_name);
 
 private:
-    void put_installed_pkg_desc(const pkg_desc_t& p);
+    void put_installed_pkg_desc(pkg_desc_t p);  // taken by value
     void put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p);
 
     string installed_pkg_desc_path(string_par pkg_name) const;
@@ -38,6 +38,7 @@ private:
     const string binary_dir;
     const string dbpath;
 };
+vector<string> make_canonical_cmake_args(const vector<string>& x);
 }
 
 #endif

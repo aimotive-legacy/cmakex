@@ -25,9 +25,9 @@ const char* k_build_script_add_pkg_out_filename = "add_pkg_out.txt";
 const char* k_build_script_cmakex_out_filename = "cmakex_out.txt";
 const char* k_default_binary_dirname = "b";
 const char* k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
-const char* k_build_script_executor_log_name = "build_script_executor";
+const char* k_build_script_executor_log_name = "deps_script_wrapper";
 
-string build_script_executor_cmakelists()
+string deps_script_wrapper_cmakelists()
 {
     return stringf(
                "cmake_minimum_required(VERSION ${CMAKE_VERSION})\n\n"
@@ -54,19 +54,19 @@ string build_script_executor_cmakelists()
            "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${line}\\n\")\n"
            "endfunction()\n\n"
 
-           "# include build script within a function to protect local variables\n"
-           "function(include_build_script path)\n"
+           "# include deps script within a function to protect local variables\n"
+           "function(include_deps_script path)\n"
            "  if(NOT IS_ABSOLUTE \"${path}\")\n"
            "    set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
            "  endif()\n"
            "  if(NOT EXISTS \"${path}\")\n"
-           "    message(FATAL_ERROR \"Build script not found: \\\"${path}\\\".\")\n"
+           "    message(FATAL_ERROR \"Dependency script not found: \\\"${path}\\\".\")\n"
            "  endif()\n"
            "  include(\"${path}\")\n"
            "endfunction()\n\n"
 
            "if(DEFINED command)\n"
-           "  message(STATUS \"Build script executor command: ${command}\")\n"
+           "  message(STATUS \"Dependency script wrapper command: ${command}\")\n"
            "  list(GET command 0 verb)\n\n"
            "  if(verb STREQUAL \"run\")\n"
            "    list(LENGTH command l)\n"
@@ -80,11 +80,11 @@ string build_script_executor_cmakelists()
            "\\\"${out}\\\" is not an existing file.\")\n"
            "    endif()\n"
            "    set(__CMAKEX_ADD_PKG_OUT \"${out}\")\n"
-           "    include_build_script(\"${path}\")\n"
+           "    include_deps_script(\"${path}\")\n"
            "  endif()\n"
            "endif()\n\n";
 }
-string build_script_executor_cmakelists_checksum(const std::string& x)
+string deps_script_wrapper_cmakelists_checksum(const std::string& x)
 {
     auto hs = std::to_string(std::hash<std::string>{}(x));
     return stringf("# script hash: %s", hs.c_str());
@@ -226,8 +226,8 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     }
 
     // create the text of CMakelists.txt
-    const string cmakelists_text = build_script_executor_cmakelists();
-    const string cmakelists_text_hash = build_script_executor_cmakelists_checksum(cmakelists_text);
+    const string cmakelists_text = deps_script_wrapper_cmakelists();
+    const string cmakelists_text_hash = deps_script_wrapper_cmakelists_checksum(cmakelists_text);
 
     // force write if not exists or first hash line differs
     string cmakelists_path = cfg.cmakex_executor_dir() + "/CMakeLists.txt";
@@ -257,17 +257,17 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
     args.insert(args.end(), BEGINEND(config_args));
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
-    log_info("Configuring build script executor project.");
+    log_info("Configuring dependency script wrapper project.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
-    save_log_from_oem(oem, cfg.cmakex_log_dir(),
+    save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
     if (r != EXIT_SUCCESS)
-        throwf("Failed configuring build script executor project, result: %d.", r);
+        throwf("Failed configuring dependency script wrapper project, result: %d.", r);
 
     args.clear();
     args.emplace_back(build_script_executor_binary_dir);
@@ -279,15 +279,15 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
                       deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
 
-    log_info("Executing dependencies script by executor project.");
+    log_info("Executing dependency script wrapper.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     auto oem2 = oeb2.move_result();
-    save_log_from_oem(oem2, cfg.cmakex_log_dir(),
+    save_log_from_oem("Dependency script", r, oem2, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-run" + k_log_extension);
     if (r != EXIT_SUCCESS)
-        throwf("Failed executing build script by executor project, result: %d.", r);
+        throwf("Failed executing dependency script wrapper, result: %d.", r);
 
     // read the add_pkg_out
     auto addpkgs_lines = must_read_file_as_lines(build_script_add_pkg_out_file);
@@ -314,6 +314,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     const cmakex_config_t cfg(binary_dir);
 
     auto pkg_request = pkg_request_from_args(args);
+
+    pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(), BEGINEND(config_args));
 
     if (std::find(BEGINEND(wsp.requester_stack), pkg_request.name) != wsp.requester_stack.end()) {
         string s;

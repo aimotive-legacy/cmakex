@@ -13,16 +13,25 @@ static const char* k_sha_uncommitted = "<uncommitted>";
 // find git with cmake's find_package(Git), on failure returns "git"
 string find_git_or_return_git();
 
+enum log_git_command_t
+{
+    log_git_command_never,
+    log_git_command_on_error,
+    log_git_command_always
+};
+
 int exec_git(const vector<string>& args,
              string_par working_directory,
-             exec_process_output_callback_t stdout_callback = nullptr,
-             exec_process_output_callback_t stderr_callback = nullptr);
+             exec_process_output_callback_t stdout_callback,
+             exec_process_output_callback_t stderr_callback,
+             log_git_command_t quiet_mode);
 
 inline int exec_git(const vector<string>& args,
-                    exec_process_output_callback_t stdout_callback = nullptr,
-                    exec_process_output_callback_t stderr_callback = nullptr)
+                    exec_process_output_callback_t stdout_callback,
+                    exec_process_output_callback_t stderr_callback,
+                    log_git_command_t quiet_mode)
 {
-    return exec_git(args, "", stdout_callback, stderr_callback);
+    return exec_git(args, "", stdout_callback, stderr_callback, quiet_mode);
 }
 
 // returns (0, SHA) if ref is resolved
