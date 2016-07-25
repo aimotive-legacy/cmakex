@@ -10,6 +10,7 @@
 #include "git.h"
 #include "install_deps_phase_one.h"
 #include "install_deps_phase_two.h"
+#include "misc_utils.h"
 #include "print.h"
 #include "process_command_line.h"
 #include "run_add_pkgs.h"
@@ -56,6 +57,18 @@ int main(int argc, char* argv[])
                          wsp.pkg_map.size() == 1 ? "has" : "have");
                 log_info("Building main project.");
                 log_info("");
+                // add deps install dir to CMAKE_PREFIX_PATH
+                bool added = false;
+                for (auto& c : pars.b.cmake_args) {
+                    if (starts_with(c, "-DCMAKE_PREFIX_PATH=") ||
+                        starts_with(c, "-DCMAKE_PREFIX_PATH:")) {
+                        c += ";" + cfg.deps_install_dir();
+                        added = true;
+                    }
+                }
+                if (!added)
+                    pars.b.cmake_args.emplace_back(
+                        stringf("-DCMAKE_PREFIX_PATH=%s", cfg.deps_install_dir().c_str()));
             }
             run_cmake_steps(pars);
         }
