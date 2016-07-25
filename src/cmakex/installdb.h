@@ -21,11 +21,13 @@ public:
 
     // evaluate whether the current installation of the package satisfies the request. Provide
     // textual description on failure
-    pkg_request_eval_details_t evaluate_pkg_request(const pkg_desc_t& req);
+    pkg_request_eval_details_t evaluate_pkg_request_build_pars(string_par pkg_name,
+                                                               const pkg_build_pars_t& bp);
     maybe<pkg_desc_t> try_get_installed_pkg_desc(string_par pkg_name) const;
     maybe<pkg_files_t> try_get_installed_pkg_files(string_par pkg_name) const;
 
-    void install(pkg_desc_t desc);  // taken by value
+    // if incremental, the desc must be compatible with the currently installed desc
+    void install(pkg_desc_t desc, bool incremental);  // taken by value
     void uninstall(string_par pkg_name);
 
 private:

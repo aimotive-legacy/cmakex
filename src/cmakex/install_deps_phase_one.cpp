@@ -135,7 +135,8 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
                                                   deps_recursion_wsp_t& wsp);
 
 vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
-                                                   vector<string> request_deps,
+                                                   vector<string>
+                                                       request_deps,
                                                    const vector<string>& config_args,
                                                    const vector<string>& configs,
                                                    bool strict_commits,
@@ -155,7 +156,8 @@ vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
 
 vector<string> install_deps_phase_one(string_par binary_dir,
                                       string_par source_dir,
-                                      vector<string> request_deps,
+                                      vector<string>
+                                          request_deps,
                                       const vector<string>& config_args,
                                       const vector<string>& configs,
                                       bool strict_commits,
@@ -381,7 +383,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     // determine installed status
     InstallDB installdb(binary_dir);
-    auto installed_result = installdb.evaluate_pkg_request(pkg_request);
+    auto installed_result =
+        installdb.evaluate_pkg_request_build_pars(pkg_request.name, pkg_request.b);
     string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
     switch (installed_result.status) {
         case pkg_request_not_installed:

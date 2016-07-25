@@ -19,7 +19,7 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
     for (auto& p : wsp.build_order) {
         vector<string> build_reasons;
         auto& wp = wsp.pkg_map[p];
-        auto request_eval = installdb.evaluate_pkg_request(wp.planned_desc);
+        auto request_eval = installdb.evaluate_pkg_request_build_pars(p, wp.planned_desc.b);
 
         // record each dependency's current state and also remember changed deps along the way
         vector<string> deps_changed;
@@ -41,6 +41,8 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         }
 
         clone_helper_t clone_helper(binary_dir, p);
+
+        bool incremental_install = false;
 
         // check if we still need to build it because of new commits or uncommited changes
         // - from the previous check re.status was pkg_request_satisfied
@@ -74,6 +76,7 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
                 case pkg_request_missing_configs:
                     build_reasons = {stringf("missing configurations (%s)",
                                              join(request_eval.missing_configs, ", ").c_str())};
+                    incremental_install = true;
                     break;
                 case pkg_request_not_installed:
                     build_reasons = {"initial build"};
@@ -109,7 +112,7 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         for (int i = 1; i < build_reasons.size(); ++i)
             log_info("%s", build_reasons[i].c_str());
 
-        if (request_eval.status != pkg_request_not_installed) {
+        if (request_eval.status != pkg_request_not_installed && !incremental_install) {
             CHECK(!request_eval.pkg_desc.b.configs.empty());
             log_info("Uninstalling previously installed configurations (%s)",
                      join(request_eval.pkg_desc.b.configs, ", ").c_str());
@@ -124,7 +127,7 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
             build(binary_dir, pd, config);
             // copy or link installed files into install prefix
             // register this build with installdb
-            installdb.install(pd);
+            installdb.install(pd, incremental_install);
         }
         log_info("");
     }  // iterate over build order

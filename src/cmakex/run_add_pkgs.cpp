@@ -11,10 +11,10 @@
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "git.h"
+#include "install_deps_phase_one.h"
 #include "installdb.h"
 #include "misc_utils.h"
 #include "print.h"
-#include "install_deps_phase_one.h"
 
 namespace cmakex {
 
@@ -71,7 +71,7 @@ void add_pkg(const string& pkg_name,
         // - it may no be installed -> clone + satisfy dependencies than add it to the
         //   list of packages to be built + installed
 
-        status = installdb.evaluate_pkg_request(req);
+        status = installdb.evaluate_pkg_request_build_pars(req.name, req.b);
         bool do_build = false;
         cmakex_config_t cfg(pars.binary_dir);
 

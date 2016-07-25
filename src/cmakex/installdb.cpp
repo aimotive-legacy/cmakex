@@ -2,6 +2,7 @@
 
 #include <Poco/DirectoryIterator.h>
 #include <Poco/SHA1Engine.h>
+#include <adasworks/sx/algorithm.h>
 #include <adasworks/sx/check.h>
 #include <cereal/archives/json.hpp>
 #include <cereal/types/map.hpp>
@@ -247,17 +248,22 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
     return r;
 }
 
-pkg_request_eval_details_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req)
+pkg_request_eval_details_t InstallDB::evaluate_pkg_request_build_pars(string_par pkg_name,
+                                                                      const pkg_build_pars_t& bp)
 {
-    auto maybe_desc = try_get_installed_pkg_desc(req.name);
+    auto maybe_desc = try_get_installed_pkg_desc(pkg_name);
     pkg_request_eval_details_t r;
     if (!maybe_desc)
         r.status = pkg_request_not_installed;
     else {
         r.pkg_desc = move(*maybe_desc);
-        auto ica = incompatible_cmake_args(r.pkg_desc.b.cmake_args, req.b.cmake_args);
+        auto ica = incompatible_cmake_args(r.pkg_desc.b.cmake_args, bp.cmake_args);
+        if (bp.source_dir != r.pkg_desc.b.source_dir) {
+            ica.emplace_back(stringf("(different source dirs: '%s' and '%s')",
+                                     r.pkg_desc.b.source_dir.c_str(), bp.source_dir.c_str()));
+        }
         if (ica.empty()) {
-            r.missing_configs = set_difference(req.b.configs, r.pkg_desc.b.configs);
+            r.missing_configs = set_difference(bp.configs, r.pkg_desc.b.configs);
             if (r.missing_configs.empty())
                 r.status = pkg_request_satisfied;
             else {
@@ -265,7 +271,7 @@ pkg_request_eval_details_t InstallDB::evaluate_pkg_request(const pkg_desc_t& req
             }
         } else {
             r.status = pkg_request_not_compatible;
-            r.incompatible_cmake_args = join(ica, ", ");
+            r.incompatible_cmake_args = join(ica, " ");
         }
     }
     return r;
@@ -288,11 +294,43 @@ vector<string> enumerate_files_recursively(string_par dir)
     return u;
 }
 
-void InstallDB::install(pkg_desc_t desc)
+void InstallDB::install(pkg_desc_t desc, bool incremental)
 {
     auto maybe_desc = try_get_installed_pkg_desc(desc.name);
-    if (maybe_desc)
-        uninstall(maybe_desc->name);
+
+    if (maybe_desc) {
+        if (incremental) {
+            // check build pars
+            // this and other attributes (clone SHA) are checked by the caller code, this is only an
+            // extra sanity check
+            auto epr = evaluate_pkg_request_build_pars(desc.name, desc.b);
+            switch (epr.status) {
+                case pkg_request_not_installed:
+                    LOG_FATAL(
+                        "Internal error: %s reported installed first then not installed "
+                        "shortly after.",
+                        pkg_for_log(desc.name).c_str());
+                case pkg_request_satisfied:
+                case pkg_request_missing_configs:
+                    break;
+                case pkg_request_not_compatible:
+                    LOG_FATAL(
+                        "Internal error: incremental install is only possible when "
+                        "the build settings are compatible. Incompatible settings: %s",
+                        epr.incompatible_cmake_args.c_str());
+                    break;
+                default:
+                    CHECK(false);
+            }
+
+            // extend installed configs
+            desc.b.configs.insert(desc.b.configs.end(), BEGINEND(maybe_desc->b.configs));
+            std::sort(BEGINEND(desc.b.configs));
+            sx::unique_trunc(desc.b.configs);
+        } else {
+            uninstall(maybe_desc->name);
+        }
+    }
     // install files, that is copy from pkg install dir to deps install dir (use symlinks if
     // possible)
     cmakex_config_t cfg(binary_dir);
@@ -302,7 +340,9 @@ void InstallDB::install(pkg_desc_t desc)
 
     pkg_files_t pkg_files;
 
-    Poco::SHA1Engine e;
+    if (incremental && maybe_desc)
+        pkg_files = *try_get_installed_pkg_files(desc.name);
+
     auto files = enumerate_files_recursively(pkg_install_dir);
     std::sort(BEGINEND(files));
     for (auto& f : files) {
@@ -311,13 +351,18 @@ void InstallDB::install(pkg_desc_t desc)
         // todo make certain files relocatable and calc the sha for updated file
         item.path = make_string(butleft(f, pkg_install_dir.size() + 1));
         item.sha = file_sha(f);
-        e.update(item.path.data(), item.path.size());
-        e.update(item.sha.data(), item.sha.size());
         auto target_path = deps_install_dir + "/" + item.path;
         Poco::File(Poco::Path(target_path).parent()).createDirectories();
         Poco::File(f).copyTo(deps_install_dir + "/" + item.path);
         // todo create symlink or move?
         pkg_files.files.emplace_back(move(item));
+    }
+    std::sort(BEGINEND(pkg_files.files), &pkg_files_t::file_item_t::less_path);
+    sx::unique_trunc(pkg_files.files, &pkg_files_t::file_item_t::equal_path);
+    Poco::SHA1Engine e;
+    for (auto& item : pkg_files.files) {
+        e.update(item.path.data(), item.path.size());
+        e.update(item.sha.data(), item.sha.size());
     }
 
     // update pkg_desc along the way

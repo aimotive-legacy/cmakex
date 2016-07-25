@@ -61,6 +61,15 @@ struct pkg_files_t
     {
         string path;  // relative to install prefix
         string sha;
+
+        static bool less_path(const pkg_files_t::file_item_t& x, const pkg_files_t::file_item_t& y)
+        {
+            return x.path < y.path;
+        }
+        static bool equal_path(const pkg_files_t::file_item_t& x, const pkg_files_t::file_item_t& y)
+        {
+            return x.path == y.path;
+        }
     };
     vector<file_item_t> files;
 };
@@ -74,7 +83,7 @@ struct pkg_request_t : pkg_desc_t
     bool git_shallow = true;  // if false, clone only the requested branch at depth=1
 };
 
-struct cmakex_pars_t : public pkg_request_t
+struct cmakex_pars_t : pkg_request_t
 {
     enum subcommand_t
     {
