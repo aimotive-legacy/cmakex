@@ -4,7 +4,10 @@
 #include "cmakex-types.h"
 
 namespace cmakex {
-cmakex_pars_t process_command_line(int argc, char* argv[]);
+
+command_line_args_cmake_mode_t process_command_line(int argc, char* argv[]);
+processed_command_line_args_cmake_mode_t process_command_line(
+    const command_line_args_cmake_mode_t& args);
 }
 
 #endif

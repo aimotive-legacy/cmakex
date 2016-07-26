@@ -1,13 +1,28 @@
 #include "cmakex_utils.h"
 
+#include <cereal/archives/json.hpp>
+#include <nowide/fstream.hpp>
+
 #include <adasworks/sx/check.h>
 
 #include "filesystem.h"
 #include "misc_utils.h"
 
+CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 1)
+
 namespace cmakex {
 
 namespace fs = filesystem;
+
+#define A(X) cereal::make_nvp(#X, m.X)
+
+template <class Archive>
+void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(A(home_directory));
+}
+#undef A
 
 cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir)
     : cmake_binary_dir(cmake_binary_dir.c_str())
@@ -19,6 +34,42 @@ cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir)
     // if (!cmake_source_dir.empty()) {
     //    deps_script_file = cmake_source_dir.str() + "/deps.cmake";
     // }
+    string path = cmakex_cache_path();
+    if (fs::is_regular_file(path)) {
+        nowide::ifstream f(path);
+        if (!f.good())
+            throwf("Can't open existing file \"%s\" for reading.", path.c_str());
+        string what;
+        try {
+            // otherwise it must succeed
+            cereal::JSONInputArchive a(f);
+            a(cmakex_cache_);
+        } catch (const exception& e) {
+            what = e.what();
+        } catch (...) {
+            what = "unknown exception.";
+        }
+        throwf("Can't read \"%s\", reason: %s", path.c_str(), what.c_str());
+    }
+}
+
+string cmakex_config_t::cmakex_cache_path() const
+{
+    return cmake_binary_dir + "/" + k_cmakex_cache_filename;
+}
+
+string cmakex_config_t::main_binary_dir_common() const
+{
+    return cmake_binary_dir;
+}
+
+string cmakex_config_t::main_binary_dir_of_config(string_par config,
+                                                  string_par cmake_generator) const
+{
+    string r = cmake_binary_dir;
+    if (!config.empty() && needs_per_config_binary_dirs(cmake_generator))
+        r += string("/") + same_or_NoConfig(config);
+    return r;
 }
 
 string cmakex_config_t::cmakex_dir() const
@@ -46,13 +97,18 @@ string cmakex_config_t::pkg_clone_dir(string_par pkg_name) const
     return cmake_binary_dir + "/_deps/" + pkg_name.c_str();
 }
 
-string cmakex_config_t::pkg_binary_dir(string_par pkg_name,
-                                       string_par config,
-                                       string_par cmake_generator) const
+string cmakex_config_t::pkg_binary_dir_common(string_par pkg_name) const
 {
-    auto r = cmake_binary_dir + "/_deps/" + pkg_name.c_str() + "-build";
-    if (per_config_binary_dirs(cmake_generator))
-        r += string("-") + config.c_str();
+    return cmake_binary_dir + "/_deps/" + pkg_name.c_str() + "-build";
+}
+
+string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
+                                                 string_par config,
+                                                 string_par cmake_generator) const
+{
+    auto r = pkg_binary_dir_common(pkg_name);
+    if (!config.empty() && needs_per_config_binary_dirs(cmake_generator))
+        r += string("/") + same_or_NoConfig(config);
     return r;
 }
 
@@ -68,7 +124,7 @@ bool is_generator_multiconfig(string_par cmake_generator)
     return false;
 }
 
-bool cmakex_config_t::per_config_binary_dirs(string_par cmake_generator) const
+bool cmakex_config_t::needs_per_config_binary_dirs(string_par cmake_generator) const
 {
     if (!per_config_binary_dirs_)
         return false;
@@ -122,12 +178,16 @@ configuration_helper_t::configuration_helper_t(const cmakex_config_t& cfg,
             break;
         }
     }
-    pkg_bin_dir = cfg.pkg_binary_dir(pkg_name, config, cmake_generator);
+    pkg_bin_dir = cfg.pkg_binary_dir_of_config(pkg_name, config, cmake_generator);
     multiconfig_generator = is_generator_multiconfig(cmake_generator);
 }
 
 string pkg_for_log(string_par pkg_name)
 {
     return stringf("[%s]", pkg_name.c_str());
+}
+string same_or_NoConfig(string_par config)
+{
+    return config.empty() ? "NoConfig" : config.str();
 }
 }

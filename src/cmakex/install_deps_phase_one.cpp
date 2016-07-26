@@ -135,8 +135,7 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
                                                   deps_recursion_wsp_t& wsp);
 
 vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
-                                                   vector<string>
-                                                       request_deps,
+                                                   vector<string> request_deps,
                                                    const vector<string>& config_args,
                                                    const vector<string>& configs,
                                                    bool strict_commits,
@@ -156,8 +155,7 @@ vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
 
 vector<string> install_deps_phase_one(string_par binary_dir,
                                       string_par source_dir,
-                                      vector<string>
-                                          request_deps,
+                                      vector<string> request_deps,
                                       const vector<string>& config_args,
                                       const vector<string>& configs,
                                       bool strict_commits,
@@ -319,9 +317,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(), BEGINEND(config_args));
 
-    // the problem is that pkg_bin_dir is config dependent
-    // should we have per-config cmake_args in pkg_desc_t?
-    auto pkg_cache_cmake_args = cmakex_cache_load(pkg_bin_dir, pkg_request.name);
+    auto pkg_cache_cmake_args =
+        cmakex_cache_load(cfg.pkg_binary_dir_common(pkg_request.name), pkg_request.name);
     pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(),
                                     BEGINEND(pkg_cache_cmake_args));
 

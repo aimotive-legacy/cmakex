@@ -29,19 +29,21 @@ vector<string> install_deps_phase_one(
                                         // overridden by deps_script_file if it
                                         // exists
     const vector<string>& config_args,  // request config args, will be applied to all deps
-    const vector<string>& configs,      // requested configurations, can be overridden per package
+    const vector<string>& configs,  // requested configurations, can be overridden per package. Must
+                                    // not non-empty list of valid configs or a single empty string
     bool strict_commits,  // if true only specified commits will be accepted. If false previously
                           // cloned repos will be accepted even if they don't satisfy the GIT_TAG
                           // requirement
     deps_recursion_wsp_t& wsp);
 
 // returns packages encountered during the recursion
-vector<string> run_deps_add_pkg(const vector<string>& args,
-                                string_par binary_dir,
-                                const vector<string>& configs_args,
-                                const vector<string>& configs,
-                                bool strict_commits,
-                                deps_recursion_wsp_t& wsp);
+vector<string> run_deps_add_pkg(
+    const vector<string>& args,
+    string_par binary_dir,
+    const vector<string>& configs_args,
+    const vector<string>& configs,  // same constraints as for install_deps_phase_one
+    bool strict_commits,
+    deps_recursion_wsp_t& wsp);
 }
 
 #endif

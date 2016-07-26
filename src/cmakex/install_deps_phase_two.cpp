@@ -108,6 +108,8 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         log_info("%s", msg.c_str());
         log_info("%s", stars.c_str());
 
+        clone_helper.report();
+
         log_info("Reason: %s", build_reasons.front().c_str());
         for (int i = 1; i < build_reasons.size(); ++i)
             log_info("%s", build_reasons[i].c_str());

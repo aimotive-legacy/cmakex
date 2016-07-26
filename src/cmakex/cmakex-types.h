@@ -9,7 +9,7 @@ namespace cmakex {
 
 static const char* k_deps_script_filename = "deps.cmake";
 static const char* k_log_extension = ".log";
-static const char* k_pkg_cmakex_cache_filename = ".json";
+static const char* k_cmakex_cache_filename = "cmakex_cache.json";
 
 enum git_tag_kind_t
 {
@@ -84,26 +84,43 @@ struct pkg_request_t : pkg_desc_t
     bool git_shallow = true;  // if false, clone only the requested branch at depth=1
 };
 
-struct cmakex_pars_t : pkg_request_t
+enum deps_mode_t
 {
-    enum subcommand_t
-    {
-        subcommand_invalid,
-        subcommand_cmake_steps
-    } subcommand = subcommand_invalid;
+    dm_main_only,
+    dm_deps_only,
+    dm_deps_and_main
+};
 
+struct base_command_line_args_cmake_mode_t
+{
     bool flag_c = false;
     bool flag_b = false;
     bool flag_t = false;
-    bool binary_dir_valid = false;
-    string binary_dir;
-    vector<string> build_args;
-    vector<string> native_tool_args;
+    vector<string> build_args;        //--clean-first and --use-stderr
+    vector<string> native_tool_args;  // args after "--"
     vector<string> build_targets;
-    bool config_args_besides_binary_dir = false;
-    vector<string> add_pkgs;
-    bool deps = false;
-    bool strict_commits = false;
+    vector<string> configs;  // empty if no config has been specified. Specifying -DCMAKE_BUILD_TYPE
+                             // does not count
+    vector<string> cmake_args;  // two-word args like -D X will be joined into one: -DX
+    deps_mode_t deps_mode = dm_main_only;
+};
+
+struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
+{
+    vector<string> free_args;
+    string arg_H;
+    string arg_B;
+};
+
+struct processed_command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
+{
+    string source_dir;  // can be relative
+    string binary_dir;  // can be relative
+                        /*
+                            bool binary_dir_valid = false;
+                            bool config_args_besides_binary_dir = false;
+                            vector<string> add_pkgs;
+                        */
 };
 
 enum pkg_request_eval_against_installed_t

@@ -285,6 +285,31 @@ void clone_helper_t::clone(const pkg_clone_pars_t& c, bool git_shallow)
     update_clone_status_vars();
 }
 
+void clone_helper_t::report()
+{
+    // determine cloned status
+    switch (get<0>(clone_status)) {
+        case pkg_clone_dir_doesnt_exist:
+        case pkg_clone_dir_empty:
+            log_info("%s local repo nonexistent or empty.", pkg_for_log(pkg_name).c_str());
+            break;
+        case pkg_clone_dir_git: {
+            cloned_sha = get<1>(clone_status);
+            log_info("%s local repo checked out @%s.", pkg_for_log(pkg_name).c_str(),
+                     cloned_sha.c_str());
+        } break;
+        case pkg_clone_dir_git_local_changes:
+            log_info("%s local repo has uncommitted changes, checked out @%s.",
+                     pkg_for_log(pkg_name).c_str(), get<1>(clone_status).c_str());
+            break;
+        case pkg_clone_dir_nonempty_nongit:
+            log_info("%s local repo is not a valid git repository.", pkg_for_log(pkg_name).c_str());
+            break;
+        default:
+            CHECK(false);
+    }
+}
+
 void clone_helper_t::update_clone_status_vars()
 {
     // determine cloned status
@@ -293,24 +318,15 @@ void clone_helper_t::update_clone_status_vars()
     switch (get<0>(clone_status)) {
         case pkg_clone_dir_doesnt_exist:
         case pkg_clone_dir_empty:
-            log_info("%s local repo nonexistent or empty.", pkg_for_log(pkg_name).c_str());
             break;
         case pkg_clone_dir_git:
             cloned_sha = get<1>(clone_status);
             cloned = true;
-            log_info("%s local repo checked out @%s.", pkg_for_log(pkg_name).c_str(),
-                     cloned_sha.c_str());
             break;
         case pkg_clone_dir_git_local_changes:
-            cloned_sha = k_sha_uncommitted;
-            cloned = true;
-            log_info("%s local repo has uncommitted changes, checked out @%s.",
-                     pkg_for_log(pkg_name).c_str(), get<1>(clone_status).c_str());
-            break;
         case pkg_clone_dir_nonempty_nongit:
             cloned_sha = k_sha_uncommitted;
             cloned = true;
-            log_info("%s local repo is not a valid git repository.", pkg_for_log(pkg_name).c_str());
             break;
         default:
             CHECK(false);
