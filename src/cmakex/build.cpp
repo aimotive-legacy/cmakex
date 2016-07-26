@@ -3,6 +3,7 @@
 #include <adasworks/sx/check.h>
 
 #include "cmakex_utils.h"
+#include "installdb.h"
 #include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
@@ -16,7 +17,7 @@ void build(string_par binary_dir, const pkg_desc_t& request, string_par config)
     // create binary dir
     cmakex_config_t cfg(binary_dir);
 
-    configuration_helper_t cfgh(cfg, request, config);
+    configuration_helper_t cfgh(cfg, request.name, request.b.cmake_args, config);
     auto pkg_clone_dir = cfg.pkg_clone_dir(request.name);
     string source_dir = pkg_clone_dir;
 
@@ -35,6 +36,8 @@ void build(string_par binary_dir, const pkg_desc_t& request, string_par config)
     if (!cfgh.multiconfig_generator)
         args.emplace_back(stringf("-DCMAKE_BUILD_TYPE=%s", config.c_str()));
 
+    cmakex_cache_save(cfgh.pkg_bin_dir, request.name, request.b.cmake_args);
+
     log_exec("cmake", args);
     {
         OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
@@ -48,6 +51,7 @@ void build(string_par binary_dir, const pkg_desc_t& request, string_par config)
         if (r != EXIT_SUCCESS)
             throwf("CMake configure step failed, result: %d.", r);
     }
+
     args.assign({"--build", cfgh.pkg_bin_dir.c_str()});
     if (cfgh.multiconfig_generator)
         args.insert(args.end(), {"--config", config.c_str()});

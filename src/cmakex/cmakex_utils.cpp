@@ -111,17 +111,18 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
 }
 
 configuration_helper_t::configuration_helper_t(const cmakex_config_t& cfg,
-                                               const pkg_desc_t& request,
+                                               string_par pkg_name,
+                                               const vector<string>& cmake_args,
                                                string_par config)
 {
     string cmake_generator;
-    for (auto& c : request.b.cmake_args) {
+    for (auto& c : cmake_args) {
         if (starts_with(c, "-G")) {
             cmake_generator = make_string(butleft(c, 2));  // 2 is length of "-G"
             break;
         }
     }
-    pkg_bin_dir = cfg.pkg_binary_dir(request.name, config, cmake_generator);
+    pkg_bin_dir = cfg.pkg_binary_dir(pkg_name, config, cmake_generator);
     multiconfig_generator = is_generator_multiconfig(cmake_generator);
 }
 

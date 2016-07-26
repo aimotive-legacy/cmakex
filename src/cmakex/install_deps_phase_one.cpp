@@ -319,6 +319,15 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(), BEGINEND(config_args));
 
+    // the problem is that pkg_bin_dir is config dependent
+    // should we have per-config cmake_args in pkg_desc_t?
+    auto pkg_cache_cmake_args = cmakex_cache_load(pkg_bin_dir, pkg_request.name);
+    pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(),
+                                    BEGINEND(pkg_cache_cmake_args));
+
+    // make_canonical_args also merges -D and -U switches of the same variable in correct order
+    pkg_request.b.cmake_args = make_canonical_cmake_args(pkg_request.b.cmake_args);
+
     if (std::find(BEGINEND(wsp.requester_stack), pkg_request.name) != wsp.requester_stack.end()) {
         string s;
         for (auto& x : wsp.requester_stack) {

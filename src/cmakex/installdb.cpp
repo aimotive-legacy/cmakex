@@ -403,4 +403,55 @@ void InstallDB::uninstall(string_par pkg_name)
     remove_and_log_error(installed_pkg_desc_path(pkg_name));
     remove_and_log_error(installed_pkg_files_path(pkg_name));
 }
+void cmakex_cache_save(string_par pkg_bin_dir,
+                       string_par pkg_name,
+                       const vector<string>& cmake_args_in)
+{
+    fs::create_directories(pkg_bin_dir.c_str());
+    auto path = pkg_bin_dir.str() + "/" + k_pkg_cmakex_cache_filename;
+
+    auto cmake_args = make_canonical_cmake_args(cmake_args_in);
+
+    nowide::ofstream f(path, std::ios_base::trunc);
+    if (!f.good())
+        throwf("Can't open cmakex cache file \"%s\" for writing.", path.c_str());
+
+    string what;
+    try {
+        cereal::JSONOutputArchive a(f);
+        a(cmake_args);
+        return;
+    } catch (const exception& e) {
+        what = e.what();
+    } catch (...) {
+        what = "unknown exception.";
+    }
+    throwf("Can't write cmakex cache file \"%s\", reason: %s", path.c_str(), what.c_str());
+    // never here}
+}
+
+vector<string> cmakex_cache_load(string_par pkg_bin_dir, string_par name)
+{
+    auto path = pkg_bin_dir.str() + "/" + k_pkg_cmakex_cache_filename;
+
+    nowide::ifstream f(path);
+    if (!f.good())
+        return {};
+
+    string what;
+    try {
+        // otherwise it must succeed
+        cereal::JSONInputArchive a(f);
+        vector<string> v;
+        a(v);
+        return v;
+    } catch (const exception& e) {
+        what = e.what();
+    } catch (...) {
+        what = "unknown exception.";
+    }
+    throwf("Can't read cmakex cache file \"%s\", reason: %s", path.c_str(), what.c_str());
+    // never here
+    return {};
+}
 }

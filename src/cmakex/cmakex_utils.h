@@ -41,7 +41,8 @@ bool evaluate_source_dir(string_par x, bool allow_invalid = false);
 struct configuration_helper_t
 {
     configuration_helper_t(const cmakex_config_t& cfg,
-                           const pkg_desc_t& request,
+                           string_par pkg_name,
+                           const vector<string>& cmake_args,
                            string_par config);
     string pkg_bin_dir;
     bool multiconfig_generator;
