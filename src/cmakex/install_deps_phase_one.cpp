@@ -162,6 +162,10 @@ vector<string> install_deps_phase_one(string_par binary_dir,
                                       const cmakex_cache_t& cmakex_cache)
 {
     CHECK(!binary_dir.empty());
+    CHECK(!configs.empty());
+    if (configs.size() > 1) {
+        CHECK(std::none_of(BEGINEND(configs), [](const string& x) { return x.empty(); }));
+    }
     if (!source_dir.empty()) {
         string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
                                                        "/" + k_deps_script_filename);
@@ -255,7 +259,13 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     args.emplace_back(string("-H") + cfg.cmakex_executor_dir());
     args.emplace_back(string("-B") + build_script_executor_binary_dir);
 
-    args.insert(args.end(), BEGINEND(config_args));
+    CMakeCacheTracker cvt(build_script_executor_binary_dir);
+
+    {
+        auto diff_global_cmake_args = cvt.about_to_configure(global_cmake_args);
+        args.insert(args.end(), BEGINEND(diff_global_cmake_args));
+    }
+
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
     log_info("Configuring dependency script wrapper project.");
     log_exec("cmake", args);
@@ -269,7 +279,8 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     if (r != EXIT_SUCCESS)
         throwf("Failed configuring dependency script wrapper project, result: %d.", r);
 
-    write_cmakex_cache_if_dirty(cmakex_cache);
+    cvt.cmake_config_ok();
+    write_cmakex_cache_if_dirty(binary_dir, cmakex_cache);
 
     args.clear();
     args.emplace_back(build_script_executor_binary_dir);
@@ -298,8 +309,8 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
-        auto pkgs_encountered_below = run_deps_add_pkg(split(addpkg_line, '\t'), binary_dir,
-                                                       config_args, configs, strict_commits, wsp);
+        auto pkgs_encountered_below = run_deps_add_pkg(
+            split(addpkg_line, '\t'), binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
         pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
     }
 
@@ -308,24 +319,18 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
 vector<string> run_deps_add_pkg(const vector<string>& args,
                                 string_par binary_dir,
-                                const vector<string>& config_args,
+                                const vector<string>& global_cmake_args,
                                 const vector<string>& configs,
-                                bool strict_commits,
-                                deps_recursion_wsp_t& wsp)
+                                deps_recursion_wsp_t& wsp,
+                                const cmakex_cache_t& cmakex_cache)
 {
     const cmakex_config_t cfg(binary_dir);
 
     auto pkg_request = pkg_request_from_args(args);
 
-    pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(), BEGINEND(config_args));
-
-    auto pkg_cache_cmake_args =
-        cmakex_cache_load(cfg.pkg_binary_dir_common(pkg_request.name), pkg_request.name);
-    pkg_request.b.cmake_args.insert(pkg_request.b.cmake_args.begin(),
-                                    BEGINEND(pkg_cache_cmake_args));
-
-    // make_canonical_args also merges -D and -U switches of the same variable in correct order
-    pkg_request.b.cmake_args = make_canonical_cmake_args(pkg_request.b.cmake_args);
+    // add global cmake args
+    append(pkg_request.b.cmake_args, global_cmake_args);
+    pkg_request.b.cmake_args = normalize_cmake_args(pkg_request.b.cmake_args);
 
     if (std::find(BEGINEND(wsp.requester_stack), pkg_request.name) != wsp.requester_stack.end()) {
         string s;
@@ -348,6 +353,13 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     // fill configs from global par if not specified
     if (pkg_request.b.configs.empty())
         pkg_request.b.configs = configs;
+
+    for (auto& c : pkg_request.b.configs) {
+        if (c == "NoConfig")
+            c = "";
+    }
+    std::sort(BEGINEND(pkg_request.b.configs));
+    sx::unique_trunc(pkg_request.b.configs);
 
     // it's already processed
     // 1. we may add a new configs to the planned ones
@@ -396,87 +408,12 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
     string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
     switch (installed_result.status) {
         case pkg_request_not_installed:
-            if (cloned && strict_commits)
-                fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
-                                                           cloned_sha, pkg_request.c.git_url);
-            if (!cloned)
-                clone_this();
-            break;
-        case pkg_request_missing_configs: {
-            bool was_cloned = cloned;
-            if (!cloned)
-                clone_this();
-            if (was_cloned && strict_commits)
-                fail_if_current_clone_has_different_commit(pkg_request.c.git_tag, clone_dir,
-                                                           cloned_sha, pkg_request.c.git_url);
-        } break;
-        case pkg_request_satisfied:
-            if (strict_commits) {
-                string req_git_tag = pkg_request.c.git_url;
-                if (req_git_tag.empty())
-                    req_git_tag = "HEAD";
-                string remote_sha;
-                try {
-                    remote_sha =
-                        must_git_resolve_ref_on_remote(req_git_tag, pkg_request.c.git_url, true);
-                } catch (const exception& e) {
-                    throwf(
-                        "Because of the '--strict' option the directory \"%s\" should be reset "
-                        "to the remote's '%s' commit in order to build it. On resolving the "
-                        "commit 'git ls-remote' "
-                        "failed for \"%s\", reason: %s. Reset manually or remove the "
-                        "directory.",
-                        clone_dir.c_str(), req_git_tag.c_str(), pkg_request.c.git_url.c_str(),
-                        e.what());
-                }
-                if (remote_sha == installed_result.pkg_desc.c.git_tag)
-                    break;
-                bool sha_like = remote_sha == req_git_tag;
-
-                if (cloned) {
-                    string resolved_remote_sha;
-                    if (sha_like) {
-                        // if remote_sha is a shortened sha it can still be equal to
-                        // installed sha
-                        // check it in the clone
-                        resolved_remote_sha = git_rev_parse(remote_sha, clone_dir);
-                        if (resolved_remote_sha.empty())
-                            throwf(
-                                "Because of the '--strict' option the requested commit "
-                                "'%s' "
-                                "has to be resolved but neither 'git ls-remote' on \"%s\" "
-                                "nor "
-                                "'git rev-parse' in \"%s\" was able to do it. Reset the "
-                                "repository manually or remove the directory.",
-                                req_git_tag.c_str(), pkg_request.c.git_url.c_str(),
-                                clone_dir.c_str());
-                        if (resolved_remote_sha == installed_result.pkg_desc.c.git_tag)
-                            break;
-                    } else
-                        resolved_remote_sha = remote_sha;
-
-                    // we may still be able to build it
-                    if (resolved_remote_sha != cloned_sha)
-                        throwf(
-                            "Because of the '--strict' option the directory \"%s\" "
-                            "should be "
-                            "reset to the remote's '%s' commit in order to build "
-                            "it. Reset manually or remove the "
-                            "directory.",
-                            clone_dir.c_str(), req_git_tag.c_str());
-                } else {
-                    // not cloned
-                    clone_this();
-                }
-            }
-            break;
+        case pkg_request_missing_configs:
         case pkg_request_not_compatible:
-            if (cloned) {
-                if (strict_commits)
-                    fail_if_current_clone_has_different_commit(pkg_request.c.git_url, clone_dir,
-                                                               cloned_sha, pkg_request.c.git_url);
-            } else
+            if (!cloned)
                 clone_this();
+            break;
+        case pkg_request_satisfied:
             break;
         default:
             CHECK(false);
@@ -497,7 +434,7 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         string prev_git_tag = pm.planned_desc.c.git_tag;
         if (pkg_request.c.git_tag != prev_git_tag) {
             throwf(
-                "Different GIT_TAG's: this package has already been added but with different "
+                "Different GIT_TAG's: this package has already been requested but with different "
                 "GIT_TAG specification. Previous GIT_TAG was '%s', resolved as %s, current GIT_TAG "
                 "is '%s', resolved as %s",
                 pm.unresolved_git_tag.c_str(), prev_git_tag.c_str(), unresolved_git_tag.c_str(),
@@ -513,8 +450,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
             wsp.requester_stack.emplace_back(pkg_request.name);
 
             pkgs_encountered =
-                install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends, config_args,
-                                       configs, strict_commits, wsp);
+                install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends,
+                                       global_cmake_args, configs, wsp, cmakex_cache);
 
             CHECK(wsp.requester_stack.back() == pkg_request.name);
             wsp.requester_stack.pop_back();

@@ -23,14 +23,15 @@ struct deps_recursion_wsp_t
 
 // returns packages encountered during the recursion
 vector<string> install_deps_phase_one(
-    string_par binary_dir,                    // main project binary dir
-    string_par source_dir,                    // the package's source dir (or the main source dir)
-    vector<string> request_deps,              // dependency list from request, will be
-                                              // overridden by deps_script_file if it
-                                              // exists
-    const vector<string>& global_cmake_args,  // request config args, will be applied to all deps
-    const vector<string>& configs,  // requested configurations, can be overridden per package. Must
-                                    // not non-empty list of valid configs or a single empty string
+    string_par binary_dir,        // main project binary dir
+    string_par source_dir,        // the package's source dir (or the main source dir)
+    vector<string> request_deps,  // dependency list from request, will be
+                                  // overridden by deps_script_file if it
+                                  // exists
+    const vector<string>& global_cmake_args,
+    const vector<string>&
+        configs,  // requested configurations, can be overridden per package. Must be
+                  // a non-empty list of valid configs or a single empty string
     deps_recursion_wsp_t& wsp,
     const cmakex_cache_t& cmakex_cache  // should be written out if dirty, after the first
                                         // successful run of the wrapper project

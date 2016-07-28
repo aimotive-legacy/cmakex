@@ -12,7 +12,18 @@
 
 namespace cmakex {
 
-void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
+vector<string> replace_empty_config(vector<string> x)
+{
+    for (auto& c : x) {
+        if (c.empty())
+            c = "NoConfig";
+    }
+    return x;
+}
+
+void install_deps_phase_two(string_par binary_dir,
+                            deps_recursion_wsp_t& wsp,
+                            bool force_config_step)
 {
     log_info("");
     InstallDB installdb(binary_dir);
@@ -74,8 +85,9 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
                 case pkg_request_satisfied:
                     break;
                 case pkg_request_missing_configs:
-                    build_reasons = {stringf("missing configurations (%s)",
-                                             join(request_eval.missing_configs, ", ").c_str())};
+                    build_reasons = {stringf(
+                        "missing configurations (%s)",
+                        join(replace_empty_config(request_eval.missing_configs), ", ").c_str())};
                     incremental_install = true;
                     break;
                 case pkg_request_not_installed:
@@ -83,10 +95,9 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
                     break;
                 case pkg_request_not_compatible:
                     build_reasons = {stringf("build options changed")};
-                    build_reasons.emplace_back(
-                        stringf("CMAKE_ARGS of the currently installed build: %s",
-                                join(make_canonical_cmake_args(wp.planned_desc.b.cmake_args), " ")
-                                    .c_str()));
+                    build_reasons.emplace_back(stringf(
+                        "CMAKE_ARGS of the currently installed build: %s",
+                        join(normalize_cmake_args(wp.planned_desc.b.cmake_args), " ").c_str()));
                     build_reasons.emplace_back(
                         stringf("Requested CMAKE_ARGS: %s",
                                 join(request_eval.pkg_desc.b.cmake_args, " ").c_str()));
@@ -117,7 +128,7 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         if (request_eval.status != pkg_request_not_installed && !incremental_install) {
             CHECK(!request_eval.pkg_desc.b.configs.empty());
             log_info("Uninstalling previously installed configurations (%s)",
-                     join(request_eval.pkg_desc.b.configs, ", ").c_str());
+                     join(replace_empty_config(request_eval.pkg_desc.b.configs), ", ").c_str());
             installdb.uninstall(p);
         }
 
@@ -125,8 +136,23 @@ void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp)
         CHECK(!pd.b.configs.empty(),
               "Internal error: at this point there must be at least one explicit configuration "
               "specified to build.");
+
+        cmakex_config_t cfg(binary_dir);
+        CHECK(cfg.cmakex_cache_loaded());
+        if (cfg.cmakex_cache().per_config_bin_dirs) {
+            // maintain a reference cmakex cache tracker in the common pkg bin dir
+            // it's used simply to accumulate all the cmake args applied so far
+            // This is to simulate how the multiconfig or singleconfig-singledir cmake binary dirs
+            // work regarding how the setting of cmake args and the configurations work together:
+            // there's no separate per-config cmake cache there.
+            CMakeCacheTracker cct(cfg.pkg_binary_dir_common(p));
+            cct.about_to_configure(wp.planned_desc.b.cmake_args);
+            cct.cmake_config_ok();
+        }
+        bool first_config = true;
         for (auto& config : wp.planned_desc.b.configs) {
-            build(binary_dir, pd, config);
+            build(binary_dir, pd, config, first_config, force_config_step);
+            first_config = false;
             // copy or link installed files into install prefix
             // register this build with installdb
             installdb.install(pd, incremental_install);

@@ -8,7 +8,9 @@ namespace cmakex {
 // iterarate build order
 // check each item if it must be built or not
 // build & install if needed
-void install_deps_phase_two(string_par binary_dir, deps_recursion_wsp_t& wsp);
+void install_deps_phase_two(string_par binary_dir,
+                            deps_recursion_wsp_t& wsp,
+                            bool force_config_step);
 }
 
 #endif

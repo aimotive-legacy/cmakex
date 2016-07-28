@@ -144,6 +144,12 @@ C set_difference(const C& x, const C& y)
 }
 
 string file_sha(string_par path);
+
+template <class Container1, class Container2>
+void append(Container1& c1, const Container2& c2)
+{
+    c1.insert(c1.end(), c2.begin(), c2.end());
+}
 }
 
 #endif

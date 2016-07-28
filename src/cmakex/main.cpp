@@ -54,9 +54,15 @@ int main(int argc, char* argv[])
         CHECK(!pars.source_dir.empty());
         if (pars.deps_mode != dm_main_only) {
             deps_recursion_wsp_t wsp;
-            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, pars.cmake_args,
+            vector<string> global_cmake_args;
+            for (auto& c : pars.cmake_args) {
+                auto pca = parse_cmake_arg(c);
+                if (pca.name != "CMAKE_INSTALL_PREFIX")
+                    global_cmake_args.emplace_back(c);
+            }
+            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, global_cmake_args,
                                    pars.configs, wsp, cmakex_cache);
-            install_deps_phase_two(pars.binary_dir, wsp);
+            install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c);
             log_info("");
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
                      wsp.pkg_map.size() == 1 ? "y" : "ies",
@@ -66,15 +72,8 @@ int main(int argc, char* argv[])
             // add deps install dir to CMAKE_PREFIX_PATH
             bool added = false;
             const string deps_install_dir = cmakex_config_t(pars.binary_dir).deps_install_dir();
-            for (auto& c : pars.cmake_args) {
-                auto pca = parse_cmake_arg(c);
-                if (pca.switch_ == "-D" && pca.name == "CMAKE_PREFIX_PATH") {
-                    c += ";" + deps_install_dir;
-                    added = true;
-                }
-            }
-            if (!added)
-                pars.cmake_args.emplace_back("-DCMAKE_PREFIX_PATH=" + deps_install_dir);
+            pars.cmake_args =
+                cmake_args_prepend_cmake_prefix_path(pars.cmake_args, deps_install_dir);
         }
         if (pars.deps_mode != dm_deps_only)
             run_cmake_steps(pars);

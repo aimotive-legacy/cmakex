@@ -10,6 +10,7 @@ namespace cmakex {
 static const char* k_deps_script_filename = "deps.cmake";
 static const char* k_log_extension = ".log";
 static const char* k_cmakex_cache_filename = "cmakex_cache.json";
+static const char* k_cmake_cache_tracker_filename = "cmakex_cache_tracker.json";
 
 enum git_tag_kind_t
 {
