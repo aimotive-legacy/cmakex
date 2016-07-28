@@ -40,12 +40,6 @@ private:
     const string binary_dir;
     const string dbpath;
 };
-
-vector<string> make_canonical_cmake_args(const vector<string>& x);
-void cmakex_cache_save(string_par binary_dir,
-                       string_par pkg_name,
-                       const vector<string>& cmake_args);
-vector<string> cmakex_cache_load(string_par binary_dir, string_par name);
 }
 
 #endif

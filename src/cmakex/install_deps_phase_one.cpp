@@ -129,24 +129,24 @@ void fail_if_current_clone_has_different_commit(string req_git_tag,
 
 vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
                                                   string_par deps_script_filename,
-                                                  const vector<string>& config_args,
+                                                  const vector<string>& global_cmake_args,
                                                   const vector<string>& configs,
-                                                  bool strict_commits,
-                                                  deps_recursion_wsp_t& wsp);
+                                                  deps_recursion_wsp_t& wsp,
+                                                  const cmakex_cache_t& cmakex_cache);
 
 vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
                                                    vector<string> request_deps,
-                                                   const vector<string>& config_args,
+                                                   const vector<string>& global_cmake_args,
                                                    const vector<string>& configs,
-                                                   bool strict_commits,
-                                                   deps_recursion_wsp_t& wsp)
+                                                   deps_recursion_wsp_t& wsp,
+                                                   const cmakex_cache_t& cmakex_cache)
 {
     vector<string> pkgs_encountered;
 
     // for each pkg:
     for (auto& d : request_deps) {
         auto pkgs_encountered_below =
-            run_deps_add_pkg({{d}}, binary_dir, config_args, configs, strict_commits, wsp);
+            run_deps_add_pkg({{d}}, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
         pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
     }
 
@@ -156,29 +156,29 @@ vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
 vector<string> install_deps_phase_one(string_par binary_dir,
                                       string_par source_dir,
                                       vector<string> request_deps,
-                                      const vector<string>& config_args,
+                                      const vector<string>& global_cmake_args,
                                       const vector<string>& configs,
-                                      bool strict_commits,
-                                      deps_recursion_wsp_t& wsp)
+                                      deps_recursion_wsp_t& wsp,
+                                      const cmakex_cache_t& cmakex_cache)
 {
     CHECK(!binary_dir.empty());
     if (!source_dir.empty()) {
         string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
                                                        "/" + k_deps_script_filename);
         if (fs::is_regular_file(deps_script_file))
-            return install_deps_phase_one_deps_script(binary_dir, deps_script_file, config_args,
-                                                      configs, strict_commits, wsp);
+            return install_deps_phase_one_deps_script(
+                binary_dir, deps_script_file, global_cmake_args, configs, wsp, cmakex_cache);
     }
-    return install_deps_phase_one_request_deps(binary_dir, request_deps, config_args, configs,
-                                               strict_commits, wsp);
+    return install_deps_phase_one_request_deps(binary_dir, request_deps, global_cmake_args, configs,
+                                               wsp, cmakex_cache);
 }
 
 vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
                                                   string_par deps_script_file,
-                                                  const vector<string>& config_args,
+                                                  const vector<string>& global_cmake_args,
                                                   const vector<string>& configs,
-                                                  bool strict_commits,
-                                                  deps_recursion_wsp_t& wsp)
+                                                  deps_recursion_wsp_t& wsp,
+                                                  const cmakex_cache_t& cmakex_cache)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -268,6 +268,8 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
     if (r != EXIT_SUCCESS)
         throwf("Failed configuring dependency script wrapper project, result: %d.", r);
+
+    write_cmakex_cache_if_dirty(cmakex_cache);
 
     args.clear();
     args.emplace_back(build_script_executor_binary_dir);

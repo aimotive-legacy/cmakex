@@ -40,38 +40,44 @@ int main(int argc, char* argv[])
     int result = EXIT_SUCCESS;
     log_info("Current directory: \"%s\"", fs::current_path().c_str());
     try {
-        auto pars = process_command_line(argc, argv);
-        if (!pars.add_pkgs.empty())
-            run_add_pkgs(pars);
-        else {
-            CHECK(!pars.b.source_dir.empty());
-            if (pars.deps) {
-                cmakex_config_t cfg(pars.binary_dir);
-                deps_recursion_wsp_t wsp;
-                install_deps_phase_one(pars.binary_dir, pars.b.source_dir, {}, pars.b.cmake_args,
-                                       pars.b.configs, pars.strict_commits, wsp);
-                install_deps_phase_two(pars.binary_dir, wsp);
-                log_info("");
-                log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
-                         wsp.pkg_map.size() == 1 ? "y" : "ies",
-                         wsp.pkg_map.size() == 1 ? "has" : "have");
-                log_info("Building main project.");
-                log_info("");
-                // add deps install dir to CMAKE_PREFIX_PATH
-                bool added = false;
-                for (auto& c : pars.b.cmake_args) {
-                    if (starts_with(c, "-DCMAKE_PREFIX_PATH=") ||
-                        starts_with(c, "-DCMAKE_PREFIX_PATH:")) {
-                        c += ";" + cfg.deps_install_dir();
-                        added = true;
-                    }
+        auto cla = process_command_line_1(argc, argv);
+        processed_command_line_args_cmake_mode_t pars;
+        cmakex_cache_t cmakex_cache;
+
+        tie(pars, cmakex_cache) = process_command_line_2(cla);
+
+        // cmakex_cache may contain new data to the stored cmakex_cache, or
+        // in case of a first cmakex call on this binary dir, it is not saved at all
+        // We'll save it on the first successful configuration: either after configuring the wrapper
+        // project or after configuring the main project
+
+        CHECK(!pars.source_dir.empty());
+        if (pars.deps_mode != dm_main_only) {
+            deps_recursion_wsp_t wsp;
+            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, pars.cmake_args,
+                                   pars.configs, wsp, cmakex_cache);
+            install_deps_phase_two(pars.binary_dir, wsp);
+            log_info("");
+            log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
+                     wsp.pkg_map.size() == 1 ? "y" : "ies",
+                     wsp.pkg_map.size() == 1 ? "has" : "have");
+            log_info("Building main project.");
+            log_info("");
+            // add deps install dir to CMAKE_PREFIX_PATH
+            bool added = false;
+            const string deps_install_dir = cmakex_config_t(pars.binary_dir).deps_install_dir();
+            for (auto& c : pars.cmake_args) {
+                auto pca = parse_cmake_arg(c);
+                if (pca.switch_ == "-D" && pca.name == "CMAKE_PREFIX_PATH") {
+                    c += ";" + deps_install_dir;
+                    added = true;
                 }
-                if (!added)
-                    pars.b.cmake_args.emplace_back(
-                        stringf("-DCMAKE_PREFIX_PATH=%s", cfg.deps_install_dir().c_str()));
             }
-            run_cmake_steps(pars);
+            if (!added)
+                pars.cmake_args.emplace_back("-DCMAKE_PREFIX_PATH=" + deps_install_dir);
         }
+        if (pars.deps_mode != dm_deps_only)
+            run_cmake_steps(pars);
     } catch (const exception& e) {
         log_fatal("%s", e.what());
         result = EXIT_FAILURE;

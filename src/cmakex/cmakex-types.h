@@ -112,6 +112,15 @@ struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
     string arg_B;
 };
 
+struct cmakex_cache_t
+{
+    string home_directory;
+    bool multiconfig_generator = false;
+    bool per_config_bin_dirs = false;  // this is an effective value, not the user setting: if the
+                                       // user setting is yes but it's a multiconfig-generator, then
+                                       // this value will be false
+};
+
 struct processed_command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
 {
     string source_dir;  // can be relative

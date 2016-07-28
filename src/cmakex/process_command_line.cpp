@@ -129,7 +129,7 @@ fs::path strip_trailing_dot(const fs::path& x)
     return x;
 }
 
-command_line_args_cmake_mode_t process_command_line(int argc, char* argv[])
+command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
 {
     command_line_args_cmake_mode_t pars;
     if (argc <= 1)
@@ -197,8 +197,6 @@ command_line_args_cmake_mode_t process_command_line(int argc, char* argv[])
             if (pars.deps_mode != dm_main_only)
                 badpars_exit("'--deps' or '--deps-only' specified multiple times");
             pars.deps_mode = dm_deps_only;
-        } else if (starts_with(arg, "--graphwiz=")) {
-            pars.cmake_args.emplace_back(arg);
         } else if (starts_with(arg, "-H")) {
             if (arg == "-H") {
                 // unlike cmake, here we support the '-H <path>' style, too
@@ -218,40 +216,19 @@ command_line_args_cmake_mode_t process_command_line(int argc, char* argv[])
         } else if (!starts_with(arg, '-')) {
             pars.free_args.emplace_back(arg);
         } else {
-            bool found = false;
-            for (const char* c : {"-C", "-D", "-U", "-G", "-T", "-A"}) {
-                if (arg == c) {
-                    if (++argix >= argc)
-                        badpars_exit(stringf("Missing argument after '%s'", c));
-                    pars.cmake_args.emplace_back(string(c) + argv[argix]);
-                    found = true;
-                    break;
-                }
-                if (starts_with(arg, c)) {
-                    pars.cmake_args.emplace_back(arg);
-                    found = true;
-                    break;
-                }
-            }
-            if (found)
-                continue;
-
-            for (auto c : {"-Wno-dev", "-Wdev", "-Werror=dev", "Wno-error=dev", "-Wdeprecated",
-                           "-Wno-deprecated", "-Werror=deprecated", "-Wno-error=deprecated", "-N",
-                           "--debug-trycompile", "--debug-output", "--trace", "--trace-expand",
-                           "--warn-uninitialized", "--warn-unused-vars", "--no-warn-unused-cli",
-                           "--check-system-vars"}) {
-                if (arg == c) {
-                    pars.cmake_args.emplace_back(arg);
-                    found = true;
-                    break;
-                }
+            if (arg.size() == 2 && is_one_of(arg, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+                if (++argix >= argc)
+                    badpars_exit(stringf("Missing argument after '%s'", arg.c_str()));
+                arg += argv[argix];
             }
 
-            if (found)
-                continue;
+            try {
+                auto pca = parse_cmake_arg(arg);
+            } catch (...) {
+                badpars_exit(stringf("Invalid option: '%s'", arg.c_str()));
+            }
 
-            badpars_exit(stringf("Invalid option: '%s'", arg.c_str()));
+            pars.cmake_args.emplace_back(arg);
         }  // last else
     }      // foreach arg
     return pars;
@@ -287,7 +264,7 @@ cmake_cache_t read_cmake_cache(string_par path)
     return cache;
 }
 
-processed_command_line_args_cmake_mode_t process_command_line(
+tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_line_2(
     const command_line_args_cmake_mode_t& cla)
 
 {
@@ -367,6 +344,28 @@ processed_command_line_args_cmake_mode_t process_command_line(
 
     // extract source dir from existing binary dir
     cmakex_config_t cfg(pcla.binary_dir);
+    cmakex_cache_t cmakex_cache;
+    if (cfg.cmakex_cache_loaded())
+        cmakex_cache = cfg.cmakex_cache();
+
+    cmake_cache_t cmake_cache;
+    bool binary_dir_has_cmake_cache;
+    bool cmake_cache_checked = false;
+    auto check_cmake_cache = [&pcla, &binary_dir_has_cmake_cache, &cmake_cache_checked,
+                              &cmake_cache]() {
+        if (cmake_cache_checked)
+            return;
+
+        const string cmake_cache_path = pcla.binary_dir + "/CMakeCache.txt";
+
+        binary_dir_has_cmake_cache = fs::is_regular_file(cmake_cache_path);
+        cmake_cache_checked = true;
+
+        if (!binary_dir_has_cmake_cache)
+            return;
+
+        cmake_cache = read_cmake_cache(cmake_cache_path);
+    };
 
     if (cfg.cmakex_cache_loaded()) {
         string source_dir = cfg.cmakex_cache().home_directory;
@@ -380,9 +379,8 @@ processed_command_line_args_cmake_mode_t process_command_line(
         if (pcla.source_dir.empty())
             pcla.source_dir = source_dir;
     } else {
-        string cmake_cache_path = pcla.binary_dir + "/CMakeCache.txt";
-        if (fs::is_regular_file(cmake_cache_path)) {
-            auto cmake_cache = read_cmake_cache(cmake_cache_path);
+        check_cmake_cache();
+        if (binary_dir_has_cmake_cache) {
             string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
             if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
                 badpars_exit(stringf(
@@ -407,19 +405,107 @@ processed_command_line_args_cmake_mode_t process_command_line(
         badpars_exit(stringf("The source dir \"%s\" is not valid (no CMakeLists.txt)",
                              pcla.source_dir.c_str()));
 
+    string home_directory = fs::canonical(pcla.source_dir).string();
+    if (cmakex_cache.home_directory.empty()) {
+        cmakex_cache.home_directory = home_directory;
+    } else
+        CHECK(fs::equivalent(cmakex_cache.home_directory, home_directory));
+
+    if (!cfg.cmakex_cache_loaded()) {
+        string cmake_generator;
+        check_cmake_cache();
+        if (binary_dir_has_cmake_cache) {
+            cmake_generator = cmake_cache.vars["CMAKE_GENERATOR"];
+            THROW_IF(
+                cmake_generator.empty(),
+                "The file %s/CMakeCache.txt contains invalid (empty) CMAKE_GENERATOR variable.",
+                pcla.binary_dir.c_str());
+        } else {
+            // new binary dir
+            cmake_generator = extract_generator_from_cmake_args(pcla.cmake_args);
+        }
+        cmakex_cache.multiconfig_generator = is_generator_multiconfig(cmake_generator);
+        if (binary_dir_has_cmake_cache)
+            cmakex_cache.per_config_bin_dirs = false;  // building upon an existing non-cmakex build
+        else
+            cmakex_cache.per_config_bin_dirs =
+                ~cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
+    }
+
+    string cmake_build_type;
+    bool undefines_cmake_build_type = false;
+    for (auto& c : pcla.cmake_args) {
+        auto pca = parse_cmake_arg(c);
+        if (pca.name == "CMAKE_BUILD_TYPE") {
+            if (pca.switch_ == "-D") {
+                cmake_build_type = pca.value;
+                undefines_cmake_build_type = false;
+            } else if (pca.switch_ == "-U") {
+                cmake_build_type.clear();
+                undefines_cmake_build_type = true;
+            }
+        }
+    }
+
+    if (pcla.configs.empty()) {
+        // for multiconfig generator not specifying a config defaults to Debug
+        // for singleconfig, it's a special NoConfig configuration
+        pcla.configs.assign(1, cmakex_cache.multiconfig_generator ? "Debug" : "");
+    } else {
+        for (auto& c : pcla.configs) {
+            CHECK(!c.empty());  // this is an internal error
+        }
+    }
+
+    if (cmakex_cache.multiconfig_generator) {
+        vector<string> warning_configs;
+        if (!undefines_cmake_build_type) {
+            for (auto& c : pcla.configs) {
+                if (c != cmake_build_type)
+                    warning_configs.push_back(c);
+            }
+            if (!warning_configs.empty()) {
+                log_warn(
+                    "The CMAKE_BUILD_TYPE is defined to '%s' but it's value is different from the "
+                    "actual configuration value in these cases: %s. Since CMake ignores "
+                    "CMAKE_BUILD_TYPE for multiconfig generators, this is only a warning.",
+                    cmake_build_type.c_str(), join(warning_configs, ", ").c_str());
+            }
+        }
+    } else {
+        for (auto& c : pcla.configs) {
+            if (!c.empty()) {
+                THROW_IF(undefines_cmake_build_type,
+                         "Incompatible configuration settings: CMAKE_BUILD_TYPE is removed with "
+                         "'-U' but the configuration setting requires it to be defined to '%s'",
+                         c.c_str());
+
+                THROW_IF(c != cmake_build_type,
+                         "Incompatible configuration settings: CMAKE_BUILD_TYPE is defined to '%s' "
+                         "but the configuration setting requires it to be defined to '%s'",
+                         cmake_build_type.c_str(), c.c_str());
+            }
+        }
+    }
+
     if (fs::path(pcla.source_dir).is_absolute())
-        log_info("Source dir: \"%s\"", pcla.source_dir.c_str());
+        log_info("Using source dir: \"%s\"", pcla.source_dir.c_str());
     else {
-        log_info("Source dir: \"%s\" -> \"%s\"", pcla.source_dir.c_str(),
+        log_info("Using source dir: \"%s\" -> \"%s\"", pcla.source_dir.c_str(),
                  strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.source_dir))).c_str());
     }
 
+    const char* using_or_creating =
+        is_valid_binary_dir(pcla.binary_dir) ? "Using existing" : "Creating";
+
     if (fs::path(pcla.binary_dir).is_absolute())
-        log_info("Binary dir: \"%s\"", pcla.binary_dir.c_str());
+        log_info("%s binary dir: \"%s\"", using_or_creating, pcla.binary_dir.c_str());
     else
-        log_info("Binary dir: \"%s\" -> \"%s\"", pcla.binary_dir.c_str(),
+        log_info("%s binary dir: \"%s\" -> \"%s\"", using_or_creating, pcla.binary_dir.c_str(),
                  strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.binary_dir))).c_str());
 
-    return pcla;
+    pcla.cmake_args = normalize_cmake_args(pcla.cmake_args);
+
+    return {pcla, cmakex_cache};
 }
 }

@@ -3,13 +3,8 @@
 #include <Poco/DirectoryIterator.h>
 #include <Poco/SHA1Engine.h>
 #include <adasworks/sx/algorithm.h>
-#include <adasworks/sx/check.h>
-#include <cereal/archives/json.hpp>
-#include <cereal/types/map.hpp>
-#include <cereal/types/string.hpp>
-#include <cereal/types/vector.hpp>
-#include <nowide/fstream.hpp>
 
+#include "cereal_utils.h"
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "misc_utils.h"
@@ -73,90 +68,34 @@ InstallDB::InstallDB(string_par binary_dir)
 maybe<pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg_name) const
 {
     auto path = installed_pkg_desc_path(pkg_name);
-    nowide::ifstream f(path);
-    if (!f.good())
+    if (!fs::is_regular_file(path))
         return nothing;
-    string what;
-    try {
-        // otherwise it must succeed
-        cereal::JSONInputArchive a(f);
-        maybe<pkg_desc_t> r(in_place);
-        a(*r);
-        return r;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't read installed package descriptor \"%s\", reason: %s", path.c_str(),
-           what.c_str());
-    // never here
-    return nothing;
+    maybe<pkg_desc_t> r(in_place);
+    load_json_input_archive(path, *r);
+    return r;
 }
 
 maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) const
 {
     auto path = installed_pkg_files_path(pkg_name);
-    nowide::ifstream f(path);
-    if (!f.good())
+    if (!fs::is_regular_file(path))
         return nothing;
-    string what;
-    try {
-        // otherwise it must succeed
-        cereal::JSONInputArchive a(f);
-        maybe<pkg_files_t> r(in_place);
-        a(*r);
-        return r;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't read installed package file list \"%s\", reason: %s", path.c_str(), what.c_str());
-    // never here
-    return nothing;
+    maybe<pkg_files_t> r(in_place);
+    load_json_input_archive(path, *r);
+    return r;
 }
 
 void InstallDB::put_installed_pkg_desc(pkg_desc_t p)
 {
     p.b.cmake_args = make_canonical_cmake_args(p.b.cmake_args);
     auto path = installed_pkg_desc_path(p.name);
-    nowide::ofstream f(path, std::ios_base::trunc);
-    if (!f.good())
-        throwf("Can't open installed package descriptor \"%s\" for writing.", path.c_str());
-    string what;
-    try {
-        cereal::JSONOutputArchive a(f);
-        a(p);
-        return;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't write installed package descriptor \"%s\", reason: %s", path.c_str(),
-           what.c_str());
-    // never here
+    save_json_output_archive(path, p);
 }
 
 void InstallDB::put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p)
 {
     auto path = installed_pkg_files_path(pkg_name);
-    nowide::ofstream f(path, std::ios_base::trunc);
-    if (!f.good())
-        throwf("Can't open installed package files \"%s\" for writing.", path.c_str());
-    string what;
-    try {
-        cereal::JSONOutputArchive a(f);
-        a(p);
-        return;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't write installed package files \"%s\", reason: %s", path.c_str(), what.c_str());
-    // never here
+    save_json_output_archive(path, p);
 }
 
 string InstallDB::installed_pkg_desc_path(string_par pkg_name) const
@@ -167,62 +106,6 @@ string InstallDB::installed_pkg_desc_path(string_par pkg_name) const
 string InstallDB::installed_pkg_files_path(string_par pkg_name) const
 {
     return dbpath + "/" + pkg_name.c_str() + "-files.json";
-}
-
-string varname_from_dash_d_cmake_arg(const string& x)
-{
-    CHECK(starts_with(x, "-D"));
-    auto y = butleft(x, 2);
-    auto p = std::min(std::find(BEGINEND(y), ':'), std::find(BEGINEND(y), '='));
-    if (p == y.end())
-        throwf("Invalid CMAKE_ARG: '%s'", x.c_str());
-    return string(y.begin(), p);
-}
-
-vector<string> make_canonical_cmake_args(const vector<string>& x)
-{
-    std::unordered_map<string, string> prev_options;
-    vector<string> canonical_args;
-    std::unordered_map<string, string>
-        varname_to_last_arg;  // maps variable name to the last option that deals with that variable
-    for (auto& a : x) {
-        bool found = false;
-        for (auto o : {"-C", "-G", "-T", "-A"}) {
-            if (starts_with(a, o)) {
-                found = true;
-                auto& prev_option = prev_options[o];
-                if (prev_option.empty()) {
-                    prev_option = a;
-                    canonical_args.emplace_back(a);
-                } else {
-                    if (prev_option != a) {
-                        throwf(
-                            "Two, different '%s' options has been specified: \"%s\" and \"%s\". "
-                            "There should be only a single '%s' option for a build.",
-                            o, prev_option.c_str(), a.c_str(), o);
-                    }
-                }
-                break;
-            }
-        }
-        if (!found) {
-            if (starts_with(a, "-D")) {
-                auto varname = varname_from_dash_d_cmake_arg(a);
-                if (varname.empty())
-                    throwf("Invalid CMAKE_ARG: %s", a.c_str());
-                varname_to_last_arg[varname] = a;
-            } else if (starts_with(a, "-U")) {
-                auto varname = butleft(a, 2);
-                if (varname.empty())
-                    throwf("Invalid CMAKE_ARG: %s", a.c_str());
-                varname_to_last_arg[make_string(varname)] = a;
-            }
-        }
-    }
-    for (auto& kv : varname_to_last_arg)
-        canonical_args.emplace_back(kv.second);
-    std::sort(BEGINEND(canonical_args));
-    return canonical_args;
 }
 
 bool is_critical_cmake_arg(const string& s)
@@ -402,56 +285,5 @@ void InstallDB::uninstall(string_par pkg_name)
     // remove the jsons
     remove_and_log_error(installed_pkg_desc_path(pkg_name));
     remove_and_log_error(installed_pkg_files_path(pkg_name));
-}
-void cmakex_cache_save(string_par pkg_bin_dir,
-                       string_par pkg_name,
-                       const vector<string>& cmake_args_in)
-{
-    fs::create_directories(pkg_bin_dir.c_str());
-    auto path = pkg_bin_dir.str() + "/" + k_pkg_cmakex_cache_filename;
-
-    auto cmake_args = make_canonical_cmake_args(cmake_args_in);
-
-    nowide::ofstream f(path, std::ios_base::trunc);
-    if (!f.good())
-        throwf("Can't open cmakex cache file \"%s\" for writing.", path.c_str());
-
-    string what;
-    try {
-        cereal::JSONOutputArchive a(f);
-        a(cmake_args);
-        return;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't write cmakex cache file \"%s\", reason: %s", path.c_str(), what.c_str());
-    // never here}
-}
-
-vector<string> cmakex_cache_load(string_par pkg_bin_dir, string_par name)
-{
-    auto path = pkg_bin_dir.str() + "/" + k_pkg_cmakex_cache_filename;
-
-    nowide::ifstream f(path);
-    if (!f.good())
-        return {};
-
-    string what;
-    try {
-        // otherwise it must succeed
-        cereal::JSONInputArchive a(f);
-        vector<string> v;
-        a(v);
-        return v;
-    } catch (const exception& e) {
-        what = e.what();
-    } catch (...) {
-        what = "unknown exception.";
-    }
-    throwf("Can't read cmakex cache file \"%s\", reason: %s", path.c_str(), what.c_str());
-    // never here
-    return {};
 }
 }

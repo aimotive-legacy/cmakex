@@ -5,8 +5,8 @@
 
 namespace cmakex {
 
-command_line_args_cmake_mode_t process_command_line(int argc, char* argv[]);
-processed_command_line_args_cmake_mode_t process_command_line(
+command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[]);
+tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_line_2(
     const command_line_args_cmake_mode_t& args);
 }
 

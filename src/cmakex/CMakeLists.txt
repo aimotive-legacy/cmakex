@@ -15,6 +15,7 @@ add_executable(cmakex
     clone.h clone.cpp
     cmakex-types.h
     build.h build.cpp
+    cereal_utils.h
 )
 
 target_link_libraries(cmakex PRIVATE

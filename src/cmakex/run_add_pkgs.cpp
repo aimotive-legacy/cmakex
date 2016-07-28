@@ -1,3 +1,4 @@
+#if 0
 #include "run_add_pkgs.h"
 
 #include <map>
@@ -252,106 +253,6 @@ void add_pkg(const cmakex_pars_t& pars, const string& pkg_arg_str)
 }
 #endif
 
-template <class X, class UnaryOp>
-void transform_inplace(X& x, UnaryOp uo)
-{
-    for (auto& y : x)
-        uo(y);
-}
-
-template <class X, class UnaryOp>
-bool all_of(X& x, UnaryOp uo)
-{
-    for (auto& y : x)
-        if (!uo(y))
-            return false;
-    return true;
-}
-
-bool eval_cmake_boolean_or_fail(string_par x)
-{
-    string s = x.str();
-    transform_inplace(x, ::tolower);
-    if (s == "1" || s == "on" || s == "yes" || s == "true" ||
-        (!s.empty() && s[0] != '0' && isdigit(s[0]) && all_of(s, ::isdigit)))
-        return true;
-    if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" ||
-        s.empty() || ends_with(s, "-notfound"))
-        return false;
-    throwf("Invalid boolean constant: %s", x.c_str());
-}
-
-pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str)
-{
-    return pkg_request_from_args(separate_arguments(pkg_arg_str));
-}
-
-pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
-{
-    if (pkg_args.empty())
-        throwf("Empty package descriptor, package name is missing.");
-    pkg_request_t request;
-    request.name = pkg_args[0];
-    auto args = parse_arguments(
-        {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
-        {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
-    for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
-        auto count = args.count(c);
-        CHECK(count == 0 || args[c].size() == 1);
-        if (count > 0 && args[c].empty())
-            throwf("Empty string after '%s'.", c);
-    }
-    string a, b;
-    if (args.count("GIT_REPOSITORY") > 0)
-        a = args["GIT_REPOSITORY"][0];
-    if (args.count("GIT_URL") > 0)
-        b = args["GIT_URL"][0];
-    if (!a.empty()) {
-        request.c.git_url = a;
-        if (!b.empty())
-            throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
-    } else
-        request.c.git_url = b;
-
-    if (args.count("GIT_TAG") > 0)
-        request.c.git_tag = args["GIT_TAG"][0];
-    if (args.count("GIT_SHALLOW") > 0)
-        request.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
-    if (args.count("SOURCE_DIR") > 0) {
-        request.b.source_dir = args["SOURCE_DIR"][0];
-        if (fs::path(request.b.source_dir).is_absolute())
-            throwf("SOURCE_DIR must be a relative path: \"%s\"", request.b.source_dir.c_str());
-    }
-    if (args.count("DEPENDS") > 0)
-        request.depends = args["DEPENDS"];
-    if (args.count("CMAKE_ARGS") > 0) {
-        // join some cmake options for easier search
-        for (auto& a : args["CMAKE_ARGS"]) {
-            if (!request.b.cmake_args.empty() &&
-                is_one_of(request.b.cmake_args.back(), {"-C", "-D", "-U", "-G", "-T", "-A"})) {
-                request.b.cmake_args.back() += a;
-            } else
-                request.b.cmake_args.emplace_back(a);
-        }
-        request.b.cmake_args = args["CMAKE_ARGS"];
-        for (auto& a : request.b.cmake_args) {
-            if (starts_with(a, "-D")) {
-                int i = 2;
-                while (i < a.size() && a[i] != '=' && a[i] != ':')
-                    ++i;
-                string variable = a.substr(2, i - 2);
-                if (is_one_of(variable,
-                              {"CMAKE_INSTALL_PREFIX", "CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH"}))
-                    throwf("Setting '%s' is not allowed in CMAKE_ARGS", variable.c_str());
-            }
-        }
-    }
-    if (args.count("CONFIGS") > 0)
-        request.b.configs = args["CONFIGS"];
-
-    return request;
-}
-
 #if 0
 cmakex_pars_t ppars;
 ppars.c = true;
@@ -416,3 +317,4 @@ ppars.source_desc_kind = evaluate_source_descriptor(ppars.source_desc);
 }
 #endif
 }
+#endif
