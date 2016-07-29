@@ -70,7 +70,6 @@ int main(int argc, char* argv[])
             log_info("Building main project.");
             log_info("");
             // add deps install dir to CMAKE_PREFIX_PATH
-            bool added = false;
             const string deps_install_dir = cmakex_config_t(pars.binary_dir).deps_install_dir();
             pars.cmake_args =
                 cmake_args_prepend_cmake_prefix_path(pars.cmake_args, deps_install_dir);

@@ -104,15 +104,23 @@ void write_cmakex_cache_if_dirty(string_par bin_dir, const cmakex_cache_t& cmake
 // json file used by CMakeCacheTracker
 struct cmake_cache_tracker_t
 {
+    enum var_status_t
+    {
+        // the actual values defined to an intuitive number for json
+        vs_to_be_removed = -1,
+        vs_in_cmakecache = 0,
+        vs_to_be_defined = 1
+    };
+    struct var_t
+    {
+        string value;  // the full CMAKE_ARG
+        var_status_t status;
+    };
+
     // both vars are variable name - variable value pairs
     // in case if -C, -G, -T, -A the variable name is the switch
-    // in case of CMAKE_TOOLCHAIN_FILE and -C the variable value is the SHA of the file
-    std::map<string, string>
-        desired_vars;  // what we'd like to see in the cache: accumulated version of all the
-                       // cmake_args we receive
-    std::map<string, string> assumed_vars;  // what we think is in the CMakeCache.txt
-    vector<string> uncertain_assumed_vars;  // after a failed configuration we can't be sure what's
-    // in the CMakeCache.txt
+    std::map<string, var_t> vars;
+
     string c_sha;                     // SHA of the file specified with -C
     string cmake_toolchain_file_sha;  // SHA of the file specified with -DCMAKE_TOOLCHAIN_FILE
 };
@@ -127,7 +135,16 @@ public:
     // Call before cmake-configure
     // returns cmake_args and possibly dditional settings to bring the cache into the desired state
     // (this depends on how the desired_vars and assumed_vars compare)
-    vector<string> about_to_configure(const vector<string>& cmake_args);
+    // If force_input_cmake_args then all the input cmake_args will be returned, too
+    // If it's false, only those will be returned whose cache values is either different or
+    // uncertain
+    // The function always returns those cmake args not in the request but whose cache values is
+    // uncertain.
+    // If reference target is given, then other cmake args will be added in order to
+    // take this tracker into the reference state.
+    vector<string> about_to_configure(const vector<string>& cmake_args,
+                                      bool force_input_cmake_args,
+                                      string_par reference_target_path = "");
 
     void cmake_config_ok();  // call after successful cmake-config
 

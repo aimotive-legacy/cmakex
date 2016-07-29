@@ -477,131 +477,184 @@ CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir)
 {
 }
 
-vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in)
+vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in,
+                                                     bool force_input_cmake_args,
+                                                     string_par ref_path)
 {
+    using var_t = cmake_cache_tracker_t::var_t;
+    using var_status_t = cmake_cache_tracker_t::var_status_t;
+
     auto cmake_args = normalize_cmake_args(cmake_args_in);
 
     cmake_cache_tracker_t cct;
     if (fs::is_regular_file(path))
         load_json_input_archive(path, cct);
 
+    vector<string> current_request_nonvar_args;
     vector<string> current_request_vars;
 
     for (auto& c : cmake_args) {
         auto pca = parse_cmake_arg(c);
 
         if (pca.switch_ == "-U") {
-            if (cct.desired_vars.count(pca.name) > 0) {
-                cct.desired_vars.erase(pca.name);
-                cct.assumed_vars[pca.name] = "?";
-                cct.uncertain_assumed_vars.emplace_back(pca.name);
-
-                current_request_vars.emplace_back(pca.name);
+            auto it = cct.vars.find(pca.name);
+            if (it != cct.vars.end()) {
+                auto& v = it->second;
+                v.value = "-U" + pca.name;
+                v.status = var_status_t::vs_to_be_removed;
             }
+            current_request_vars.emplace_back(pca.name);
+            continue;
+        }
+
+        string name, value;
+        if (pca.switch_ == "-D") {
+            name = pca.name;
+            value = c;
+        } else if (is_one_of(pca.switch_, {"-C", "-G", "-T", "-A"})) {
+            name = pca.switch_;
+            value = c;
         } else {
-            string name;
-            string value;
-            if (pca.switch_ == "-D") {
-                name = pca.name;
-                value = c;
-            } else if (is_one_of(pca.switch_, {"-C", "-G", "-T", "-A"})) {
-                name = pca.switch_;
-                value = c;
-            } else
-                continue;
+            current_request_nonvar_args.emplace_back(c);
+            continue;
+        }
 
-            if (name == "-G" || name == "-T" || name == "-A") {
-                if (cct.desired_vars.count(name) > 0 && cct.desired_vars[name] != value)
-                    throwf(
-                        "The '%s' switch can be set only once. Previous value: '%s', current "
-                        "request: '%s'.",
-                        name.c_str(), cct.desired_vars[name].c_str(), value.c_str());
-            }
+        current_request_vars.emplace_back(pca.name);
 
-            cct.desired_vars[name] = value;
-            cct.assumed_vars[name] = value;
-            cct.uncertain_assumed_vars.emplace_back(name);
+        auto it = cct.vars.find(name);
 
-            current_request_vars.emplace_back(name);
+        if (name == "-G" || name == "-T" || name == "-A") {
+            if (it != cct.vars.end() && it->second.value != value)
+                throwf(
+                    "The '%s' switch can be set only once. Previous value: '%s', current "
+                    "request: '%s'.",
+                    name.c_str(), it->second.value.c_str(), value.c_str());
+        }
+
+        if (it == cct.vars.end()) {
+            cct.vars.emplace(name, var_t{value, var_status_t::vs_to_be_defined});
+        } else if (it->second.value != value) {
+            it->second.value = value;
+            it->second.status = var_status_t::vs_to_be_defined;
         }
     }
-    if (cct.desired_vars.count("-G") == 0) {
-        // add the default generator
-        cct.desired_vars["-G"] = "-G";
-        cct.assumed_vars["-G"] = "-G";
-        cct.uncertain_assumed_vars.emplace_back("-G");
-        current_request_vars.emplace_back("-G");
+
+    if (!ref_path.empty()) {
+        cmake_cache_tracker_t ref;
+        CHECK(fs::is_regular_file(path));
+        load_json_input_archive(ref_path, ref);
+        // merge to two vars
+        auto it = cct.vars.begin();
+        auto jt = ref.vars.begin();
+        for (; it != cct.vars.end() || jt != ref.vars.end();) {
+            if (jt == ref.vars.end() || it->first < jt->first) {
+                // there's a var here which is not listed in the reference
+                if (it->second.status != var_status_t::vs_to_be_removed) {
+                    // must be removed
+                    it->second.value = "-U" + it->first;
+                    it->second.status = var_status_t::vs_to_be_removed;
+                }
+                ++it;
+            } else if (it == cct.vars.end() || jt->first < it->first) {
+                // there's a var in reference which is not listed here
+                if (jt->second.status != var_status_t::vs_to_be_removed) {
+                    cct.vars.emplace(jt->first,
+                                     var_t{jt->second.value, var_status_t::vs_to_be_defined});
+                }
+                ++jt;
+            } else {
+                CHECK(it->first == jt->first);
+
+                if (jt->second.status == var_status_t::vs_to_be_removed) {
+                    it->second = jt->second;
+                } else if (it->second.value != jt->second.value) {
+                    it->second.value = jt->second.value;
+                    it->second.status = var_status_t::vs_to_be_removed;
+                }
+                ++it;
+                ++jt;
+            }
+        }
+    }
+
+    // add placeholder -G, -T, -A to prevent redefinition later if, for the first time it hasn't
+    // been initialized with some valid value
+    for (auto s : {"G", "T", "A"}) {
+        auto it = cct.vars.find(s);
+        if (it == cct.vars.end())
+            cct.vars.emplace(s, var_t{"", var_status_t::vs_to_be_defined});
+    }
+
+    // save -C and CMAKE_TOOLCHAIN_FILE SHA's
+    cct.c_sha.clear();
+    cct.cmake_toolchain_file_sha.clear();
+
+    auto it = cct.vars.find("-C");
+    if (it != cct.vars.end()) {
+        auto pca = parse_cmake_arg(it->second.value);
+        cct.c_sha = file_sha(pca.value);
+    }
+
+    it = cct.vars.find("CMAKE_TOOLCHAIN_FILE");
+    if (it != cct.vars.end()) {
+        auto pca = parse_cmake_arg(it->second.value);
+        if (pca.switch_ == "-D")
+            cct.cmake_toolchain_file_sha = file_sha(pca.value);
     }
 
     save_json_output_archive(path, cct);
 
     // update the variables that differs from the assumed state plus the current request
     std::sort(BEGINEND(current_request_vars));
-    std::sort(BEGINEND(cct.uncertain_assumed_vars));
-    vector<string> y;
-    for (auto& kv : cct.desired_vars) {
-        // don't list here if it is listed in the current request
-        if (std::binary_search(BEGINEND(current_request_vars), kv.first))
+    vector<string> cmake_args_to_apply;
+    for (auto& kv : cct.vars) {
+        auto& name = kv.first;
+        auto& var = kv.second;
+
+        // if we're about to return all the input cmake_args we don't want to list those in
+        // cmake_args_to_apply, too
+        if (force_input_cmake_args && std::binary_search(BEGINEND(current_request_vars), name))
             continue;
 
-        // don't list here if it's value equals to the assumed, not uncertain value
-        if (cct.assumed_vars.count(kv.first) > 0 && kv.second == cct.assumed_vars[kv.first] &&
-            !std::binary_search(BEGINEND(cct.uncertain_assumed_vars), kv.first))
+        // don't list here if it does not need to be changed
+        if (var.status == var_status_t::vs_in_cmakecache)
             continue;
 
-        y.emplace_back(kv.second);
+        if (!var.value.empty() || !(name == "-G" || name == "-T" || name == "-A"))
+            cmake_args_to_apply.emplace_back(kv.second);
     }
 
-    for (auto& kv : cct.assumed_vars) {
-        if (cct.desired_vars.count(kv.first) > 0 ||
-            std::binary_search(BEGINEND(current_request_vars), kv.first))
-            continue;
-        auto pca = parse_cmake_arg(kv.second);
-        if (pca.switch_ == "-U" || pca.switch_ == "-D")
-            y.emplace_back("-U" + pca.name);
-        else {
-            CHECK(false,
-                  "Internal error: an C|G|T|A type assumed var \"%s\" is not a desired var. These "
-                  "types of cmake args should not vanish because they cannot be erased like a "
-                  "normal variable.",
-                  kv.second.c_str());
-        }
-    }
+    if (force_input_cmake_args)
+        append(cmake_args_to_apply, cmake_args);
+    else
+        append(cmake_args_to_apply, current_request_nonvar_args);
 
-    // remove "-G"
-    for (auto it = y.begin(); it != y.end(); /*no incr*/) {
-        if (*it == "-G")
-            it = y.erase(it);
-        else
-            ++it;
-    }
-
-    y.insert(y.end(), BEGINEND(cmake_args));
-
-    return normalize_cmake_args(y);
+    return normalize_cmake_args(cmake_args_to_apply);
 }
 
 void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
 {
     cmake_cache_tracker_t cct;
     load_json_input_archive(path, cct);
-    cct.assumed_vars = cct.desired_vars;
-    cct.uncertain_assumed_vars.clear();
-    // also save -C and CMAKE_TOOLCHAIN_FILE SHA's
-    cct.c_sha.clear();
-    cct.cmake_toolchain_file_sha.clear();
-    for (auto& kv : cct.desired_vars) {
-        bool c = starts_with(kv.second, "-C");
-        bool y = starts_with(kv.second, "-DCMAKE_TOOLCHAIN_FILE");
-        if (!c && !y)
-            continue;
-        auto pca = parse_cmake_arg(kv.second);
-        if (pca.switch_ == "-C")
-            cct.c_sha = file_sha(pca.value);
-        else if (pca.switch_ == "-D" && pca.name == "CMAKE_TOOLCHAIN_FILE")
-            cct.cmake_toolchain_file_sha = file_sha(pca.value);
+    for (auto it = cct.vars.begin(); it != cct.vars.end(); /* no incr */) {
+        auto& v = it->second;
+
+        switch (v.status) {
+            case cmake_cache_tracker_t::vs_to_be_removed: {
+                auto this_it = it++;
+                cct.vars.erase(this_it);
+            } break;
+            case cmake_cache_tracker_t::vs_in_cmakecache:
+                ++it;
+                break;
+            case cmake_cache_tracker_t::vs_to_be_defined:
+                v.status = cmake_cache_tracker_t::vs_in_cmakecache;
+                ++it;
+                break;
+            default:
+                CHECK(false);
+        }
     }
-    save_json_output_archive(path, cct);
 }
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir)

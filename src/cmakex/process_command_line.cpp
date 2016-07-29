@@ -457,6 +457,15 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         }
     }
 
+    // CMAKE_BUILD_TYPE rules
+    // with multiconfig generators it can be set to any user value, warning will be issued, will be
+    // recorded to package descriptor
+    // with single-config generators:
+    // - no config specified (config = ""): any value is acceptable, will be recorded to package
+    //   descriptor
+    // - some config specified: only the same value is acceptable (for Debug config only
+    // -DCMAKE_BUILD_TYPE=Debug is acceptable), will not be recorded to package descriptor
+
     if (cmakex_cache.multiconfig_generator) {
         vector<string> warning_configs;
         if (!undefines_cmake_build_type) {
