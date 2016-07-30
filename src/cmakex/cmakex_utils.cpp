@@ -607,7 +607,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
 
     // add placeholder -G, -T, -A to prevent redefinition later if, for the first time it hasn't
     // been initialized with some valid value
-    for (auto s : {"G", "T", "A"}) {
+    for (auto s : {"-G", "-T", "-A"}) {
         auto it = cct.vars.find(s);
         if (it == cct.vars.end())
             cct.vars.emplace(s, var_t{"", var_status_t::vs_to_be_defined});
@@ -648,6 +648,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
         if (var.status == var_status_t::vs_in_cmakecache)
             continue;
 
+        LOG_INFO("%s -> %s", name.c_str(), var.value.c_str());
         if (!var.value.empty() || !(name == "-G" || name == "-T" || name == "-A"))
             cmake_args_to_apply.emplace_back(kv.second.value);
     }

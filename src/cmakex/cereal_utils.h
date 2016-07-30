@@ -46,11 +46,10 @@ void load_json_input_archive(string_par path, T& out)
         cereal::JSONInputArchive a(f);
         a(out);
     } catch (const exception& e) {
-        what = e.what();
+        throwf("Can't read \"%s\", reason: %s", path.c_str(), e.what());
     } catch (...) {
-        what = "unknown exception.";
+        throwf("Can't read \"%s\", unknown exception.", path.c_str());
     }
-    throwf("Can't read \"%s\", reason: %s", path.c_str(), what.c_str());
 }
 }
 

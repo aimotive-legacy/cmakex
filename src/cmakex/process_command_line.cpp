@@ -487,7 +487,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                          "'-U' but the configuration setting requires it to be defined to '%s'",
                          c.c_str());
 
-                THROW_IF(c != cmake_build_type,
+                THROW_IF(!cmake_build_type.empty() && c != cmake_build_type,
                          "Incompatible configuration settings: CMAKE_BUILD_TYPE is defined to '%s' "
                          "but the configuration setting requires it to be defined to '%s'",
                          cmake_build_type.c_str(), c.c_str());
