@@ -1,13 +1,13 @@
 TODO:
 
-- implement install_deps_phase_two
 - add installing main project
 - test local builds
 - check what's with the deprecated? run_add_pkgs
 - add diagnostic features, env.txt, packages_resolved
 - start using this for local builds in jenkins
-
-
+- add preset handling
+- rewrite with per-config install build options
+- determining deps configs if they have no override? what if main project is NoConfig? When 
 
 add_pkg:
 - clone + build + install here in the build directory, as it is (not cached)

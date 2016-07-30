@@ -116,12 +116,20 @@ struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
 
 struct cmakex_cache_t
 {
+    bool valid = false;
     string home_directory;
     bool multiconfig_generator = false;
     bool per_config_bin_dirs = false;  // this is an effective value, not the user setting: if the
                                        // user setting is yes but it's a multiconfig-generator, then
                                        // this value will be false
 };
+
+bool operator==(const cmakex_cache_t& x, const cmakex_cache_t& y);
+
+inline bool operator!=(const cmakex_cache_t& x, const cmakex_cache_t& y)
+{
+    return !(x == y);
+}
 
 struct processed_command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
 {

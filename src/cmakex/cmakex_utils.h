@@ -40,7 +40,6 @@ struct cmakex_config_t
     string cmakex_cache_path() const;
 
     const cmakex_cache_t& cmakex_cache() const { return cmakex_cache_; }
-    bool cmakex_cache_loaded() const { return cmakex_cache_loaded_; }
     // this is the user setting, effective only for single-config generators
     // i.e. it can be true for multi-config but then it's ignored
     bool per_config_bin_dirs() const { return per_config_bin_dirs_; }
@@ -48,7 +47,6 @@ private:
     const string cmake_binary_dir;
     bool per_config_bin_dirs_ = false;  // the user setting
     cmakex_cache_t cmakex_cache_;
-    bool cmakex_cache_loaded_ = false;
 };
 
 void badpars_exit(string_par msg);

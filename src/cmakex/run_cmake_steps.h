@@ -4,7 +4,8 @@
 #include "cmakex-types.h"
 
 namespace cmakex {
-void run_cmake_steps(const cmakex_pars_t& pars);
+void run_cmake_steps(const processed_command_line_args_cmake_mode_t& pars,
+                     const cmakex_cache_t& cmakex_cache);
 }
 
 #endif

@@ -135,8 +135,7 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
                                                   const cmakex_cache_t& cmakex_cache);
 
 vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
-                                                   vector<string>
-                                                       request_deps,
+                                                   vector<string> request_deps,
                                                    const vector<string>& global_cmake_args,
                                                    const vector<string>& configs,
                                                    deps_recursion_wsp_t& wsp,
@@ -156,8 +155,7 @@ vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
 
 vector<string> install_deps_phase_one(string_par binary_dir,
                                       string_par source_dir,
-                                      vector<string>
-                                          request_deps,
+                                      vector<string> request_deps,
                                       const vector<string>& global_cmake_args,
                                       const vector<string>& configs,
                                       deps_recursion_wsp_t& wsp,

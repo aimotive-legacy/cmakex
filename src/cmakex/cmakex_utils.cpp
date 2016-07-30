@@ -8,6 +8,7 @@
 #include "print.h"
 
 CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 1)
+CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 1)
 
 namespace cmakex {
 
@@ -21,6 +22,20 @@ void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
     THROW_UNLESS(version == 1);
     archive(A(home_directory));
 }
+
+template <class Archive>
+void serialize(Archive& archive, cmake_cache_tracker_t::var_t& m)
+{
+    archive(A(value), A(status));
+}
+
+template <class Archive>
+void serialize(Archive& archive, cmake_cache_tracker_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(A(vars), A(c_sha), A(cmake_toolchain_file_sha));
+}
+
 #undef A
 
 cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir)
@@ -264,7 +279,7 @@ string extract_generator_from_cmake_args(const vector<string>& cmake_args)
     for (auto& x : cmake_args) {
         auto pca = parse_cmake_arg(x);
         if (pca.switch_ == "-G" || (pca.switch_ == "-D" && pca.name == "CMAKE_GENERATOR")) {
-            cmake_generators.emplace_back(pca);
+            cmake_generators.emplace_back(pca.value);
         }
     }
     if (cmake_generators.empty())
@@ -468,7 +483,7 @@ vector<string> normalize_cmake_args(const vector<string>& x)
 void write_cmakex_cache_if_dirty(string_par binary_dir, const cmakex_cache_t& cmakex_cache)
 {
     cmakex_config_t cfg(binary_dir);
-    if (!cfg.cmakex_cache_loaded() || cfg.cmakex_cache() != cmakex_cache)
+    if (!cfg.cmakex_cache().valid || cfg.cmakex_cache() != cmakex_cache)
         save_json_output_archive(cfg.cmakex_cache_path(), cmakex_cache);
 }
 
@@ -634,7 +649,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
             continue;
 
         if (!var.value.empty() || !(name == "-G" || name == "-T" || name == "-A"))
-            cmake_args_to_apply.emplace_back(kv.second);
+            cmake_args_to_apply.emplace_back(kv.second.value);
     }
 
     if (force_input_cmake_args)

@@ -23,6 +23,14 @@ void log_info(const char* s, ...)
     va_end(ap);
     printf("\n");
 }
+void log_info_framed_message(string_par msg)
+{
+    auto stars = string(msg.size() + 4, '*');
+    log_info("%s", stars.c_str());
+    log_info("* %s *", msg.c_str());
+    log_info("%s", stars.c_str());
+}
+
 void log_warn(const char* s, ...)
 {
     printf("-- Warning: ");

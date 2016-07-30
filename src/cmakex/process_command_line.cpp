@@ -344,9 +344,6 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     // extract source dir from existing binary dir
     cmakex_config_t cfg(pcla.binary_dir);
-    cmakex_cache_t cmakex_cache;
-    if (cfg.cmakex_cache_loaded())
-        cmakex_cache = cfg.cmakex_cache();
 
     cmake_cache_t cmake_cache;
     bool binary_dir_has_cmake_cache;
@@ -367,8 +364,10 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         cmake_cache = read_cmake_cache(cmake_cache_path);
     };
 
-    if (cfg.cmakex_cache_loaded()) {
-        string source_dir = cfg.cmakex_cache().home_directory;
+    cmakex_cache_t cmakex_cache = cfg.cmakex_cache();
+
+    if (cmakex_cache.valid) {
+        string source_dir = cmakex_cache.home_directory;
 
         if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
             badpars_exit(
@@ -406,12 +405,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                              pcla.source_dir.c_str()));
 
     string home_directory = fs::canonical(pcla.source_dir).string();
-    if (cmakex_cache.home_directory.empty()) {
-        cmakex_cache.home_directory = home_directory;
-    } else
-        CHECK(fs::equivalent(cmakex_cache.home_directory, home_directory));
 
-    if (!cfg.cmakex_cache_loaded()) {
+    if (cmakex_cache.valid) {
+        CHECK(fs::equivalent(cmakex_cache.home_directory, home_directory));
+    } else {
+        cmakex_cache.home_directory = home_directory;
         string cmake_generator;
         check_cmake_cache();
         if (binary_dir_has_cmake_cache) {
@@ -429,7 +427,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             cmakex_cache.per_config_bin_dirs = false;  // building upon an existing non-cmakex build
         else
             cmakex_cache.per_config_bin_dirs =
-                ~cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
+                cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
     }
 
     string cmake_build_type;

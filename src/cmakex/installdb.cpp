@@ -87,7 +87,7 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 
 void InstallDB::put_installed_pkg_desc(pkg_desc_t p)
 {
-    p.b.cmake_args = make_canonical_cmake_args(p.b.cmake_args);
+    p.b.cmake_args = normalize_cmake_args(p.b.cmake_args);
     auto path = installed_pkg_desc_path(p.name);
     save_json_output_archive(path, p);
 }
@@ -120,8 +120,8 @@ bool is_critical_cmake_arg(const string& s)
 vector<string> incompatible_cmake_args(const vector<string>& x, const vector<string>& y)
 {
     vector<string> r;
-    auto cx = make_canonical_cmake_args(x);
-    auto cy = make_canonical_cmake_args(y);
+    auto cx = normalize_cmake_args(x);
+    auto cy = normalize_cmake_args(y);
     for (auto& o : set_difference(cx, cy))
         if (is_critical_cmake_arg(o))
             r.emplace_back(o);

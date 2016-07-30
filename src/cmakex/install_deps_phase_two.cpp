@@ -113,12 +113,7 @@ void install_deps_phase_two(string_par binary_dir,
         if (build_reasons.empty())
             continue;
 
-        auto msg = stringf("* Building %s *", pkg_for_log(p).c_str());
-        auto stars = string(msg.size(), '*');
-        log_info("%s", stars.c_str());
-        log_info("%s", msg.c_str());
-        log_info("%s", stars.c_str());
-
+        log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
         clone_helper.report();
 
         log_info("Reason: %s", build_reasons.front().c_str());
@@ -138,11 +133,12 @@ void install_deps_phase_two(string_par binary_dir,
               "specified to build.");
 
         cmakex_config_t cfg(binary_dir);
-        CHECK(cfg.cmakex_cache_loaded());
+        CHECK(cfg.cmakex_cache().valid);
 
         bool force_config_step_now = force_config_step;
         for (auto& config : wp.planned_desc.b.configs) {
-            build(binary_dir, pd, config, force_config_step);
+            build(binary_dir, pd.name, pd.b.source_dir, pd.b.cmake_args, config, {"", "install"},
+                  force_config_step);
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
             // same cmake args.
