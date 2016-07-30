@@ -477,6 +477,19 @@ CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir)
 {
 }
 
+CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir, string_par filename)
+    : path(bin_dir.str() + "/" + filename.c_str())
+{
+}
+
+void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
+                                          const vector<string>& cmake_args)
+{
+    CMakeCacheTracker ccc(pkg_bin_dir_common, k_cmake_cache_tracker_ref_filename);
+    ccc.about_to_configure(cmake_args, false);
+    ccc.cmake_config_ok();
+}
+
 vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in,
                                                      bool force_input_cmake_args,
                                                      string_par ref_path)

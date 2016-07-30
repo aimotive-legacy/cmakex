@@ -139,16 +139,7 @@ void install_deps_phase_two(string_par binary_dir,
 
         cmakex_config_t cfg(binary_dir);
         CHECK(cfg.cmakex_cache_loaded());
-        if (cfg.cmakex_cache().per_config_bin_dirs) {
-            // maintain a reference cmakex cache tracker in the common pkg bin dir
-            // it's used simply to accumulate all the cmake args applied so far
-            // This is to simulate how the multiconfig or singleconfig-singledir cmake binary dirs
-            // work regarding how the setting of cmake args and the configurations work together:
-            // there's no separate per-config cmake cache there.
-            CMakeCacheTracker cct(cfg.pkg_binary_dir_common(p));
-            cct.about_to_configure(wp.planned_desc.b.cmake_args, false);
-            cct.cmake_config_ok();
-        }
+
         bool force_config_step_now = force_config_step;
         for (auto& config : wp.planned_desc.b.configs) {
             build(binary_dir, pd, config, force_config_step);

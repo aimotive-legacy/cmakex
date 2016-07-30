@@ -131,6 +131,7 @@ class CMakeCacheTracker
 public:
     // construct before calling a cmake-configure for a cmake project
     CMakeCacheTracker(string_par bin_dir);
+    CMakeCacheTracker(string_par bin_dir, string_par filename);
 
     // Call before cmake-configure
     // returns cmake_args and possibly dditional settings to bring the cache into the desired state
@@ -151,6 +152,9 @@ public:
 private:
     string path;
 };
+
+void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
+                                          const vector<string>& cmake_args);
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir);
 }

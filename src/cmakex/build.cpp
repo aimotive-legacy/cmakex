@@ -65,10 +65,9 @@ void build(string_par binary_dir,
         if (cfg.cmakex_cache().per_config_bin_dirs) {
             // apply and confirm args here and use it for new bin dirs
             auto pkg_bin_dir_common = cfg.pkg_binary_dir_common(request.name);
-            CMakeCacheTracker ccc(pkg_bin_dir_common);
-            ccc.cmake_config_ok();
-            cmake_args_to_apply = cct.about_to_configure(normalize_cmake_args(cmake_args),
-                                                         force_config_step, pkg_bin_dir_common);
+            update_reference_cmake_cache_tracker(pkg_bin_dir_common, cmake_args);
+            cmake_args_to_apply =
+                cct.about_to_configure(cmake_args, force_config_step, pkg_bin_dir_common);
         } else
             cmake_args_to_apply =
                 cct.about_to_configure(normalize_cmake_args(cmake_args), force_config_step);
