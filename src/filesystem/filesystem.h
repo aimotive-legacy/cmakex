@@ -23,6 +23,7 @@ public:
     path filename() const;
     bool is_relative() const;
     bool is_absolute() const;
+    path parent_path() const;
 
 #ifdef _WIN32
     static const value_type preferred_separator = '\\';

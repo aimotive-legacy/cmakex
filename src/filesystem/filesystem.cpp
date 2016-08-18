@@ -1,10 +1,10 @@
 #include "filesystem.h"
 
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <cerrno>
 #include <cstdlib>
 #include <memory>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <Poco/File.h>
 #include <Poco/Path.h>
@@ -236,10 +236,10 @@ typedef struct _REPARSE_DATA_BUFFER
             ULONG Flags;
             WCHAR PathBuffer[1];
             /*  Example of distinction between substitute and print names:
-            mklink /d ldrive c:\
-            SubstituteName: c:\\??\
-            PrintName: c:\
-            */
+        mklink /d ldrive c:\
+        SubstituteName: c:\\??\
+        PrintName: c:\
+        */
         } SymbolicLinkReparseBuffer;
         struct
         {
@@ -430,7 +430,7 @@ inline bool is_separator(path::value_type c)
 
 size_t filename_pos(const path::string_type& str,
                     size_t end_pos)  // end_pos is past-the-end position
-                                     // return 0 if str itself is filename (or empty)
+// return 0 if str itself is filename (or empty)
 {
     // case: "//"
     if (end_pos == 2 && is_separator(str[0]) && is_separator(str[1]))
@@ -506,6 +506,11 @@ bool path::is_absolute() const
 bool path::is_relative() const
 {
     return Poco::Path(s).isRelative();
+}
+
+path path::parent_path() const
+{
+    return Poco::Path(s).parent().toString();
 }
 
 void remove(const path& p)

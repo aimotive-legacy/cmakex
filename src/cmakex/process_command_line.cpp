@@ -428,6 +428,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         else
             cmakex_cache.per_config_bin_dirs =
                 cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
+        cmakex_cache.valid = true;
     }
 
     string cmake_build_type;

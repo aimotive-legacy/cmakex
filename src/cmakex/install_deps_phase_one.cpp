@@ -36,53 +36,54 @@ string deps_script_wrapper_cmakelists()
                "    unset(%s CACHE)\n"
                "endif()\n\n",
                k_executor_project_command_cache_var, k_executor_project_command_cache_var,
-               k_executor_project_command_cache_var) +
+               k_executor_project_command_cache_var)
+        +
 
-           "function(add_pkg NAME)\n"
-           "  # test list compatibility\n"
-           "  set(s ${NAME})\n"
-           "  list(LENGTH s l)\n"
-           "  if (NOT l EQUAL 1)\n"
-           "    message(FATAL_ERROR \"\\\"${NAME}\\\" is an invalid name for a package\")\n"
-           "  endif()\n"
-           //"  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
-           //"\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
-           "  set(line \"${NAME}\")\n"
-           "  foreach(x IN LISTS ARGN)\n"
-           "    set(line \"${line}\\t${x}\")\n"
-           "  endforeach()\n"
-           "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${line}\\n\")\n"
-           "endfunction()\n\n"
+        "function(add_pkg NAME)\n"
+        "  # test list compatibility\n"
+        "  set(s ${NAME})\n"
+        "  list(LENGTH s l)\n"
+        "  if (NOT l EQUAL 1)\n"
+        "    message(FATAL_ERROR \"\\\"${NAME}\\\" is an invalid name for a package\")\n"
+        "  endif()\n"
+        //"  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
+        //"\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
+        "  set(line \"${NAME}\")\n"
+        "  foreach(x IN LISTS ARGN)\n"
+        "    set(line \"${line}\\t${x}\")\n"
+        "  endforeach()\n"
+        "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${line}\\n\")\n"
+        "endfunction()\n\n"
 
-           "# include deps script within a function to protect local variables\n"
-           "function(include_deps_script path)\n"
-           "  if(NOT IS_ABSOLUTE \"${path}\")\n"
-           "    set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
-           "  endif()\n"
-           "  if(NOT EXISTS \"${path}\")\n"
-           "    message(FATAL_ERROR \"Dependency script not found: \\\"${path}\\\".\")\n"
-           "  endif()\n"
-           "  include(\"${path}\")\n"
-           "endfunction()\n\n"
+        "# include deps script within a function to protect local variables\n"
+        "function(include_deps_script path)\n"
+        "  if(NOT IS_ABSOLUTE \"${path}\")\n"
+        "    set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
+        "  endif()\n"
+        "  if(NOT EXISTS \"${path}\")\n"
+        "    message(FATAL_ERROR \"Dependency script not found: \\\"${path}\\\".\")\n"
+        "  endif()\n"
+        "  include(\"${path}\")\n"
+        "endfunction()\n\n"
 
-           "if(DEFINED command)\n"
-           "  message(STATUS \"Dependency script wrapper command: ${command}\")\n"
-           "  list(GET command 0 verb)\n\n"
-           "  if(verb STREQUAL \"run\")\n"
-           "    list(LENGTH command l)\n"
-           "    if(NOT l EQUAL 3)\n"
-           "      message(FATAL_ERROR \"Internal error, invalid command\")\n"
-           "    endif()\n"
-           "    list(GET command 1 path)\n"
-           "    list(GET command 2 out)\n"
-           "    if(NOT EXISTS \"${out}\" OR IS_DIRECTORY \"${out}\")\n"
-           "      message(FATAL_ERROR \"Internal error, the output file "
-           "\\\"${out}\\\" is not an existing file.\")\n"
-           "    endif()\n"
-           "    set(__CMAKEX_ADD_PKG_OUT \"${out}\")\n"
-           "    include_deps_script(\"${path}\")\n"
-           "  endif()\n"
-           "endif()\n\n";
+        "if(DEFINED command)\n"
+        "  message(STATUS \"Dependency script wrapper command: ${command}\")\n"
+        "  list(GET command 0 verb)\n\n"
+        "  if(verb STREQUAL \"run\")\n"
+        "    list(LENGTH command l)\n"
+        "    if(NOT l EQUAL 3)\n"
+        "      message(FATAL_ERROR \"Internal error, invalid command\")\n"
+        "    endif()\n"
+        "    list(GET command 1 path)\n"
+        "    list(GET command 2 out)\n"
+        "    if(NOT EXISTS \"${out}\" OR IS_DIRECTORY \"${out}\")\n"
+        "      message(FATAL_ERROR \"Internal error, the output file "
+        "\\\"${out}\\\" is not an existing file.\")\n"
+        "    endif()\n"
+        "    set(__CMAKEX_ADD_PKG_OUT \"${out}\")\n"
+        "    include_deps_script(\"${path}\")\n"
+        "  endif()\n"
+        "endif()\n\n";
 }
 string deps_script_wrapper_cmakelists_checksum(const std::string& x)
 {
@@ -91,9 +92,9 @@ string deps_script_wrapper_cmakelists_checksum(const std::string& x)
 }
 
 void fail_if_current_clone_has_different_commit(string req_git_tag,
-                                                string_par clone_dir,
-                                                string_par cloned_sha,
-                                                string_par git_url)
+    string_par clone_dir,
+    string_par cloned_sha,
+    string_par git_url)
 {
     // if HEAD/branch is requested need to check ls-remote
     // if tag/SHA requested check local clone
@@ -107,17 +108,18 @@ void fail_if_current_clone_has_different_commit(string req_git_tag,
         "directory.",
         clone_dir.c_str(), req_git_tag.c_str());
 
-    if (cloned_sha == k_sha_uncommitted)  // no need to check further
+    if (cloned_sha == k_sha_uncommitted) // no need to check further
         throwf("%s", msg.c_str());
     // find out if we have the exact same commit cloned out as req_git_tag
     // req_git_tag can be empty=branch/tag/sha
-    if (cloned_sha != req_git_tag) {  // req_git_tag was an SHA
+    if (cloned_sha != req_git_tag) { // req_git_tag was an SHA
         // check remote
         auto lsr = git_ls_remote(git_url, req_git_tag);
         if (get<0>(lsr) == 0) {
             if (cloned_sha != get<1>(lsr))
                 throwf("%s", msg.c_str());
-        } else {
+        }
+        else {
             throwf(
                 "Because of the '--strict' option the requested ref '%s' "
                 "needs to be resolved by the remote \"%s\" but 'git "
@@ -128,26 +130,24 @@ void fail_if_current_clone_has_different_commit(string req_git_tag,
 }
 
 vector<string> install_deps_phase_one_deps_script(string_par binary_dir,
-                                                  string_par deps_script_filename,
-                                                  const vector<string>& global_cmake_args,
-                                                  const vector<string>& configs,
-                                                  deps_recursion_wsp_t& wsp,
-                                                  const cmakex_cache_t& cmakex_cache);
+    string_par deps_script_filename,
+    const vector<string>& global_cmake_args,
+    const vector<string>& configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache);
 
 vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
-                                                   vector<string>
-                                                       request_deps,
-                                                   const vector<string>& global_cmake_args,
-                                                   const vector<string>& configs,
-                                                   deps_recursion_wsp_t& wsp,
-                                                   const cmakex_cache_t& cmakex_cache)
+    vector<string> request_deps,
+    const vector<string>& global_cmake_args,
+    const vector<string>& configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache)
 {
     vector<string> pkgs_encountered;
 
     // for each pkg:
     for (auto& d : request_deps) {
-        auto pkgs_encountered_below =
-            run_deps_add_pkg({{d}}, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+        auto pkgs_encountered_below = run_deps_add_pkg({ { d } }, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
         pkgs_encountered.insert(pkgs_encountered.end(), BEGINEND(pkgs_encountered_below));
     }
 
@@ -155,13 +155,12 @@ vector<string> install_deps_phase_one_request_deps(string_par binary_dir,
 }
 
 vector<string> install_deps_phase_one(string_par binary_dir,
-                                      string_par source_dir,
-                                      vector<string>
-                                          request_deps,
-                                      const vector<string>& global_cmake_args,
-                                      const vector<string>& configs,
-                                      deps_recursion_wsp_t& wsp,
-                                      const cmakex_cache_t& cmakex_cache)
+    string_par source_dir,
+    vector<string> request_deps,
+    const vector<string>& global_cmake_args,
+    const vector<string>& configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache)
 {
     CHECK(!binary_dir.empty());
     CHECK(!configs.empty());
@@ -169,22 +168,21 @@ vector<string> install_deps_phase_one(string_par binary_dir,
         CHECK(std::none_of(BEGINEND(configs), [](const string& x) { return x.empty(); }));
     }
     if (!source_dir.empty()) {
-        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
-                                                       "/" + k_deps_script_filename);
+        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() + "/" + k_deps_script_filename);
         if (fs::is_regular_file(deps_script_file))
             return install_deps_phase_one_deps_script(
                 binary_dir, deps_script_file, global_cmake_args, configs, wsp, cmakex_cache);
     }
     return install_deps_phase_one_request_deps(binary_dir, request_deps, global_cmake_args, configs,
-                                               wsp, cmakex_cache);
+        wsp, cmakex_cache);
 }
 
 vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
-                                                  string_par deps_script_file,
-                                                  const vector<string>& global_cmake_args,
-                                                  const vector<string>& configs,
-                                                  deps_recursion_wsp_t& wsp,
-                                                  const cmakex_cache_t& cmakex_cache)
+    string_par deps_script_file,
+    const vector<string>& global_cmake_args,
+    const vector<string>& configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache)
 {
     // Create background cmake project
     // Configure it again with specifying the build script as parameter
@@ -198,7 +196,7 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
     // create source dir
 
-    log_info("Processing dependency script \"%s\"", deps_script_file.c_str());
+    log_info("Configuring \"%s\" (using script executor project)", deps_script_file.c_str());
 
     auto binary_dir = binary_dir_sp.str();
 
@@ -207,16 +205,13 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 
     const cmakex_config_t cfg(binary_dir);
 
-    const string build_script_executor_binary_dir =
-        cfg.cmakex_executor_dir() + "/" + k_default_binary_dirname;
+    const string build_script_executor_binary_dir = cfg.cmakex_executor_dir() + "/" + k_default_binary_dirname;
 
-    const string build_script_add_pkg_out_file =
-        cfg.cmakex_tmp_dir() + "/" + k_build_script_add_pkg_out_filename;
+    const string build_script_add_pkg_out_file = cfg.cmakex_tmp_dir() + "/" + k_build_script_add_pkg_out_filename;
 
-    const string build_script_cmakex_out_file =
-        cfg.cmakex_tmp_dir() + "/" + k_build_script_cmakex_out_filename;
+    const string build_script_cmakex_out_file = cfg.cmakex_tmp_dir() + "/" + k_build_script_cmakex_out_filename;
 
-    for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
+    for (auto d : { cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir() }) {
         if (!fs::is_directory(d)) {
             string msg;
             try {
@@ -239,7 +234,7 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     string cmakelists_path = cfg.cmakex_executor_dir() + "/CMakeLists.txt";
     bool cmakelists_exists = fs::exists(cmakelists_path);
     if (cmakelists_exists) {
-        cmakelists_exists = false;  // if anything goes wrong, pretend it doesn't exist
+        cmakelists_exists = false; // if anything goes wrong, pretend it doesn't exist
         do {
             FILE* f = nowide::fopen(cmakelists_path.c_str(), "r");
             if (!f)
@@ -270,14 +265,13 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     }
 
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
-    log_info("Configuring dependency script wrapper project.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
     save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
-                      string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
+        string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
     if (r != EXIT_SUCCESS)
         throwf("Failed configuring dependency script wrapper project, result: %d.", r);
@@ -292,16 +286,15 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
     {
         auto f = must_fopen(build_script_add_pkg_out_file.c_str(), "w");
     }
-    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
-                      deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
+    args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" + deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
 
-    log_info("Executing dependency script wrapper.");
+    log_info("Processing dependency script.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     auto oem2 = oeb2.move_result();
     save_log_from_oem("Dependency script", r, oem2, cfg.cmakex_log_dir(),
-                      string(k_build_script_executor_log_name) + "-run" + k_log_extension);
+        string(k_build_script_executor_log_name) + "-run" + k_log_extension);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing dependency script wrapper, result: %d.", r);
 
@@ -321,11 +314,11 @@ vector<string> install_deps_phase_one_deps_script(string_par binary_dir_sp,
 }
 
 vector<string> run_deps_add_pkg(const vector<string>& args,
-                                string_par binary_dir,
-                                const vector<string>& global_cmake_args,
-                                const vector<string>& configs,
-                                deps_recursion_wsp_t& wsp,
-                                const cmakex_cache_t& cmakex_cache)
+    string_par binary_dir,
+    const vector<string>& global_cmake_args,
+    const vector<string>& configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache)
 {
     const cmakex_config_t cfg(binary_dir);
 
@@ -406,27 +399,27 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
 
     // determine installed status
     InstallDB installdb(binary_dir);
-    auto installed_result =
-        installdb.evaluate_pkg_request_build_pars(pkg_request.name, pkg_request.b);
+    auto installed_result = installdb.evaluate_pkg_request_build_pars(pkg_request.name, pkg_request.b);
     string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
     switch (installed_result.status) {
-        case pkg_request_not_installed:
-        case pkg_request_missing_configs:
-        case pkg_request_not_compatible:
-            if (!cloned)
-                clone_this();
-            break;
-        case pkg_request_satisfied:
-            break;
-        default:
-            CHECK(false);
+    case pkg_request_not_installed:
+    case pkg_request_missing_configs:
+    case pkg_request_not_compatible:
+        if (!cloned)
+            clone_this();
+        break;
+    case pkg_request_satisfied:
+        break;
+    default:
+        CHECK(false);
     }
 
     string unresolved_git_tag = pkg_request.c.git_tag;
 
     if (cloned) {
         pkg_request.c.git_tag = cloned_sha;
-    } else {
+    }
+    else {
         CHECK(installed_result.status == pkg_request_satisfied);
         pkg_request.c.git_tag = installed_result.pkg_desc.c.git_tag;
     }
@@ -452,13 +445,13 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         if (cloned) {
             wsp.requester_stack.emplace_back(pkg_request.name);
 
-            pkgs_encountered =
-                install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends,
-                                       global_cmake_args, configs, wsp, cmakex_cache);
+            pkgs_encountered = install_deps_phase_one(binary_dir, pkg_source_dir, pkg_request.depends,
+                global_cmake_args, configs, wsp, cmakex_cache);
 
             CHECK(wsp.requester_stack.back() == pkg_request.name);
             wsp.requester_stack.pop_back();
-        } else {
+        }
+        else {
             // enumerate dependencies from description of installed package
             CHECK(installed_result.status == pkg_request_satisfied);
             pkgs_encountered = installed_result.pkg_desc.depends;
@@ -479,7 +472,8 @@ vector<string> run_deps_add_pkg(const vector<string>& args,
         pd.depends.insert(pd.depends.end(), BEGINEND(pkgs_encountered));
         std::sort(BEGINEND(pd.depends));
         sx::unique_trunc(pd.depends);
-    } else {
+    }
+    else {
         wsp.build_order.push_back(pkg_request.name);
         pm.unresolved_git_tag = unresolved_git_tag;
         pd = pkg_request;

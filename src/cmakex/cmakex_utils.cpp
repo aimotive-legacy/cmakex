@@ -20,7 +20,7 @@ template <class Archive>
 void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(home_directory));
+    archive(A(valid), A(home_directory), A(multiconfig_generator), A(per_config_bin_dirs));
 }
 
 template <class Archive>
@@ -630,6 +630,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
             cct.cmake_toolchain_file_sha = file_sha(pca.value);
     }
 
+    fs::create_directories(fs::path(path).parent_path());
     save_json_output_archive(path, cct);
 
     // update the variables that differs from the assumed state plus the current request
@@ -648,7 +649,6 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
         if (var.status == var_status_t::vs_in_cmakecache)
             continue;
 
-        LOG_INFO("%s -> %s", name.c_str(), var.value.c_str());
         if (!var.value.empty() || !(name == "-G" || name == "-T" || name == "-A"))
             cmake_args_to_apply.emplace_back(kv.second.value);
     }
@@ -684,6 +684,8 @@ void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
                 CHECK(false);
         }
     }
+
+    save_json_output_archive(path, cct);
 }
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir)
