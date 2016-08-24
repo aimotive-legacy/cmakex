@@ -6,7 +6,8 @@
 
 namespace cmakex {
 
-class HelperCmakeProject {
+class HelperCmakeProject
+{
 public:
     HelperCmakeProject(string_par binary_dir);
     void configure(const vector<string>& global_cmake_args, const cmakex_cache_t& cmakex_cache);

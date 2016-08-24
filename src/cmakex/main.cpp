@@ -64,19 +64,20 @@ int main(int argc, char* argv[])
             configs.reserve(pars.configs.size());
             for (auto& c : pars.configs)
                 configs.emplace_back(c);
-            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, global_cmake_args,
-                configs, wsp, cmakex_cache);
+            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, global_cmake_args, configs,
+                                   wsp, cmakex_cache);
             install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c);
             log_info("");
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
-                wsp.pkg_map.size() == 1 ? "y" : "ies",
-                wsp.pkg_map.size() == 1 ? "has" : "have");
+                     wsp.pkg_map.size() == 1 ? "y" : "ies",
+                     wsp.pkg_map.size() == 1 ? "has" : "have");
         }
         if (pars.deps_mode == dm_deps_and_main) {
             log_info_framed_message(stringf("Building main project"));
             // add deps install dir to CMAKE_PREFIX_PATH
             const string deps_install_dir = cmakex_config_t(pars.binary_dir).deps_install_dir();
-            pars.cmake_args = cmake_args_prepend_cmake_prefix_path(pars.cmake_args, deps_install_dir);
+            pars.cmake_args =
+                cmake_args_prepend_cmake_prefix_path(pars.cmake_args, deps_install_dir);
         }
         if (pars.deps_mode != dm_deps_only)
             run_cmake_steps(pars, cmakex_cache);

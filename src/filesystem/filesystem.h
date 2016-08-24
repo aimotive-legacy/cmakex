@@ -7,20 +7,15 @@
 namespace filesystem {
 
 // like boost/std filesystem but assumes char*/string is utf8
-class path {
+class path
+{
 public:
     using value_type = char;
     using string_type = std::basic_string<value_type>;
 
     path() = default;
-    path(const char* s)
-        : s(s)
-    {
-    }
-    path(const std::string& s)
-        : s(s)
-    {
-    }
+    path(const char* s) : s(s) {}
+    path(const std::string& s) : s(s) {}
     const value_type* c_str() const { return s.c_str(); }
     const string_type& string() const { return s; }
     operator string_type() const { return s; }
@@ -40,24 +35,19 @@ private:
     string_type s;
 };
 
-class filesystem_error {
+class filesystem_error
+{
 public:
-    filesystem_error(const std::string& what_arg, std::error_code ec)
-        : what_(what_arg)
-    {
-    }
+    filesystem_error(const std::string& what_arg, std::error_code ec) : what_(what_arg) {}
     filesystem_error(const std::string& what_arg, const path& p1, std::error_code ec)
-        : what_(what_arg)
-        , path1_(p1)
+        : what_(what_arg), path1_(p1)
     {
     }
     filesystem_error(const std::string& what_arg,
-        const path& p1,
-        const path& p2,
-        std::error_code ec)
-        : what_(what_arg)
-        , path1_(p1)
-        , path2_(p2)
+                     const path& p1,
+                     const path& p2,
+                     std::error_code ec)
+        : what_(what_arg), path1_(p1), path2_(p2)
     {
     }
 
@@ -67,7 +57,8 @@ private:
     path path2_;
 };
 
-enum class file_type {
+enum class file_type
+{
     none = 0,
     not_found = -1,
     regular = 1,
@@ -79,7 +70,8 @@ enum class file_type {
     socket = 7,
     unknown = 8
 };
-enum class perms {
+enum class perms
+{
     none = 0,
     owner_read = 0400,
     owner_write = 0200,
@@ -94,12 +86,12 @@ enum class perms {
     unknown = 0xffff
 };
 
-class file_status {
+class file_status
+{
 public:
     file_status(const file_status&) = default;
     explicit file_status(file_type type = file_type::none, perms permissions = perms::unknown)
-        : t(type)
-        , p(permissions)
+        : t(type), p(permissions)
     {
     }
     file_type type() const { return t; }

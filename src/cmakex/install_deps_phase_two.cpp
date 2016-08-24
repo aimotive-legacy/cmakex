@@ -23,10 +23,10 @@ vector<string> replace_empty_config(vector<string> x)
 }
 
 void install_deps_phase_two(string_par binary_dir,
-    deps_recursion_wsp_t& wsp,
-    bool force_config_step)
+                            deps_recursion_wsp_t& wsp,
+                            bool force_config_step)
 {
-//todo
+// todo
 #if 0
     log_info("");
     InstallDB installdb(binary_dir);

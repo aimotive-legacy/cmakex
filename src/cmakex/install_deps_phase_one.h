@@ -21,24 +21,37 @@ struct deps_recursion_wsp_t
     std::map<string, pkg_t> pkg_map;
 };
 
+// install_deps_phase_one recursion result: aggregates certain data below a node in the recursion
+// tree
+struct idpo_recursion_result_t
+{
+    vector<string> pkgs_encountered;  // packages encountered during the recursion
+    bool building_some_pkg = false;   // if one of those packages are marked to be built
+
+    void add(const idpo_recursion_result_t& x);
+    void add_pkg(string_par x);
+
+private:
+    void normalize();
+};
+
 // returns packages encountered during the recursion
-vector<string> install_deps_phase_one(
+idpo_recursion_result_t install_deps_phase_one(
     string_par binary_dir,        // main project binary dir
     string_par source_dir,        // the package's source dir (or the main source dir)
     vector<string> request_deps,  // dependency list from request, will be
-                                  // overridden by deps_script_file if it
-                                  // exists
+    // overridden by deps_script_file if it
+    // exists
     const vector<string>& global_cmake_args,
     const vector<config_name_t>&
         configs,  // requested configurations, can be overridden per package. Must be
-                  // a non-empty list of valid configs or a single empty string
+    // a non-empty list of valid configs or a single empty string
     deps_recursion_wsp_t& wsp,
     const cmakex_cache_t& cmakex_cache  // should be written out if dirty, after the first
-                                        // successful run of the wrapper project
+    // successful run of the wrapper project
     );
 
-// returns packages encountered during the recursion
-vector<string> run_deps_add_pkg(
+idpo_recursion_result_t run_deps_add_pkg(
     const vector<string>& args,
     string_par binary_dir,
     const vector<string>& global_cmake_args,
