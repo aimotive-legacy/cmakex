@@ -44,7 +44,7 @@ bool istarts_with(string_par x, string_par y)
     if (ys > xs)
         return false;
     for (int i = 0; i < ys; ++i) {
-        if (tolower(x[i]) != tolower(y[i]))
+        if (std::tolower(x[i]) != std::tolower(y[i]))
             return false;
     }
     return true;
@@ -165,11 +165,12 @@ string must_fgetline_if_not_eof(const file_t& f)
                 r.pop_back();
                 return r;
             }
-        } else {
+        }
+        else {
             if (feof(f.stream()))
                 return r;
             throwf("Read error in file \"%s\"%s", f.path().c_str(),
-                   std::ferror(f.stream()) ? "." : ", ferror is zero.");
+                std::ferror(f.stream()) ? "." : ", ferror is zero.");
         }
     }
 }
@@ -206,11 +207,13 @@ vector<string> separate_arguments(string_par x)
                 in_dq = false;
             else
                 append(*c);
-        } else {
+        }
+        else {
             if (*c == '"') {
                 in_dq = true;
                 new_empty_if_invalid();
-            } else if (*c == ' ')
+            }
+            else if (*c == ' ')
                 valid = false;
             else
                 append(*c);
@@ -219,12 +222,12 @@ vector<string> separate_arguments(string_par x)
     return r;
 }
 
-std::map<string, vector<string>> parse_arguments(const vector<string>& options,
-                                                 const vector<string>& onevalue_args,
-                                                 const vector<string>& multivalue_args,
-                                                 const vector<string>& args)
+std::map<string, vector<string> > parse_arguments(const vector<string>& options,
+    const vector<string>& onevalue_args,
+    const vector<string>& multivalue_args,
+    const vector<string>& args)
 {
-    std::map<string, vector<string>> r;
+    std::map<string, vector<string> > r;
     for (int ix = 0; ix < args.size(); ++ix) {
         const auto& arg = args[ix];
         if (is_one_of(arg, options))
@@ -235,25 +238,26 @@ std::map<string, vector<string>> parse_arguments(const vector<string>& options,
             if (r.count(arg) > 0)
                 throwf("Single-value argument '%s' specified multiple times.", arg.c_str());
             r[arg] = vector<string>(1, args[ix]);
-        } else if (is_one_of(arg, multivalue_args)) {
+        }
+        else if (is_one_of(arg, multivalue_args)) {
             for (++ix; ix < args.size(); ++ix) {
                 const auto& v = args[ix];
-                if (is_one_of(v, options) || is_one_of(v, onevalue_args) ||
-                    is_one_of(v, multivalue_args)) {
+                if (is_one_of(v, options) || is_one_of(v, onevalue_args) || is_one_of(v, multivalue_args)) {
                     --ix;
                     break;
                 }
                 r[arg].emplace_back(v);
             }
-        } else
+        }
+        else
             throwf("Invalid option: '%s'.", arg.c_str());
     }
     return r;
 }
-std::map<string, vector<string>> parse_arguments(const vector<string>& options,
-                                                 const vector<string>& onevalue_args,
-                                                 const vector<string>& multivalue_args,
-                                                 string_par argstr)
+std::map<string, vector<string> > parse_arguments(const vector<string>& options,
+    const vector<string>& onevalue_args,
+    const vector<string>& multivalue_args,
+    string_par argstr)
 {
     return parse_arguments(options, onevalue_args, multivalue_args, separate_arguments(argstr));
 }
@@ -299,5 +303,38 @@ string file_sha(string_par path)
         e.update(buf.data(), bytes_read);
     } while (bytes_read == buf.size());
     return Poco::DigestEngine::digestToHex(e.digest());
+}
+
+bool tolower_equals(string_par x, string_par y)
+{
+    const char* i = x.c_str();
+    const char* j = y.c_str();
+    for (;; ++i, ++j) {
+        if (*i == 0 && *j == 0)
+            return true;
+        if (*i == 0 || *j == 0)
+            return false;
+        if (std::tolower(*i) != std::tolower(*j))
+            return false;
+    }
+    return true;
+}
+string trim(string_par x)
+{
+    const char* c = x.c_str();
+    while (*c != 0 && iswspace(*c))
+        ++c;
+    string r = c;
+    while (!r.empty() && iswspace(r.back()))
+        r.pop_back();
+    return r;
+}
+
+string tolower(string_par x)
+{
+    string r(x.size(), 0);
+    for (int i = 0; i < x.size(); ++i)
+        r[i] = std::tolower(x[i]);
+    return r;
 }
 }

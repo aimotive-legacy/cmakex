@@ -13,13 +13,28 @@
 CEREAL_CLASS_VERSION(cmakex::pkg_desc_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_build_pars_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_clone_pars_t, 1)
-CEREAL_CLASS_VERSION(cmakex::pkg_files_t, 1)
+//CEREAL_CLASS_VERSION(cmakex::pkg_files_t, 1)
+CEREAL_CLASS_VERSION(cmakex::installed_config_desc_t, 1)
 
 namespace cmakex {
 
 namespace fs = filesystem;
 
 #define A(X) cereal::make_nvp(#X, m.X)
+
+template <class Archive>
+void load(Archive& archive, config_name_t& x)
+{
+    string y;
+    archive(y);
+    x = config_name_t(y);
+}
+
+template <class Archive>
+void save(Archive& archive, const config_name_t& x)
+{
+    archive(x.get_prefer_NoConfig());
+}
 
 template <class Archive>
 void serialize(Archive& archive, pkg_build_pars_t& m, uint32_t version)
@@ -39,9 +54,10 @@ template <class Archive>
 void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(name), A(c), A(b), A(depends), A(sha_of_installed_files), A(dep_shas));
+    archive(A(name), A(c), A(b), A(deps_shas));
 }
 
+/*
 template <class Archive>
 void serialize(Archive& archive, pkg_files_t::file_item_t& m)
 {
@@ -54,27 +70,52 @@ void serialize(Archive& archive, pkg_files_t& m, uint32_t version)
     THROW_UNLESS(version == 1);
     archive(A(files));
 }
+*/
+template <class Archive>
+void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(
+        A(pkg_name), A(config), A(c), A(b.source_dir), A(b.cmake_args), A(deps_shas));
+}
 
 #undef A
 
 InstallDB::InstallDB(string_par binary_dir)
-    : binary_dir(binary_dir.str()),
-      dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installdb")
+    : binary_dir(binary_dir.str())
+    , dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installdb")
 {
     if (!fs::exists(dbpath))
-        fs::create_directories(dbpath);  // must be able to create the path
+        fs::create_directories(dbpath); // must be able to create the path
 }
 
-maybe<pkg_desc_t> InstallDB::try_get_installed_pkg_desc(string_par pkg_name) const
+string config_from_installed_pkg_config_path(string_par s)
 {
-    auto path = installed_pkg_desc_path(pkg_name);
-    if (!fs::is_regular_file(path))
-        return nothing;
-    maybe<pkg_desc_t> r(in_place);
-    load_json_input_archive(path, *r);
+    return fs::path(s).stem().string();
+}
+
+installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par pkg_name) const
+{
+    installed_pkg_configs_t r;
+    auto paths = glob_installed_pkg_config_descs(pkg_name);
+    for (auto& p : paths) {
+        CHECK(fs::is_regular_file(p)); //just globbed
+        installed_config_desc_t y = installed_config_desc_t::uninitialized_installed_config_desc();
+        load_json_input_archive(p, y);
+        if (y.pkg_name != pkg_name)
+            throwf("Invalid installed-config file: the pkg_name read from \"%s\" should be '%s' but it is '%s'", p.c_str(), y.pkg_name.c_str(), pkg_name.c_str());
+        auto path_from_deserialized = installed_pkg_config_desc_path(pkg_name, y.config);
+        if (!fs::equivalent(path_from_deserialized, p))
+            throwf("Invalid installed-config file: the configuration type read from \"%s\" is '%s'", p.c_str(), y.config.get_prefer_NoConfig().c_str());
+
+        auto new_result_value_it_bool = r.config_descs.emplace(y.config, y);
+        if (new_result_value_it_bool.second)
+            throwf("Installed-configuration file \"%s\" contains configuration '%s' but that config has already been listed in another installed-configuration file of the same package.", p.c_str(), y.config.get_prefer_NoConfig().c_str());
+    }
     return r;
 }
 
+/*
 maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) const
 {
     auto path = installed_pkg_files_path(pkg_name);
@@ -84,33 +125,54 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
     load_json_input_archive(path, *r);
     return r;
 }
+*/
 
-void InstallDB::put_installed_pkg_desc(pkg_desc_t p)
+void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
     p.b.cmake_args = normalize_cmake_args(p.b.cmake_args);
-    auto path = installed_pkg_desc_path(p.name);
+    auto path = installed_pkg_config_desc_path(p.pkg_name, p.config);
     save_json_output_archive(path, p);
 }
 
-void InstallDB::put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p)
+/*void InstallDB::put_installed_pkg_files(string_par pkg_name, const pkg_files_t& p)
 {
     auto path = installed_pkg_files_path(pkg_name);
     save_json_output_archive(path, p);
 }
+*/
 
-string InstallDB::installed_pkg_desc_path(string_par pkg_name) const
+vector<string> InstallDB::
+    glob_installed_pkg_config_descs(string_par pkg_name) const
 {
-    return dbpath + "/" + pkg_name.c_str() + ".json";
+    vector<string> r;
+    auto dir = installed_pkg_desc_dir(pkg_name);
+    if (fs::is_directory(dir)) {
+        for (Poco::DirectoryIterator it(dir); it != Poco::DirectoryIterator(); ++it) {
+            if (it->isFile())
+                r.emplace_back(it->path());
+        }
+    }
+    return r;
 }
 
-string InstallDB::installed_pkg_files_path(string_par pkg_name) const
+string InstallDB::installed_pkg_desc_dir(string_par pkg_name) const
+{
+    return stringf("%s/%s", dbpath.c_str(), pkg_name.c_str());
+}
+
+string InstallDB::installed_pkg_config_desc_path(string_par pkg_name, const config_name_t& config) const
+{
+    return stringf("%s/%s.json", installed_pkg_desc_dir(pkg_name).c_str(), config.get_lowercase_prefer_noconfig().c_str());
+}
+
+/*string InstallDB::installed_pkg_files_path(string_par pkg_name) const
 {
     return dbpath + "/" + pkg_name.c_str() + "-files.json";
 }
-
+*/
 bool is_critical_cmake_arg(const string& s)
 {
-    for (auto p : {"-C", "-D", "-G", "-T", "-A"}) {
+    for (auto p : { "-C", "-D", "-G", "-T", "-A" }) {
         if (starts_with(s, p))
             return true;
     }
@@ -131,30 +193,27 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
     return r;
 }
 
-pkg_request_eval_details_t InstallDB::evaluate_pkg_request_build_pars(string_par pkg_name,
-                                                                      const pkg_build_pars_t& bp)
+pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pars(string_par pkg_name,
+    const pkg_build_pars_t& bp)
 {
-    auto maybe_desc = try_get_installed_pkg_desc(pkg_name);
-    pkg_request_eval_details_t r;
-    if (!maybe_desc)
-        r.status = pkg_request_not_installed;
-    else {
-        r.pkg_desc = move(*maybe_desc);
-        auto ica = incompatible_cmake_args(r.pkg_desc.b.cmake_args, bp.cmake_args);
-        if (bp.source_dir != r.pkg_desc.b.source_dir) {
+    auto installed_configs = try_get_installed_pkg_all_configs(pkg_name);
+    pkg_request_details_against_installed_t r;
+    for (auto& kv : installed_configs.config_descs) {
+        auto& cd = kv.second;
+        auto new_result_value_it_bool = r.emplace(kv.first, cd);
+        CHECK(new_result_value_it_bool.second);
+        auto new_result_value = new_result_value_it_bool.first->second;
+        auto ica = incompatible_cmake_args(cd.b.cmake_args, bp.cmake_args);
+        if (bp.source_dir != cd.b.source_dir) {
             ica.emplace_back(stringf("(different source dirs: '%s' and '%s')",
-                                     r.pkg_desc.b.source_dir.c_str(), bp.source_dir.c_str()));
+                cd.b.source_dir.c_str(), bp.source_dir.c_str()));
         }
         if (ica.empty()) {
-            r.missing_configs = set_difference(bp.configs, r.pkg_desc.b.configs);
-            if (r.missing_configs.empty())
-                r.status = pkg_request_satisfied;
-            else {
-                r.status = pkg_request_missing_configs;
-            }
-        } else {
-            r.status = pkg_request_not_compatible;
-            r.incompatible_cmake_args = join(ica, " ");
+            new_result_value.status = pkg_request_satisfied;
+        }
+        else {
+            new_result_value.status = pkg_request_not_compatible;
+            new_result_value.incompatible_cmake_args = join(ica, " ");
         }
     }
     return r;
@@ -165,7 +224,8 @@ void enumerate_files_recursively(string_par dir, vector<string>& u)
     for (Poco::DirectoryIterator it(dir.str()); it != Poco::DirectoryIterator(); ++it) {
         if (it->isDirectory()) {
             enumerate_files_recursively(it->path(), u);
-        } else {
+        }
+        else {
             u.emplace_back(it->path());
         }
     }
@@ -177,113 +237,32 @@ vector<string> enumerate_files_recursively(string_par dir)
     return u;
 }
 
-void InstallDB::install(pkg_desc_t desc, bool incremental)
+void InstallDB::install_with_unspecified_files(installed_config_desc_t desc)
 {
-    auto maybe_desc = try_get_installed_pkg_desc(desc.name);
-
-    if (maybe_desc) {
-        if (incremental) {
-            // check build pars
-            // this and other attributes (clone SHA) are checked by the caller code, this is only an
-            // extra sanity check
-            auto epr = evaluate_pkg_request_build_pars(desc.name, desc.b);
-            switch (epr.status) {
-                case pkg_request_not_installed:
-                    LOG_FATAL(
-                        "Internal error: %s reported installed first then not installed "
-                        "shortly after.",
-                        pkg_for_log(desc.name).c_str());
-                case pkg_request_satisfied:
-                case pkg_request_missing_configs:
-                    break;
-                case pkg_request_not_compatible:
-                    LOG_FATAL(
-                        "Internal error: incremental install is only possible when "
-                        "the build settings are compatible. Incompatible settings: %s",
-                        epr.incompatible_cmake_args.c_str());
-                    break;
-                default:
-                    CHECK(false);
-            }
-
-            // extend installed configs
-            desc.b.configs.insert(desc.b.configs.end(), BEGINEND(maybe_desc->b.configs));
-            std::sort(BEGINEND(desc.b.configs));
-            sx::unique_trunc(desc.b.configs);
-        } else {
-            uninstall(maybe_desc->name);
-        }
-    }
-    // install files, that is copy from pkg install dir to deps install dir (use symlinks if
-    // possible)
-    cmakex_config_t cfg(binary_dir);
-
-    auto pkg_install_dir = cfg.pkg_install_dir(desc.name);
-    auto deps_install_dir = cfg.deps_install_dir();
-
-    pkg_files_t pkg_files;
-
-    if (incremental && maybe_desc)
-        pkg_files = *try_get_installed_pkg_files(desc.name);
-
-    auto files = enumerate_files_recursively(pkg_install_dir);
-    std::sort(BEGINEND(files));
-    for (auto& f : files) {
-        pkg_files_t::file_item_t item;
-        CHECK(starts_with(f, pkg_install_dir) && f.size() > pkg_install_dir.size() + 1);
-        // todo make certain files relocatable and calc the sha for updated file
-        item.path = make_string(butleft(f, pkg_install_dir.size() + 1));
-        item.sha = file_sha(f);
-        auto target_path = deps_install_dir + "/" + item.path;
-        Poco::File(Poco::Path(target_path).parent()).createDirectories();
-        Poco::File(f).copyTo(deps_install_dir + "/" + item.path);
-        // todo create symlink or move?
-        pkg_files.files.emplace_back(move(item));
-    }
-    std::sort(BEGINEND(pkg_files.files), &pkg_files_t::file_item_t::less_path);
-    sx::unique_trunc(pkg_files.files, &pkg_files_t::file_item_t::equal_path);
-    Poco::SHA1Engine e;
-    for (auto& item : pkg_files.files) {
-        e.update(item.path.data(), item.path.size());
-        e.update(item.sha.data(), item.sha.size());
-    }
-
-    // update pkg_desc along the way
-    desc.sha_of_installed_files = Poco::DigestEngine::digestToHex(e.digest());
-    // write out pkg_desc and file desc jsons
-
+    uninstall_config_if_installed(desc.pkg_name, desc.config);
     put_installed_pkg_desc(desc);
-    put_installed_pkg_files(desc.name, pkg_files);
 }
 
 namespace {
-// remove, catch and log errors
-void remove_and_log_error(string_par f)
-{
-    // todo instead of exceptions we should call the error_code returning remove()
-    try {
-        fs::remove(f.c_str());
-    } catch (const exception& e) {
-        log_error("Failed to remove \"%s\", reason: %s", f.c_str(), e.what());
-    } catch (...) {
-        log_error("Failed to remove \"%s\", reason is unknown.", f.c_str());
+    // remove, catch and log errors
+    void remove_and_log_error(string_par f)
+    {
+        // todo instead of exceptions we should call the error_code returning remove()
+        try {
+            fs::remove(f.c_str());
+        } catch (const exception& e) {
+            log_error("Failed to remove \"%s\", reason: %s", f.c_str(), e.what());
+        } catch (...) {
+            log_error("Failed to remove \"%s\", reason is unknown.", f.c_str());
+        }
     }
-}
 }
 
-void InstallDB::uninstall(string_par pkg_name)
+void InstallDB::uninstall_config_if_installed(string_par pkg_name, const config_name_t& config)
 {
-    auto maybe_files = try_get_installed_pkg_files(pkg_name);
-    CHECK(maybe_files);
-    auto& files = *maybe_files;
-    // remove the files
-    cmakex_config_t cfg(binary_dir);
-    auto deps_install_dir = cfg.deps_install_dir();
-    for (auto& f : files.files) {
-        remove_and_log_error(deps_install_dir + "/" + f.path);
-    }
-    // remove the jsons
-    remove_and_log_error(installed_pkg_desc_path(pkg_name));
-    remove_and_log_error(installed_pkg_files_path(pkg_name));
+    //todo uninstall files, too, if they're registered with this installation
+    string path = installed_pkg_config_desc_path(pkg_name, config);
+    if (fs::exists(path))
+        remove_and_log_error(path);
 }
 }

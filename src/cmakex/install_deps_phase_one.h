@@ -29,7 +29,7 @@ vector<string> install_deps_phase_one(
                                   // overridden by deps_script_file if it
                                   // exists
     const vector<string>& global_cmake_args,
-    const vector<string>&
+    const vector<config_name_t>&
         configs,  // requested configurations, can be overridden per package. Must be
                   // a non-empty list of valid configs or a single empty string
     deps_recursion_wsp_t& wsp,
@@ -42,7 +42,7 @@ vector<string> run_deps_add_pkg(
     const vector<string>& args,
     string_par binary_dir,
     const vector<string>& global_cmake_args,
-    const vector<string>& configs,  // same constraints as for install_deps_phase_one
+    const vector<config_name_t>& configs,  // same constraints as for install_deps_phase_one
     deps_recursion_wsp_t& wsp,
     const cmakex_cache_t& cmakex_cache);
 }

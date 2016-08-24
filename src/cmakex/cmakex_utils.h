@@ -6,12 +6,11 @@
 
 namespace cmakex {
 
-struct cmakex_config_t
-{
+struct cmakex_config_t {
     // specify main binary/source dirs.
     cmakex_config_t(string_par cmake_binary_dir);
 
-    string main_binary_dir_common() const;  // returns the arg of the ctor
+    string main_binary_dir_common() const; // returns the arg of the ctor
 
     // returns cmake_binary_dir, or, if per_config_binary_dirs is true
     // and config is not empty, than returns the per-config binary dir (e.g.
@@ -22,8 +21,8 @@ struct cmakex_config_t
 
     // same as main_binary_dir_of_config for packages
     string pkg_binary_dir_of_config(string_par pkg_name,
-                                    string_par config,
-                                    bool per_config_bin_dirs) const;
+        string_par config,
+        bool per_config_bin_dirs) const;
 
     string pkg_clone_dir(string_par pkg_name) const;
     // string pkg_deps_script_file(string_par pkg_name) const;
@@ -33,7 +32,7 @@ struct cmakex_config_t
     // common install dir for dependencies
     string deps_install_dir() const;
 
-    string cmakex_dir() const;  // cmakex internal directory, within main cmake_binary_dir
+    string cmakex_dir() const; // cmakex internal directory, within main cmake_binary_dir
     string cmakex_executor_dir() const;
     string cmakex_tmp_dir() const;
     string cmakex_log_dir() const;
@@ -45,7 +44,7 @@ struct cmakex_config_t
     bool per_config_bin_dirs() const { return per_config_bin_dirs_; }
 private:
     const string cmake_binary_dir;
-    bool per_config_bin_dirs_ = false;  // the user setting
+    bool per_config_bin_dirs_ = false; // the user setting
     cmakex_cache_t cmakex_cache_;
 };
 
@@ -69,20 +68,21 @@ struct configuration_helper_t
 
 string pkg_for_log(string_par pkg_name);
 
-// return same of NoConfig if empty
-string same_or_NoConfig(string_par config);
+// return same, or NoConfig if empty
+string same_or_prefer_NoConfig(string_par config);
+// return same, or empty if NoConfig
+string same_or_prefer_empty(string_par config);
 
 // if cmake_generator is empty then uses platform-defaults
 bool is_generator_multiconfig(string_par cmake_generator);
 
 string extract_generator_from_cmake_args(const vector<string>& cmake_args);
 
-struct parsed_cmake_arg_t
-{
-    string switch_;  // like "-D" or "--trace" or "--graphwiz"
-    string name;   // for -D or -U: part after the switch, before ':' or '=' or until end of string
-    string type;   // for -D: part between ':' and '='
-    string value;  // part after '=' or, for -C, -G, -T, A: the argument
+struct parsed_cmake_arg_t {
+    string switch_; // like "-D" or "--trace" or "--graphwiz"
+    string name; // for -D or -U: part after the switch, before ':' or '=' or until end of string
+    string type; // for -D: part between ':' and '='
+    string value; // part after '=' or, for -C, -G, -T, A: the argument
 };
 
 // expects merges arguments: -DA=B instead of -D A=B
@@ -100,18 +100,15 @@ vector<string> normalize_cmake_args(const vector<string>& x);
 void write_cmakex_cache_if_dirty(string_par bin_dir, const cmakex_cache_t& cmakex_cache);
 
 // json file used by CMakeCacheTracker
-struct cmake_cache_tracker_t
-{
-    enum var_status_t
-    {
+struct cmake_cache_tracker_t {
+    enum var_status_t {
         // the actual values defined to an intuitive number for json
         vs_to_be_removed = -1,
         vs_in_cmakecache = 0,
         vs_to_be_defined = 1
     };
-    struct var_t
-    {
-        string value;  // the full CMAKE_ARG
+    struct var_t {
+        string value; // the full CMAKE_ARG
         var_status_t status;
     };
 
@@ -119,13 +116,12 @@ struct cmake_cache_tracker_t
     // in case if -C, -G, -T, -A the variable name is the switch
     std::map<string, var_t> vars;
 
-    string c_sha;                     // SHA of the file specified with -C
-    string cmake_toolchain_file_sha;  // SHA of the file specified with -DCMAKE_TOOLCHAIN_FILE
+    string c_sha; // SHA of the file specified with -C
+    string cmake_toolchain_file_sha; // SHA of the file specified with -DCMAKE_TOOLCHAIN_FILE
 };
 
 // Tracks the interesting variables of the cmake-cache of a cmake project in a separate file
-class CMakeCacheTracker
-{
+class CMakeCacheTracker {
 public:
     // construct before calling a cmake-configure for a cmake project
     CMakeCacheTracker(string_par bin_dir);
@@ -142,17 +138,17 @@ public:
     // If reference target is given, then other cmake args will be added in order to
     // take this tracker into the reference state.
     vector<string> about_to_configure(const vector<string>& cmake_args,
-                                      bool force_input_cmake_args,
-                                      string_par reference_target_path = "");
+        bool force_input_cmake_args,
+        string_par reference_target_path = "");
 
-    void cmake_config_ok();  // call after successful cmake-config
+    void cmake_config_ok(); // call after successful cmake-config
 
 private:
     string path;
 };
 
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
-                                          const vector<string>& cmake_args);
+    const vector<string>& cmake_args);
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir);
 }

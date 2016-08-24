@@ -103,8 +103,8 @@ string cmakex_config_t::pkg_binary_dir_common(string_par pkg_name) const
 }
 
 string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
-                                                 string_par config,
-                                                 bool per_config_bin_dirs) const
+    string_par config,
+    bool per_config_bin_dirs) const
 {
     auto r = pkg_binary_dir_common(pkg_name);
     if (!config.empty() && per_config_bin_dirs)
@@ -114,11 +114,10 @@ string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
 
 bool is_generator_multiconfig(string_par cmake_generator)
 {
-    if (cmake_generator == "Xcode" || cmake_generator == "Green Hills MULTI" ||
-        starts_with(cmake_generator, "Visual Studio"))
+    if (cmake_generator == "Xcode" || cmake_generator == "Green Hills MULTI" || starts_with(cmake_generator, "Visual Studio"))
         return true;
 #ifdef _WIN32
-    if (cmake_generator.empty())  // the default is Visual Studio on windows
+    if (cmake_generator.empty()) // the default is Visual Studio on windows
         return true;
 #endif
     return false;
@@ -150,12 +149,13 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
         else
             badpars_exit(stringf(
                 "Source path \"%s\" is a directory but contains no 'CMakeLists.txt'.", x.c_str()));
-    } else if (allow_invalid)
+    }
+    else if (allow_invalid)
         return false;
     else
         badpars_exit(stringf("Source path not found: \"%s\".", x.c_str()));
 
-    CHECK(false);  // never here
+    CHECK(false); // never here
     return false;
 }
 
@@ -181,9 +181,15 @@ string pkg_for_log(string_par pkg_name)
 {
     return stringf("[%s]", pkg_name.c_str());
 }
-string same_or_NoConfig(string_par config)
+
+string same_or_prefer_NoConfig(string_par config)
 {
     return config.empty() ? "NoConfig" : config.str();
+}
+
+string same_or_prefer_empty(string_par config)
+{
+    return config == "NoConfig" ? "" : config.str();
 }
 
 parsed_cmake_arg_t parse_cmake_arg(string_par x)
@@ -201,7 +207,7 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
 
     parsed_cmake_arg_t r;
 
-    for (const char* c : {"-C", "-G", "-T", "-A"}) {
+    for (const char* c : { "-C", "-G", "-T", "-A" }) {
         if (starts_with(x, c)) {
             r.switch_ = c;
             r.value.assign(x.c_str() + strlen(c), pos_end);
@@ -247,10 +253,10 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
     }
 
     for (const char* c :
-         {"-Wno-dev", "-Wdev", "-Werror=dev", "Wno-error=dev", "-Wdeprecated", "-Wno-deprecated",
-          "-Werror=deprecated", "-Wno-error=deprecated", "-N", "--debug-trycompile",
-          "--debug-output", "--trace", "--trace-expand", "--warn-uninitialized",
-          "--warn-unused-vars", "--no-warn-unused-cli", "--check-system-vars"}) {
+        { "-Wno-dev", "-Wdev", "-Werror=dev", "Wno-error=dev", "-Wdeprecated", "-Wno-deprecated",
+            "-Werror=deprecated", "-Wno-error=deprecated", "-N", "--debug-trycompile",
+            "--debug-output", "--trace", "--trace-expand", "--warn-uninitialized",
+            "--warn-unused-vars", "--no-warn-unused-cli", "--check-system-vars" }) {
         if (x == c) {
             r.switch_ = c;
             return r;
@@ -285,7 +291,7 @@ string extract_generator_from_cmake_args(const vector<string>& cmake_args)
     if (cmake_generators.empty())
         return {};
     THROW_IF(cmake_generators.size() > 1, "Multiple CMake-generators specified: %s",
-             join(cmake_generators, ", ").c_str());
+        join(cmake_generators, ", ").c_str());
     return cmake_generators.front();
 }
 
@@ -309,11 +315,9 @@ bool eval_cmake_boolean_or_fail(string_par x)
 {
     string s = x.str();
     transform_inplace(x, ::tolower);
-    if (s == "1" || s == "on" || s == "yes" || s == "true" ||
-        (!s.empty() && s[0] != '0' && isdigit(s[0]) && all_of(s, ::isdigit)))
+    if (s == "1" || s == "on" || s == "yes" || s == "true" || (!s.empty() && s[0] != '0' && isdigit(s[0]) && all_of(s, ::isdigit)))
         return true;
-    if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" ||
-        s.empty() || ends_with(s, "-notfound"))
+    if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" || s.empty() || ends_with(s, "-notfound"))
         return false;
     throwf("Invalid boolean constant: %s", x.c_str());
 }
@@ -330,9 +334,9 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
     pkg_request_t request;
     request.name = pkg_args[0];
     auto args = parse_arguments(
-        {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
-        {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
-    for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
+        {}, { "GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW" },
+        { "DEPENDS", "CMAKE_ARGS", "CONFIGS" }, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
+    for (auto c : { "GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR" }) {
         auto count = args.count(c);
         CHECK(count == 0 || args[c].size() == 1);
         if (count > 0 && args[c].empty())
@@ -347,7 +351,8 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
         request.c.git_url = a;
         if (!b.empty())
             throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
-    } else
+    }
+    else
         request.c.git_url = b;
 
     if (args.count("GIT_TAG") > 0)
@@ -359,22 +364,31 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
         if (fs::path(request.b.source_dir).is_absolute())
             throwf("SOURCE_DIR must be a relative path: \"%s\"", request.b.source_dir.c_str());
     }
-    if (args.count("DEPENDS") > 0)
-        request.depends = args["DEPENDS"];
+    if (args.count("DEPENDS") > 0) {
+        for (auto& d : args["DEPENDS"])
+            request.deps_shas[d]; //insert empty string
+    }
     if (args.count("CMAKE_ARGS") > 0) {
         // join some cmake options for easier search
         request.b.cmake_args = normalize_cmake_args(args["CMAKE_ARGS"]);
         for (auto& a : request.b.cmake_args) {
             auto pca = parse_cmake_arg(a);
-            if (pca.switch_ == "-D" &&
-                is_one_of(pca.name,
-                          {"CMAKE_INSTALL_PREFIX", "CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH"}))
+            if (pca.switch_ == "-D" && is_one_of(pca.name,
+                                           { "CMAKE_INSTALL_PREFIX", "CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH" }))
                 throwf("Setting '%s' is not allowed in the CMAKE_ARGS of a package request",
-                       pca.name.c_str());
+                    pca.name.c_str());
         }
     }
-    if (args.count("CONFIGS") > 0)
-        request.b.configs = args["CONFIGS"];
+    if (args.count("CONFIGS") > 0) {
+        for (auto& cc : args["CONFIGS"]) {
+            auto c = trim(cc);
+            if (c.empty())
+                throwf("Empty configuration name is invalid.");
+            request.b.configs.emplace_back(c);
+        }
+    }
+    else
+        request.b.configs.emplace_back("");
 
     return request;
 }
@@ -386,7 +400,7 @@ vector<string> normalize_cmake_args(const vector<string>& x)
 
     for (auto it = x.begin(); it != x.end(); ++it) {
         y.emplace_back(*it);
-        if (it->size() == 2 && is_one_of(*it, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+        if (it->size() == 2 && is_one_of(*it, { "-C", "-D", "-U", "-G", "-T", "-A" })) {
             ++it;
             THROW_IF(it == x.end(), "Missing argument after '%s'", y.back().c_str());
             y.back() += *it;
@@ -395,13 +409,13 @@ vector<string> normalize_cmake_args(const vector<string>& x)
 
     std::unordered_map<string, string> prev_options;
     std::map<string, string>
-        varname_to_last_arg;  // maps variable name to the last option that deals with that variable
+        varname_to_last_arg; // maps variable name to the last option that deals with that variable
     vector<string> z;
     z.reserve(y.size());
-    const char* GTA_vars[] = {"CMAKE_GENERATOR", "CMAKE_GENERATOR_TOOLSET",
-                              "CMAKE_GENERATOR_PLATFORM", nullptr};
+    const char* GTA_vars[] = { "CMAKE_GENERATOR", "CMAKE_GENERATOR_TOOLSET",
+        "CMAKE_GENERATOR_PLATFORM", nullptr };
     for (auto& a : y) {
-        auto pca = parse_cmake_arg(a);  // also throws on invalid args
+        auto pca = parse_cmake_arg(a); // also throws on invalid args
 
         //-U globbing is not yet supported
         if (pca.switch_ == "-U") {
@@ -420,35 +434,37 @@ vector<string> normalize_cmake_args(const vector<string>& x)
                     break;
             }
             if (pca.switch_ == "-U") {
-                if (GTA_vars[gta_idx])  // if found
+                if (GTA_vars[gta_idx]) // if found
                     throwf("Invalid CMAKE_ARG: '%s', this variable should not be removed.",
-                           a.c_str());
-            } else {
+                        a.c_str());
+            }
+            else {
                 switch (gta_idx) {
-                    case 0:
-                        a = "-G" + pca.value;
-                        break;
-                    case 1:
-                        a = "-T" + pca.value;
-                        break;
-                    case 2:
-                        a = "-A" + pca.value;
-                        break;
-                    default:
-                        CHECK(gta_idx == 3);
+                case 0:
+                    a = "-G" + pca.value;
+                    break;
+                case 1:
+                    a = "-T" + pca.value;
+                    break;
+                case 2:
+                    a = "-A" + pca.value;
+                    break;
+                default:
+                    CHECK(gta_idx == 3);
                 }
             }
 
             // pca is not updated above, only 'a'
             bool found = false;
-            for (auto o : {"-C", "-G", "-T", "-A"}) {
+            for (auto o : { "-C", "-G", "-T", "-A" }) {
                 if (starts_with(a, o)) {
                     found = true;
                     auto& prev_option = prev_options[o];
                     if (prev_option.empty()) {
                         prev_option = a;
                         z.emplace_back(a);
-                    } else {
+                    }
+                    else {
                         if (prev_option != a) {
                             throwf(
                                 "Two, different '%s' options has been specified: \"%s\" and "
@@ -465,9 +481,11 @@ vector<string> normalize_cmake_args(const vector<string>& x)
 
             if (starts_with(a, "-D")) {
                 varname_to_last_arg[pca.name] = a;
-            } else if (starts_with(a, "-U")) {
+            }
+            else if (starts_with(a, "-U")) {
                 varname_to_last_arg[pca.name] = a;
-            } else {
+            }
+            else {
                 // non C, D, U, G, T, A option
                 z.emplace_back(a);
             }
@@ -498,7 +516,7 @@ CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir, string_par filename)
 }
 
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
-                                          const vector<string>& cmake_args)
+    const vector<string>& cmake_args)
 {
     CMakeCacheTracker ccc(pkg_bin_dir_common, k_cmake_cache_tracker_ref_filename);
     ccc.about_to_configure(cmake_args, false);
@@ -506,8 +524,8 @@ void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
 }
 
 vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in,
-                                                     bool force_input_cmake_args,
-                                                     string_par ref_path)
+    bool force_input_cmake_args,
+    string_par ref_path)
 {
     using var_t = cmake_cache_tracker_t::var_t;
     using var_status_t = cmake_cache_tracker_t::var_status_t;
@@ -539,10 +557,12 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
         if (pca.switch_ == "-D") {
             name = pca.name;
             value = c;
-        } else if (is_one_of(pca.switch_, {"-C", "-G", "-T", "-A"})) {
+        }
+        else if (is_one_of(pca.switch_, { "-C", "-G", "-T", "-A" })) {
             name = pca.switch_;
             value = c;
-        } else {
+        }
+        else {
             current_request_nonvar_args.emplace_back(c);
             continue;
         }
@@ -560,8 +580,9 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
         }
 
         if (it == cct.vars.end()) {
-            cct.vars.emplace(name, var_t{value, var_status_t::vs_to_be_defined});
-        } else if (it->second.value != value) {
+            cct.vars.emplace(name, var_t{ value, var_status_t::vs_to_be_defined });
+        }
+        else if (it->second.value != value) {
             it->second.value = value;
             it->second.status = var_status_t::vs_to_be_defined;
         }
@@ -583,19 +604,22 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
                     it->second.status = var_status_t::vs_to_be_removed;
                 }
                 ++it;
-            } else if (it == cct.vars.end() || jt->first < it->first) {
+            }
+            else if (it == cct.vars.end() || jt->first < it->first) {
                 // there's a var in reference which is not listed here
                 if (jt->second.status != var_status_t::vs_to_be_removed) {
                     cct.vars.emplace(jt->first,
-                                     var_t{jt->second.value, var_status_t::vs_to_be_defined});
+                        var_t{ jt->second.value, var_status_t::vs_to_be_defined });
                 }
                 ++jt;
-            } else {
+            }
+            else {
                 CHECK(it->first == jt->first);
 
                 if (jt->second.status == var_status_t::vs_to_be_removed) {
                     it->second = jt->second;
-                } else if (it->second.value != jt->second.value) {
+                }
+                else if (it->second.value != jt->second.value) {
                     it->second.value = jt->second.value;
                     it->second.status = var_status_t::vs_to_be_removed;
                 }
@@ -607,10 +631,10 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
 
     // add placeholder -G, -T, -A to prevent redefinition later if, for the first time it hasn't
     // been initialized with some valid value
-    for (auto s : {"-G", "-T", "-A"}) {
+    for (auto s : { "-G", "-T", "-A" }) {
         auto it = cct.vars.find(s);
         if (it == cct.vars.end())
-            cct.vars.emplace(s, var_t{"", var_status_t::vs_to_be_defined});
+            cct.vars.emplace(s, var_t{ "", var_status_t::vs_to_be_defined });
     }
 
     // save -C and CMAKE_TOOLCHAIN_FILE SHA's
@@ -661,7 +685,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
     return normalize_cmake_args(cmake_args_to_apply);
 }
 
-void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
+void CMakeCacheTracker::cmake_config_ok() // call after successful cmake-config
 {
     cmake_cache_tracker_t cct;
     load_json_input_archive(path, cct);
@@ -669,19 +693,19 @@ void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
         auto& v = it->second;
 
         switch (v.status) {
-            case cmake_cache_tracker_t::vs_to_be_removed: {
-                auto this_it = it++;
-                cct.vars.erase(this_it);
-            } break;
-            case cmake_cache_tracker_t::vs_in_cmakecache:
-                ++it;
-                break;
-            case cmake_cache_tracker_t::vs_to_be_defined:
-                v.status = cmake_cache_tracker_t::vs_in_cmakecache;
-                ++it;
-                break;
-            default:
-                CHECK(false);
+        case cmake_cache_tracker_t::vs_to_be_removed: {
+            auto this_it = it++;
+            cct.vars.erase(this_it);
+        } break;
+        case cmake_cache_tracker_t::vs_in_cmakecache:
+            ++it;
+            break;
+        case cmake_cache_tracker_t::vs_to_be_defined:
+            v.status = cmake_cache_tracker_t::vs_in_cmakecache;
+            ++it;
+            break;
+        default:
+            CHECK(false);
         }
     }
 

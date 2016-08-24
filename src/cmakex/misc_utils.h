@@ -3,6 +3,7 @@
 
 #include <map>
 
+#include <adasworks/sx/check.h>
 #include <adasworks/sx/config.h>
 #include <adasworks/sx/log.h>
 
@@ -40,11 +41,18 @@ inline string make_string(array_view<const char> x)
 // join the items of v with separator string s
 string join(const vector<string>& v, const string& s);
 
-struct file_t
-{
-    explicit file_t(FILE* f) : f(f) {}
+struct file_t {
+    explicit file_t(FILE* f)
+        : f(f)
+    {
+    }
     file_t(const file_t&) = delete;
-    file_t(file_t&& x) : path_(move(x.path_)), f(x.f) { x.f = nullptr; }
+    file_t(file_t&& x)
+        : path_(move(x.path_))
+        , f(x.f)
+    {
+        x.f = nullptr;
+    }
     file_t& operator=(const file_t&) = delete;
     file_t& operator=(file_t&& x)
     {
@@ -121,14 +129,14 @@ bool is_one_of(const T& x, const Container& c)
 }
 
 // like the cmake function
-std::map<string, vector<string>> parse_arguments(const vector<string>& options,
-                                                 const vector<string>& onevalue_args,
-                                                 const vector<string>& multivalue_args,
-                                                 const vector<string>& args);
-std::map<string, vector<string>> parse_arguments(const vector<string>& options,
-                                                 const vector<string>& onevalue_args,
-                                                 const vector<string>& multivalue_args,
-                                                 string_par argstr);
+std::map<string, vector<string> > parse_arguments(const vector<string>& options,
+    const vector<string>& onevalue_args,
+    const vector<string>& multivalue_args,
+    const vector<string>& args);
+std::map<string, vector<string> > parse_arguments(const vector<string>& options,
+    const vector<string>& onevalue_args,
+    const vector<string>& multivalue_args,
+    string_par argstr);
 
 vector<string> must_read_file_as_lines(string_par filename);
 vector<string> split(string_par x, char y);
@@ -149,6 +157,38 @@ template <class Container1, class Container2>
 void append(Container1& c1, const Container2& c2)
 {
     c1.insert(c1.end(), c2.begin(), c2.end());
+}
+
+template <class Map>
+std::vector<typename Map::key_type> keys_of_map(const Map& m)
+{
+    std::vector<typename Map::key_type> v;
+    v.reserve(m.size());
+    for (auto& kv : m)
+        v.emplace_back(kv.first);
+    return v;
+}
+bool tolower_equals(string_par x, string_par y);
+//remote whitespace before and after x
+string trim(string_par x);
+string tolower(string_par x);
+template <class Cont, class Elem>
+bool linear_search(const Cont& c, const Elem& e)
+{
+    return std::find(BEGINEND(c), e) != c.end();
+}
+
+//cheap n^2 alg
+template <class T>
+vector<T> stable_unique(const vector<T>& x)
+{
+    vector<T> y;
+    y.reserve(x.size());
+    for (auto& xe : x) {
+        if (!linear_search(y, xe))
+            y.emplace_back(xe);
+    }
+    return y;
 }
 }
 
