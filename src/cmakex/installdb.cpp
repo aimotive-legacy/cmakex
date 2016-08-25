@@ -80,6 +80,14 @@ void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 
 #undef A
 
+string calc_sha(const installed_config_desc_t& x)
+{
+    std::ostringstream oss;
+    cereal::PortableBinaryOutputArchive a(oss);
+    a(x);
+    return string_sha(oss.str());
+}
+
 InstallDB::InstallDB(string_par binary_dir)
     : binary_dir(binary_dir.str()),
       dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installdb")

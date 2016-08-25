@@ -145,6 +145,7 @@ C set_difference(const C& x, const C& y)
 }
 
 string file_sha(string_par path);
+string string_sha(const string& x);
 
 template <class Container1, class Container2>
 void append(Container1& c1, const Container2& c2)

@@ -39,7 +39,8 @@ struct pkg_clone_pars_t
 
 struct config_name_t
 {
-    static config_name_t uninitialized_config_name() { return config_name_t(); }
+    config_name_t() = default;  // needed because cereal needs it
+
     config_name_t(string_par s) : value(s.c_str()) { normalize(); }
     const string& get_prefer_empty() const { return value; }
     const string& get_prefer_NoConfig() const
@@ -56,7 +57,6 @@ struct config_name_t
     bool operator==(const config_name_t& x) const { return value == x.value; }
     bool operator<(const config_name_t& x) const { return value < x.value; }
 private:
-    config_name_t() = default;  // needed because of deserialization
     void normalize();
 
     string value;
@@ -97,7 +97,6 @@ struct installed_config_desc_t
         : pkg_name(pkg_name.c_str()), config(config)
     {
     }
-    string sha() const;  // of this structure
 
     string pkg_name;
     config_name_t config;
@@ -109,7 +108,7 @@ struct installed_config_desc_t
     } b;
     deps_shas_t deps_shas;  // sha's of dependencies at the time of the build
 private:
-    installed_config_desc_t() : config(config_name_t::uninitialized_config_name()) {}
+    installed_config_desc_t() = default;
 };
 
 struct installed_pkg_configs_t

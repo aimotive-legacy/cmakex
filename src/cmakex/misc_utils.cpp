@@ -301,6 +301,13 @@ string file_sha(string_par path)
     return Poco::DigestEngine::digestToHex(e.digest());
 }
 
+string string_sha(const string& x)
+{
+    Poco::SHA1Engine e;
+    e.update(x.data(), x.size());
+    return Poco::DigestEngine::digestToHex(e.digest());
+}
+
 bool tolower_equals(string_par x, string_par y)
 {
     const char* i = x.c_str();

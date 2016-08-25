@@ -231,14 +231,40 @@ idpo_recursion_result_t run_deps_add_pkg(const vector<string>& args,
                 "'%s' these configurations had been requested: (%s) and now these: (%s)",
                 pkg_request.name.c_str(), v1.c_str(), v2.c_str());
         }
+        // compare clone pars
+        auto& c1 = pd.c;
+        auto& c2 = pkg_request.c;
+        if (c1.git_url != c2.git_url)
+            throwf(
+                "Different repository URLs requested for the same package. Previously, for package "
+                "'%s' this URL was specified: %s, now this: %s",
+                pkg_request.name.c_str(), c1.git_url.c_str(), c2.git_url.c_str());
+        if (c1.git_tag != c2.git_tag)
+            throwf(
+                "Different commits requested for the same package. Previously, for package "
+                "'%s' this GIT_TAG was specified: %s, now this: %s",
+                pkg_request.name.c_str(), c1.git_tag.c_str(), c2.git_tag.c_str());
+
+        // compare dependencies
+        auto d1 = keys_of_map(pd.deps_shas);
+        auto d2 = keys_of_map(pkg_request.deps_shas);
+
+        if (d1 != d2)
+            throwf(
+                "Different dependecies requested for the same package. Previously, for package "
+                "'%s' these dependencies were requested: (%s), now these: (%s)",
+                pkg_request.name.c_str(), join(d1, ", ").c_str(), join(d2, ", ").c_str());
     }
 
     clone_helper_t clone_helper(binary_dir, pkg_request.name);
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
 
-    auto clone_this = [&pkg_request, &wsp, &clone_helper] {
-        clone_helper.clone(pkg_request.c, pkg_request.git_shallow);
+    auto clone_this = [&pkg_request, &wsp, &clone_helper](string sha = "") {
+        auto prc = pkg_request.c;
+        if (!sha.empty())
+            prc.git_tag = sha;
+        clone_helper.clone(prc, pkg_request.git_shallow);
         wsp.pkg_map[pkg_request.name].just_cloned = true;
     };
 
@@ -254,38 +280,44 @@ idpo_recursion_result_t run_deps_add_pkg(const vector<string>& args,
 
     std::map<config_name_t, vector<string>> build_reasons;
 
-    for (auto& kv : installed_result) {
-        const auto& config = kv.first;
-        const auto& current_install_details = kv.second;
-        const auto& current_install_desc = current_install_details.installed_config_desc;
-        switch (kv.second.status) {
-            case pkg_request_not_installed:
-                build_reasons[config] = {"initial build"};
-                break;
-            case pkg_request_not_compatible: {
-                auto& br = build_reasons[config];
-                br = {stringf("build options changed")};
-                br.emplace_back(stringf(
-                    "CMAKE_ARGS of the currently installed build: %s",
-                    join(normalize_cmake_args(current_install_desc.b.cmake_args), " ").c_str()));
-                br.emplace_back(stringf("Requested CMAKE_ARGS: %s",
-                                        join(pkg_request.b.cmake_args, " ").c_str()));
-                br.emplace_back(stringf("Incompatible CMAKE_ARGS: %s",
-                                        current_install_details.incompatible_cmake_args.c_str()));
-            } break;
-            case pkg_request_satisfied: {
-                // test for new commits or uncommited changes
-                if (cloned) {
-                    if (cloned_sha == k_sha_uncommitted)
-                        build_reasons[config] = {"workspace contains uncommited changes"};
-                    else if (cloned_sha != current_install_desc.c.git_tag)
-                        build_reasons[config] = {
-                            "workspace is at a new commit",
-                            stringf("Currently installed from commit: %s",
-                                    current_install_desc.c.git_tag.c_str()),
-                            string("Current commit in workspace: %s", cloned_sha.c_str())};
-                }
-                if (build_reasons.count(config) == 0) {
+    for (int attempts = 1;; ++attempts) {
+        CHECK(attempts <= 2);
+        build_reasons.clear();
+        for (auto& kv : installed_result) {
+            const auto& config = kv.first;
+            if (build_reasons.count(config) > 0)
+                break;  // need only one reason
+            const auto& current_install_details = kv.second;
+            const auto& current_install_desc = current_install_details.installed_config_desc;
+            switch (kv.second.status) {
+                case pkg_request_not_installed:
+                    build_reasons[config] = {"initial build"};
+                    break;
+                case pkg_request_not_compatible: {
+                    auto& br = build_reasons[config];
+                    br = {stringf("build options changed")};
+                    br.emplace_back(
+                        stringf("CMAKE_ARGS of the currently installed build: %s",
+                                join(normalize_cmake_args(current_install_desc.b.cmake_args), " ")
+                                    .c_str()));
+                    br.emplace_back(stringf("Requested CMAKE_ARGS: %s",
+                                            join(pkg_request.b.cmake_args, " ").c_str()));
+                    br.emplace_back(
+                        stringf("Incompatible CMAKE_ARGS: %s",
+                                current_install_details.incompatible_cmake_args.c_str()));
+                } break;
+                case pkg_request_satisfied: {
+                    // test for new commits or uncommited changes
+                    if (cloned) {
+                        if (cloned_sha == k_sha_uncommitted)
+                            build_reasons[config] = {"workspace contains uncommited changes"};
+                        else if (cloned_sha != current_install_desc.c.git_tag)
+                            build_reasons[config] = {
+                                "workspace is at a new commit",
+                                stringf("Currently installed from commit: %s",
+                                        current_install_desc.c.git_tag.c_str()),
+                                string("Current commit in workspace: %s", cloned_sha.c_str())};
+                    }
                     // examine each dependency
                     // collect all dependencies
 
@@ -294,61 +326,163 @@ idpo_recursion_result_t run_deps_add_pkg(const vector<string>& args,
                     std::sort(BEGINEND(deps));
                     sx::unique_trunc(deps);
 
-                    vector<string> new_deps;
-                    vector<string> removed_deps;
-                    vector<string> changed_deps;
-
                     for (auto& d : deps) {
-                        auto it_inst = current_install_desc.deps_shas.find(d);
-                        auto it_req = pkg_request.deps_shas.find(d);
-                        if (it_inst == current_install_desc.deps_shas.end()) {
-                            if (it_req == pkg_request.deps_shas.end()) {
-                                CHECK(false);  // it must be in either
-                            } else {
-                                // dependency in current request but not in installed config
-                                new_deps.emplace_back(d);
+                        // we can stop at first reason to build
+                        if (build_reasons.count(config) > 0)
+                            break;
+                        if (pkg_request.deps_shas.count(d) == 0) {
+                            // this dependency is not requested now (but was needed when this
+                            // package was installed)
+                            build_reasons[config] = {
+                                stringf("dependency '%s' is not needed any more", d.c_str())};
+                            break;
+                        }
+
+                        // this dependency is requested now
+
+                        // the configs this dependency was needed when this package was build
+                        // and installed
+                        auto it_previnst_dep_configs = current_install_desc.deps_shas.find(d);
+                        if (it_previnst_dep_configs == current_install_desc.deps_shas.end()) {
+                            // this dep is requested but was not present at the previous
+                            // installation
+                            build_reasons[config] = {stringf("new dependency: '%s'", d.c_str())};
+                            break;
+                        }
+
+                        // this dep is requested, was present at the previous installation
+                        // check if it's installed now
+                        auto dep_current_install = installdb.try_get_installed_pkg_all_configs(d);
+                        if (dep_current_install.empty()) {
+                            // it's not installed now but it's requested. This would trigger
+                            // building that dependency and then this package in turn
+                            // so let's just leave now and let the missing dependency trigger these
+                            break;
+                        }
+
+                        // this dependency is installed now
+                        bool this_dep_config_was_installed =
+                            it_previnst_dep_configs->second.count(config) > 0;
+                        bool this_dep_config_is_installed =
+                            dep_current_install.config_descs.count(config) > 0;
+
+                        if (this_dep_config_is_installed != this_dep_config_was_installed) {
+                            build_reasons[config] = {
+                                stringf("dependency '%s' / config '%s' has been changed since "
+                                        "last install",
+                                        d.c_str(), config.get_prefer_NoConfig().c_str())};
+                            break;
+                        }
+
+                        if (this_dep_config_was_installed) {
+                            // this config of the dependency was installed and is
+                            // installed
+                            // check if it has been changed
+                            string dep_current_sha =
+                                calc_sha(dep_current_install.config_descs.at(config));
+                            string dep_previnst_sha = it_previnst_dep_configs->second.at(config);
+                            if (dep_current_sha != dep_previnst_sha) {
+                                build_reasons[config] = {
+                                    stringf("dependency '%s' has been changed since "
+                                            "last install",
+                                            d.c_str())};
+                                break;
                             }
                         } else {
-                            if (it_req == pkg_request.deps_shas.end()) {
-                                // dependency in installed config but not in current request
-                                removed_deps.emplace_back(d);
-                            } else {
-                                // dependency present both in installed config and current request
-                                // is it in the identical config?
-                                if (it_inst->second.count(config) > 0) {
-                                    // compare only this SHA
-
-                                } else {
+                            // this dep config was not installed and is not installed
+                            // now (but other configs of this dependency were and are)
+                            // that means, all those configs must be unchanged to prevent
+                            // build
+                            auto& map1 = dep_current_install.config_descs;
+                            auto& map2 = it_previnst_dep_configs->second;
+                            vector<config_name_t> configs = keys_of_map(map1);
+                            append(configs, keys_of_map(map2));
+                            std::sort(BEGINEND(configs));
+                            sx::unique_trunc(configs);
+                            config_name_t* changed_config = nullptr;
+                            for (auto& c : configs) {
+                                auto it1 = map1.find(c);
+                                auto it2 = map2.find(c);
+                                if ((it1 == map1.end()) != (it2 == map2.end())) {
+                                    changed_config = &c;
+                                    break;
                                 }
+                                CHECK(it1 != map1.end() && it2 != map2.end());
+                                if (calc_sha(it1->second) != it2->second) {
+                                    changed_config = &c;
+                                    break;
+                                }
+                            }
+                            if (changed_config) {
+                                build_reasons[config] = {
+                                    stringf("dependency '%s' / config '%s' has been changed "
+                                            "since last install",
+                                            d.c_str(), config.get_prefer_NoConfig().c_str())};
+                                break;
                             }
                         }
                     }
-                }
-            } break;
-            default:
-                CHECK(false);
+                } break;
+                default:
+                    CHECK(false);
+            }
         }
-        if (must_build)
+
+        bool rerun = false;
+        if (!build_reasons.empty() && !cloned) {
+            // if it's installed at some commit, clone that commit
+            string cloned_sha;
+            for (auto& kv : installed_result) {
+                if (kv.second.status != pkg_request_not_installed) {
+                    string cs = kv.second.installed_config_desc.c.git_tag;
+                    if (!sha_like(cs))
+                        throwf(
+                            "About to clone the already installed %s (need to be rebuilt). Can't "
+                            "decide which commit to clone since it has been installed from an "
+                            "invalid "
+                            "commit. Probably the workspace contaniner local changes. The "
+                            "offending "
+                            "SHA: %s",
+                            pkg_for_log(pkg_request.name).c_str(), cs.c_str());
+                    if (cloned_sha.empty())
+                        cloned_sha = cs;
+                    else if (cloned_sha != cs) {
+                        throwf(
+                            "About to clone the already installed %s (need to be rebuilt). Can't "
+                            "decide which commit to clone since different configurations has been "
+                            "installed from different commits. Two offending commit SHAs: %s and "
+                            "%s",
+                            pkg_for_log(pkg_request.name).c_str(), cloned_sha.c_str(), cs.c_str());
+                    }
+                }
+            }
+
+            if (cloned_sha.empty())
+                clone_this();
+            else {
+                clone_this(cloned_sha);  // clone exactly at the already installed commit
+                // and re-run the entire function to make sure we're resolving the same dependencies
+                // for now, the installation record specified the dependencies, after cloning the
+                // deps.cmake
+                // will be re-run
+                rerun = true;
+            }
+        }
+        if (!rerun)
             break;
     }
 
     // todo deps_shas doesn't seem to be filled
+    // todo installed git sha must be current time if local changes
 
     string clone_dir = cfg.pkg_clone_dir(pkg_request.name);
 
-    if (must_build && !cloned)
-        clone_this();
-
     string unresolved_git_tag = pkg_request.c.git_tag;
 
-    // todo: rather we need to remember if we're keeping the current install, because we it's
-    // installed at the requested commit, or we'll build it
-    // if we're about to build we need to clone which will have a single cloned_sha
-    // if we're not going to build it, there may be different commits installed
-    if (cloned) {
-        pkg_request.c.git_tag = cloned_sha;
-    }
-
+// todo for now tthe first request will determine which commit to build
+// and second, different request will be an error
+// If that's not good, relax and implement some heuristics
+#if 0
     if (already_processed) {
         // verify final, resolved commit SHAs
         auto& pm = wsp.pkg_map[pkg_request.name];
@@ -362,6 +496,7 @@ idpo_recursion_result_t run_deps_add_pkg(const vector<string>& args,
                 pkg_request.c.git_tag.c_str());
         }
     }
+#endif
 
     idpo_recursion_result_t rr;
 
@@ -396,20 +531,8 @@ idpo_recursion_result_t run_deps_add_pkg(const vector<string>& args,
 
     auto& pm = wsp.pkg_map[pkg_request.name];
     auto& pd = pm.planned_desc;
-    if (already_processed) {
-        // todo: it is an error to add a dependency with different configurations then before
-        // todo:: or it's an error to add it with different dependencies
 
-        // extend configs if needed
-        pd.b.configs.insert(pd.b.configs.end(), BEGINEND(pkg_request.b.configs));
-        std::sort(BEGINEND(pd.b.configs));
-        sx::unique_trunc(pd.b.configs);
-        // extend depends if needed
-        for (auto& d : rr.pkgs_encountered) {
-            if (pd.deps_shas.count(d) == 0)
-                pd.deps_shas[d];  // insert empty string
-        }
-    } else {
+    if (!already_processed) {
         wsp.build_order.push_back(pkg_request.name);
         pm.unresolved_git_tag = unresolved_git_tag;
         pd = pkg_request;

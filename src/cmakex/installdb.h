@@ -44,6 +44,8 @@ private:
     const string binary_dir;
     const string dbpath;
 };
+
+string calc_sha(const installed_config_desc_t& x);
 }
 
 #endif
