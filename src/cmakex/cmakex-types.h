@@ -71,8 +71,8 @@ struct pkg_build_pars_t
     // - never contains source and binary dir flags or paths
     // - contains CMAKE_INSTALL_PREFIX, CMAKE_PREFIX_PATH, CMAKE_MODULE_PATH only when describes
     //   command line
-    // - contains global args when used as package request / installed package description
-    vector<string> cmake_args;      // all cmake args including global ones
+    // - may contain global args depending on context
+    vector<string> cmake_args;
     vector<config_name_t> configs;  // Debug, Release, etc..
 };
 

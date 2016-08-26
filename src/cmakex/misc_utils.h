@@ -1,7 +1,9 @@
 #ifndef MISC_UTIL_23923948
 #define MISC_UTIL_23923948
 
+#include <deque>
 #include <map>
+#include <vector>
 
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/config.h>
@@ -148,13 +150,40 @@ string file_sha(string_par path);
 string string_sha(const string& x);
 
 template <class Container1, class Container2>
-void append(Container1& c1, const Container2& c2)
+void append_inplace(Container1& c1, const Container2& c2)
 {
     c1.insert(c1.end(), c2.begin(), c2.end());
 }
 
+template <class T>
+void reserve_if_applicable(T& x, typename T::size_type y)
+{
+}
+
+template <class X>
+void reserve_if_applicable(std::vector<X>& x, typename std::vector<X>::size_type y)
+{
+    x.reserve(y);
+}
+
+template <class X>
+void reserve_if_applicable(std::deque<X>& x, typename std::deque<X>::size_type y)
+{
+    x.reserve(y);
+}
+
 template <class Container1, class Container2>
-void prepend(Container1& c1, const Container2& c2)
+Container1 concat(const Container1& c1, const Container2& c2)
+{
+    Container1 r;
+    reserve_if_applicable(c1, c1.size() + c2.size());
+    r = c1;
+    append_inplace(r, c2);
+    return r;
+}
+
+template <class Container1, class Container2>
+void prepend_inplace(Container1& c1, const Container2& c2)
 {
     c1.insert(c1.begin(), c2.begin(), c2.end());
 }
@@ -168,10 +197,14 @@ std::vector<typename Map::key_type> keys_of_map(const Map& m)
         v.emplace_back(kv.first);
     return v;
 }
+
 bool tolower_equals(string_par x, string_par y);
+
 // remote whitespace before and after x
 string trim(string_par x);
 string tolower(string_par x);
+
+// like std::binary_search but linear
 template <class Cont, class Elem>
 bool linear_search(const Cont& c, const Elem& e)
 {
@@ -190,19 +223,6 @@ vector<T> stable_unique(const vector<T>& x)
     }
     return y;
 }
-
-// returns a vector<> from the variable Container, transformed by calling memberfn (which must
-// include the parentheses, too)
-#define TRANSFORM_WITH_MEMBER_FN(Container, memberfn)                                           \
-    (([](const decltype(Container)& x) {                                                        \
-        using result_type =                                                                     \
-            std::result_of<decltype (&decltype(pd.b.configs)::value_type::get_prefer_NoConfig)( \
-                decltype(pd.b.configs)::value_type)>::type;                                     \
-        vector<result_type> result;                                                             \
-        result.reserve(x.size());                                                               \
-        for (auto& i : x)                                                                       \
-            result.emplace_back(i.memberfn);                                                    \
-    })(Container))
 }
 
 #endif

@@ -669,9 +669,9 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
     }
 
     if (force_input_cmake_args)
-        append(cmake_args_to_apply, cmake_args);
+        append_inplace(cmake_args_to_apply, cmake_args);
     else
-        append(cmake_args_to_apply, current_request_nonvar_args);
+        append_inplace(cmake_args_to_apply, current_request_nonvar_args);
 
     return normalize_cmake_args(cmake_args_to_apply);
 }
