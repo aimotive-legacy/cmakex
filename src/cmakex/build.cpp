@@ -17,11 +17,11 @@ void build(string_par binary_dir,
            string_par pkg_name,
            string_par pkg_source_dir,
            const vector<string>& cmake_args_in,
-           string_par config,
+           config_name_t config,
            const vector<string>& build_targets,
            bool force_config_step)
 {
-    log_info("Configuration: %s", same_or_prefer_NoConfig(config).c_str());
+    log_info("Configuration: %s", config.get_prefer_NoConfig().c_str());
 
     cmakex_config_t cfg(binary_dir);
     CHECK(cfg.cmakex_cache().valid);
@@ -61,8 +61,13 @@ void build(string_par binary_dir,
             stringf("-DCMAKE_INSTALL_PREFIX=%s", cfg.deps_install_dir().c_str()));
     }
 
-    if (!cfg.cmakex_cache().multiconfig_generator && !config.empty())
-        cmake_args.emplace_back(stringf("-DCMAKE_BUILD_TYPE=%s", config.c_str()));
+    if (!cfg.cmakex_cache().multiconfig_generator) {
+        if (config.is_noconfig())
+            cmake_args.emplace_back(stringf("-UCMAKE_BUILD_TYPE"));
+        else
+            cmake_args.emplace_back(
+                stringf("-DCMAKE_BUILD_TYPE=%s", config.get_prefer_empty().c_str()));
+    }
 
     force_config_step =
         force_config_step || !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
@@ -98,8 +103,8 @@ void build(string_par binary_dir,
                 auto oem = oeb.move_result();
 
                 save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
-                                  stringf("%s-%s-configure%s", pkg_name.c_str(), config.c_str(),
-                                          k_log_extension));
+                                  stringf("%s-%s-configure%s", pkg_name.c_str(),
+                                          config.get_prefer_NoConfig().c_str(), k_log_extension));
             }
             if (r != EXIT_SUCCESS)
                 throwf("CMake configure step failed, result: %d.", r);
@@ -118,8 +123,8 @@ void build(string_par binary_dir,
         }
 
         if (cfg.cmakex_cache().multiconfig_generator) {
-            CHECK(!config.empty());
-            args.insert(args.end(), {"--config", config.c_str()});
+            CHECK(!config.is_noconfig());
+            args.insert(args.end(), {"--config", config.get_prefer_NoConfig().c_str()});
         }
 
         // todo add build_args
@@ -136,9 +141,9 @@ void build(string_par binary_dir,
                 r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
                 auto oem = oeb.move_result();
 
-                save_log_from_oem(
-                    "Build", r, oem, cfg.cmakex_log_dir(),
-                    stringf("%s-%s-build%s", pkg_name.c_str(), config.c_str(), k_log_extension));
+                save_log_from_oem("Build", r, oem, cfg.cmakex_log_dir(),
+                                  stringf("%s-%s-build%s", pkg_name.c_str(),
+                                          config.get_prefer_NoConfig().c_str(), k_log_extension));
             }
             if (r != EXIT_SUCCESS)
                 throwf("CMake build step failed, result: %d.", r);

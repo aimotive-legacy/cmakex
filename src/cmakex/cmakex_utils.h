@@ -16,13 +16,13 @@ struct cmakex_config_t
     // returns cmake_binary_dir, or, if per_config_binary_dirs is true
     // and config is not empty, than returns the per-config binary dir (e.g.
     // <common-bindir>/$<CONFIG>)
-    string main_binary_dir_of_config(string_par config, bool per_config_bin_dirs) const;
+    string main_binary_dir_of_config(const config_name_t& config, bool per_config_bin_dirs) const;
 
     string pkg_binary_dir_common(string_par pkg_name) const;
 
     // same as main_binary_dir_of_config for packages
     string pkg_binary_dir_of_config(string_par pkg_name,
-                                    string_par config,
+                                    const config_name_t& config,
                                     bool per_config_bin_dirs) const;
 
     string pkg_clone_dir(string_par pkg_name) const;
@@ -54,25 +54,7 @@ void badpars_exit(string_par msg);
 // source dir is a directory containing CMakeLists.txt
 bool evaluate_source_dir(string_par x, bool allow_invalid = false);
 
-#if 0
-struct configuration_helper_t
-{
-    // empty config translated to NoConfig
-    configuration_helper_t(const cmakex_config_t& cfg,
-                           string_par pkg_name,
-                           const vector<string>& cmake_args,
-                           string_par config);
-    string pkg_bin_dir;
-    bool multiconfig_generator;
-};
-#endif
-
 string pkg_for_log(string_par pkg_name);
-
-// return same, or NoConfig if empty
-string same_or_prefer_NoConfig(string_par config);
-// return same, or empty if NoConfig
-string same_or_prefer_empty(string_par config);
 
 // if cmake_generator is empty then uses platform-defaults
 bool is_generator_multiconfig(string_par cmake_generator);

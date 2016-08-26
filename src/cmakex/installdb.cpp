@@ -61,7 +61,7 @@ template <class Archive>
 void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(name), A(c), A(b), A(deps_shas));
+    archive(A(name), A(c), A(b), A(depends));
 }
 
 /*

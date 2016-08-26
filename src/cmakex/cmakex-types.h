@@ -2,6 +2,7 @@
 #define CMAKEX_TYPES_29034023
 
 #include <map>
+#include <set>
 
 #include "misc_utils.h"
 #include "using-decls.h"
@@ -62,6 +63,7 @@ struct config_name_t
 
     bool operator==(const config_name_t& x) const { return value == x.value; }
     bool operator<(const config_name_t& x) const { return value < x.value; }
+    bool is_noconfig() const { return value.empty(); }
 private:
     void normalize();
 
@@ -90,7 +92,7 @@ struct pkg_desc_t
     string name;
     pkg_clone_pars_t c;
     pkg_build_pars_t b;
-    deps_shas_t deps_shas;  // sha's of dependencies at the time of the build
+    std::set<string> depends;  // all dependencies encountered recursively
 };
 
 struct installed_config_desc_t

@@ -3,6 +3,7 @@
 
 #include <deque>
 #include <map>
+#include <set>
 #include <vector>
 
 #include <adasworks/sx/check.h>
@@ -40,8 +41,22 @@ inline string make_string(array_view<const char> x)
     return string(x.begin(), x.end());
 }
 
+template <class T>
+std::vector<T> to_vector(const std::set<T>& x)
+{
+    std::vector<T> y;
+    y.reserve(x.size());
+    for (auto& i : x)
+        y.emplace_back(i);
+    return y;
+}
+
 // join the items of v with separator string s
 string join(const vector<string>& v, const string& s);
+inline string join(const std::set<string>& v, const string& s)
+{
+    return join(to_vector(v), s);
+}
 
 struct file_t
 {

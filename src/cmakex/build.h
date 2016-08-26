@@ -12,7 +12,7 @@ void build(
     string_par pkg_name,        // empty for main project
     string_par pkg_source_dir,  // pkg-root relative for pkg, cwd-relative or abs for main project
     const vector<string>& cmake_args,
-    string_par config,
+    config_name_t config,
     const vector<string>& build_targets,
     bool force_config_step  // config even there are no cmake_args different to what are in
                             // the cache

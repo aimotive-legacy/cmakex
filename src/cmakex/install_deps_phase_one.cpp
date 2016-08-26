@@ -210,8 +210,8 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1,
             pkg_name.c_str(), c1.git_tag.c_str(), c2.git_tag.c_str());
 
     // compare dependencies
-    auto d1 = keys_of_map(r1.deps_shas);
-    auto d2 = keys_of_map(r2.deps_shas);
+    auto& d1 = r1.depends;
+    auto& d2 = r2.depends;
 
     if (d1 != d2)
         throwf(
@@ -406,9 +406,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         if (cloned) {
             wsp.requester_stack.emplace_back(pkg_name);
 
-            rr = install_deps_phase_one(binary_dir, pkg_source_dir,
-                                        keys_of_map(pkg.request.deps_shas), global_cmake_args,
-                                        configs, wsp, cmakex_cache);
+            rr = install_deps_phase_one(binary_dir, pkg_source_dir, to_vector(pkg.request.depends),
+                                        global_cmake_args, configs, wsp, cmakex_cache);
 
             CHECK(wsp.requester_stack.back() == pkg_name);
             wsp.requester_stack.pop_back();
@@ -483,8 +482,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     // examine each dependency
                     // collect all dependencies
 
-                    auto deps = concat(keys_of_map(current_install_desc.deps_shas),
-                                       keys_of_map(pkg.request.deps_shas));
+                    auto deps =
+                        concat(keys_of_map(current_install_desc.deps_shas), pkg.request.depends);
                     std::sort(BEGINEND(deps));
                     sx::unique_trunc(deps);
 
@@ -492,7 +491,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         // we can stop at first reason to build
                         if (build_reasons.count(config) > 0)
                             break;
-                        if (pkg.request.deps_shas.count(d) == 0) {
+                        if (pkg.request.depends.count(d) == 0) {
                             // this dependency is not requested now (but was needed when this
                             // package was installed)
                             build_reasons[config] = {

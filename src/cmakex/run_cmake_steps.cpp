@@ -32,8 +32,8 @@ void run_cmake_steps(const processed_command_line_args_cmake_mode_t& pars,
 
     bool force_config_step_now = !pars.cmake_args.empty() || pars.flag_c;
     for (auto& config : pars.configs) {
-        build(pars.binary_dir, "", pars.source_dir, pars.cmake_args, config, build_targets,
-              force_config_step_now);
+        build(pars.binary_dir, "", pars.source_dir, pars.cmake_args, config_name_t(config),
+              build_targets, force_config_step_now);
 
         if (cmakex_cache.multiconfig_generator)
             force_config_step_now = false;

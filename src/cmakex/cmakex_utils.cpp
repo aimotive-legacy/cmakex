@@ -64,11 +64,12 @@ string cmakex_config_t::main_binary_dir_common() const
     return cmake_binary_dir;
 }
 
-string cmakex_config_t::main_binary_dir_of_config(string_par config, bool per_config_bin_dirs) const
+string cmakex_config_t::main_binary_dir_of_config(const config_name_t& config,
+                                                  bool per_config_bin_dirs) const
 {
     string r = cmake_binary_dir;
-    if (!config.empty() && per_config_bin_dirs)
-        r += "/" + config.str();
+    if (!config.is_noconfig() && per_config_bin_dirs)
+        r += "/" + config.get_prefer_NoConfig();
     return r;
 }
 
@@ -103,12 +104,12 @@ string cmakex_config_t::pkg_binary_dir_common(string_par pkg_name) const
 }
 
 string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
-                                                 string_par config,
+                                                 const config_name_t& config,
                                                  bool per_config_bin_dirs) const
 {
     auto r = pkg_binary_dir_common(pkg_name);
-    if (!config.empty() && per_config_bin_dirs)
-        r += "/" + config.str();
+    if (!config.is_noconfig() && per_config_bin_dirs)
+        r += "/" + config.get_prefer_NoConfig();
     return r;
 }
 
@@ -159,37 +160,9 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
     return false;
 }
 
-#if 0
-configuration_helper_t::configuration_helper_t(const cmakex_config_t& cfg,
-                                               string_par pkg_name,
-                                               const vector<string>& cmake_args,
-                                               string_par config)
-{
-    string cmake_generator;
-    for (auto& c : cmake_args) {
-        if (starts_with(c, "-G")) {
-            cmake_generator = make_string(butleft(c, 2));  // 2 is length of "-G"
-            break;
-        }
-    }
-    pkg_bin_dir = cfg.pkg_binary_dir_of_config(pkg_name, config, cmake_generator);
-    multiconfig_generator = is_generator_multiconfig(cmake_generator);
-}
-
-#endif
 string pkg_for_log(string_par pkg_name)
 {
     return stringf("[%s]", pkg_name.c_str());
-}
-
-string same_or_prefer_NoConfig(string_par config)
-{
-    return config.empty() ? "NoConfig" : config.str();
-}
-
-string same_or_prefer_empty(string_par config)
-{
-    return config == "NoConfig" ? "" : config.str();
 }
 
 parsed_cmake_arg_t parse_cmake_arg(string_par x)
@@ -367,7 +340,7 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
     }
     if (args.count("DEPENDS") > 0) {
         for (auto& d : args["DEPENDS"])
-            request.deps_shas[d];  // insert empty string
+            request.depends.insert(d);  // insert empty string
     }
     if (args.count("CMAKE_ARGS") > 0) {
         // join some cmake options for easier search

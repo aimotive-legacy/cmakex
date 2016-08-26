@@ -28,6 +28,10 @@ void save_log_from_oem(string_par prefix_msg,
                        const OutErrMessages& oem,
                        string_par log_dir,
                        string_par log_filename);
+
+// string datetime_string_for_log(Poco::DateTime dt);
+string current_datetime_string_for_log();
+// string datetime_string_for_log(std::chrono::system_clock::time_point x);
 }
 
 #endif
