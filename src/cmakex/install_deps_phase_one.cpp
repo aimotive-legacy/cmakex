@@ -371,7 +371,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
     // determine installed status
     InstallDB installdb(binary_dir);
-    auto installed_result = installdb.evaluate_pkg_request_build_pars(pkg_name, pkg.request.b);
+    auto installed_result = installdb.evaluate_pkg_request_build_pars(
+        pkg_name, pkg.request.b.source_dir, pkg.final_cmake_args, pkg.request.b.configs);
     CHECK(installed_result.size() == pkg.request.b.configs.size());
 
     // if any of the requested configs is not satisfied we know we need the clone right now
@@ -454,12 +455,12 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 case pkg_request_not_compatible: {
                     auto& br = build_reasons[config];
                     br = {stringf("build options changed")};
-                    br.emplace_back(
-                        stringf("CMAKE_ARGS of the currently installed build: %s",
-                                join(normalize_cmake_args(current_install_desc.b.cmake_args), " ")
-                                    .c_str()));
+                    br.emplace_back(stringf(
+                        "CMAKE_ARGS of the currently installed build: %s",
+                        join(normalize_cmake_args(current_install_desc.final_cmake_args), " ")
+                            .c_str()));
                     br.emplace_back(stringf("Requested CMAKE_ARGS: %s",
-                                            join(pkg.request.b.cmake_args, " ").c_str()));
+                                            join(pkg.final_cmake_args, " ").c_str()));
                     br.emplace_back(
                         stringf("Incompatible CMAKE_ARGS: %s",
                                 current_install_details.incompatible_cmake_args.c_str()));
@@ -470,11 +471,11 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         if (cloned_sha == k_sha_uncommitted) {
                             build_reasons[config] = {"workspace contains uncommited changes"};
                             break;
-                        } else if (cloned_sha != current_install_desc.c.git_sha) {
+                        } else if (cloned_sha != current_install_desc.git_sha) {
                             build_reasons[config] = {
                                 "workspace is at a new commit",
                                 stringf("Currently installed from commit: %s",
-                                        current_install_desc.c.git_sha.c_str()),
+                                        current_install_desc.git_sha.c_str()),
                                 string("Current commit in workspace: %s", cloned_sha.c_str())};
                             break;
                         }
@@ -604,7 +605,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             for (auto& kv : installed_result) {
                 if (kv.second.status == pkg_request_not_installed)
                     continue;
-                string cs = kv.second.installed_config_desc.c.git_sha;
+                string cs = kv.second.installed_config_desc.git_sha;
                 if (!sha_like(cs))
                     throwf(
                         "About to clone the already installed %s (need to be rebuilt). Can't "

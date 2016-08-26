@@ -69,17 +69,17 @@ void install_deps_phase_two(string_par binary_dir,
             // copy or link installed files into install prefix
             // register this build with installdb
             installed_config_desc_t desc(p, config);
-            desc.c.git_url = wp.request.c.git_url;
+            desc.git_url = wp.request.c.git_url;
             CHECK(clone_helper.cloned);
             if (clone_helper.cloned_sha == k_sha_uncommitted) {
-                desc.c.git_sha = stringf("<installed-from-uncommited-changes-at-%s",
-                                         current_datetime_string_for_log().c_str());
+                desc.git_sha = stringf("<installed-from-uncommited-changes-at-%s",
+                                       current_datetime_string_for_log().c_str());
             } else {
-                desc.c.git_sha = wp.resolved_git_tag;
+                desc.git_sha = wp.resolved_git_tag;
             }
 
-            desc.b.source_dir = wp.request.b.source_dir;
-            desc.b.cmake_args = wp.request.b.cmake_args;
+            desc.source_dir = wp.request.b.source_dir;
+            desc.final_cmake_args = wp.final_cmake_args;
             for (auto& d : wp.request.depends) {
                 auto dep_installed = installdb.try_get_installed_pkg_all_configs(d);
                 for (auto& kv : dep_installed.config_descs)

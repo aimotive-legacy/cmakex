@@ -141,9 +141,11 @@ void build(string_par binary_dir,
                 r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
                 auto oem = oeb.move_result();
 
-                save_log_from_oem("Build", r, oem, cfg.cmakex_log_dir(),
-                                  stringf("%s-%s-build%s", pkg_name.c_str(),
-                                          config.get_prefer_NoConfig().c_str(), k_log_extension));
+                save_log_from_oem(
+                    "Build", r, oem, cfg.cmakex_log_dir(),
+                    stringf("%s-%s-build-%s%s", pkg_name.c_str(),
+                            config.get_prefer_NoConfig().c_str(),
+                            target.empty() ? "all" : target.c_str(), k_log_extension));
             }
             if (r != EXIT_SUCCESS)
                 throwf("CMake build step failed, result: %d.", r);

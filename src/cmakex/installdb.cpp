@@ -51,13 +51,6 @@ void serialize(Archive& archive, pkg_clone_pars_t& m, uint32_t version)
 }
 
 template <class Archive>
-void serialize(Archive& archive, pkg_clone_pars_sha_t& m, uint32_t version)
-{
-    THROW_UNLESS(version == 1);
-    archive(A(git_url), A(git_sha));
-}
-
-template <class Archive>
 void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
@@ -82,7 +75,8 @@ template <class Archive>
 void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(pkg_name), A(config), A(c), A(b.source_dir), A(b.cmake_args), A(deps_shas));
+    archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(final_cmake_args),
+            A(deps_shas));
 }
 
 #undef A
@@ -97,7 +91,7 @@ string calc_sha(const installed_config_desc_t& x)
 
 InstallDB::InstallDB(string_par binary_dir)
     : binary_dir(binary_dir.str()),
-      dbpath(cmakex_config_t(binary_dir).cmakex_dir() + "/" + "installdb")
+      dbpath(cmakex_config_t(binary_dir).deps_install_dir() + "/_cmakex/installdb")
 {
     if (!fs::exists(dbpath))
         fs::create_directories(dbpath);  // must be able to create the path
@@ -127,7 +121,7 @@ installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par 
                    p.c_str(), y.config.get_prefer_NoConfig().c_str());
 
         auto new_result_value_it_bool = r.config_descs.emplace(y.config, y);
-        if (new_result_value_it_bool.second)
+        if (!new_result_value_it_bool.second)
             throwf(
                 "Installed-configuration file \"%s\" contains configuration '%s' but that config "
                 "has already been listed in another installed-configuration file of the same "
@@ -149,9 +143,13 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 }
 */
 
+// todo may look for all CMAKE_PREFIX_PATH env and cmake var dirs for installdbs (read only)
+
 void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
-    p.b.cmake_args = normalize_cmake_args(p.b.cmake_args);
+    p.final_cmake_args = normalize_cmake_args(p.final_cmake_args);
+    auto dir = installed_pkg_desc_dir(p.pkg_name);
+    fs::create_directories(dir);
     auto path = installed_pkg_config_desc_path(p.pkg_name, p.config);
     save_json_output_archive(path, p);
 }
@@ -218,11 +216,13 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
 
 pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pars(
     string_par pkg_name,
-    const pkg_build_pars_t& bp)
+    string_par bp_source_dir,
+    const vector<string>& bp_final_cmake_args,
+    const vector<config_name_t>& bp_configs)
 {
     auto installed_configs = try_get_installed_pkg_all_configs(pkg_name);
     pkg_request_details_against_installed_t r;
-    for (const auto& req_config : bp.configs) {
+    for (const auto& req_config : bp_configs) {
         auto it_installed_config = installed_configs.config_descs.find(req_config);
         if (it_installed_config == installed_configs.config_descs.end()) {
             r.emplace(req_config, installed_config_desc_t(pkg_name, req_config));
@@ -230,10 +230,10 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
         } else {
             auto& cd = it_installed_config->second;
             r.emplace(req_config, cd);
-            auto ica = incompatible_cmake_args(cd.b.cmake_args, bp.cmake_args);
-            if (bp.source_dir != cd.b.source_dir) {
+            auto ica = incompatible_cmake_args(cd.final_cmake_args, bp_final_cmake_args);
+            if (bp_source_dir != cd.source_dir) {
                 ica.emplace_back(stringf("(different source dirs: '%s' and '%s')",
-                                         cd.b.source_dir.c_str(), bp.source_dir.c_str()));
+                                         cd.source_dir.c_str(), bp_source_dir.c_str()));
             }
             if (ica.empty()) {
                 r.at(req_config).status = pkg_request_satisfied;

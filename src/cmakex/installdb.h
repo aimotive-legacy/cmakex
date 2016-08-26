@@ -23,7 +23,9 @@ public:
     // textual description on failure
     pkg_request_details_against_installed_t evaluate_pkg_request_build_pars(
         string_par pkg_name,
-        const pkg_build_pars_t& bp);
+        string_par bp_source_dir,
+        const vector<string>& bp_final_cmake_args,
+        const vector<config_name_t>& bp_configs);
     installed_pkg_configs_t try_get_installed_pkg_all_configs(string_par pkg_name) const;
     // maybe<pkg_files_t> try_get_installed_pkg_files(string_par pkg_name) const;
 
