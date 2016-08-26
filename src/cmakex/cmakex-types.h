@@ -37,6 +37,12 @@ struct pkg_clone_pars_t
     string git_tag;
 };
 
+struct pkg_clone_pars_sha_t
+{
+    string git_url;
+    string git_sha;
+};
+
 struct config_name_t
 {
     config_name_t() = default;  // needed because cereal needs it
@@ -100,7 +106,7 @@ struct installed_config_desc_t
 
     string pkg_name;
     config_name_t config;
-    pkg_clone_pars_t c;
+    pkg_clone_pars_sha_t c;
     struct
     {
         string source_dir;          // (relative) directory containing CMakeLists.txt

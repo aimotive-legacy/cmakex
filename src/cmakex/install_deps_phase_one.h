@@ -15,6 +15,7 @@ struct deps_recursion_wsp_t
         bool just_cloned = false;  // cloned in this run of install_deps_phase_one
         string resolved_git_tag;
         vector<string> final_cmake_args;
+        std::map<config_name_t, vector<string>> build_reasons;
     };
 
     vector<string> requester_stack;
@@ -31,6 +32,11 @@ struct idpo_recursion_result_t
     vector<string> pkgs_encountered;  // packages encountered during the recursion
     bool building_some_pkg = false;   // if one of those packages are marked to be built
 
+    void clear()
+    {
+        pkgs_encountered.clear();
+        building_some_pkg = false;
+    }
     void add(const idpo_recursion_result_t& x);
     void add_pkg(string_par x);
 

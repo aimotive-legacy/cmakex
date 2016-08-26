@@ -94,7 +94,7 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(string_par binary_di
     // for each pkg:
     for (auto& d : request_deps) {
         auto rr_below =
-            run_deps_add_pkg({{d}}, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+            run_deps_add_pkg(d, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
         rr.add(rr_below);
     }
 
@@ -276,6 +276,34 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     return rr;
 }
 
+/*
+todo
+need to choose a way how to interpret config specification for config and build-steps
+and for make and IDE generators.
+
+What will be built if build-step specification takes precedence:
+For IDE generator no specifying the config results in Debug build (tested with vs and xcode)
+
+commands  | make-generator | ide-generator
+
+c  then b | noconfig       | debug
+cd then b | noconfig       | debug
+cr then b | noconfig       | debug
+
+What will be built if config-step specification is remembered:
+
+commands  | make-generator | ide-generator
+
+c  then b | noconfig       | debug
+cd then b | debug          | debug
+cr then b | release        | debug*
+
+*: The last option is currently not possible because the configuration is not remembered with
+IDE-generator
+
+Also need to decide what to do if someone uploads a NoConfig package which is then downloaded for an
+ide generator build
+*/
 idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                          string_par binary_dir,
                                          const vector<string>& global_cmake_args,
@@ -285,7 +313,15 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 {
     const cmakex_config_t cfg(binary_dir);
 
-    CHECK(wsp.pkg_map.count(pkg_name.str()) > 0);
+    if (wsp.pkg_map.count(pkg_name.str()) == 0) {
+        // todo here we could access some package registry which may contain definition of this
+        // package
+        auto requester = wsp.requester_stack.empty() ? string("main project")
+                                                     : pkg_for_log(wsp.requester_stack.back());
+        throwf("No definition is available for the dependency %s (requested by %s)",
+               pkg_name.c_str(), requester.c_str());
+    }
+
     auto& pkg = wsp.pkg_map.at(pkg_name.str());
 
     // add global cmake args
@@ -317,9 +353,6 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
     pkg.request.b.configs = stable_unique(pkg.request.b.configs);
 
-    // it's already processed we need to check if it's the same request as before
-    const bool already_processed = wsp.pkg_map.count(pkg_name.str()) > 0;
-
     clone_helper_t clone_helper(binary_dir, pkg_name);
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
@@ -341,51 +374,73 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     auto installed_result = installdb.evaluate_pkg_request_build_pars(pkg_name, pkg.request.b);
     CHECK(installed_result.size() == pkg.request.b.configs.size());
 
-    // if not installed we need the clone always
-    if (installed_result.empty() && !cloned)
+    // if any of the requested configs is not satisfied we know we need the clone right now
+    // this is partly only a shortcut on the other later (when traversing the dependencies) we
+    // exploit the fact that this package is either installed (say, from server) or cloned
+    bool one_config_is_not_satisfied = false;
+    for (auto& c : pkg.request.b.configs) {
+        if (installed_result.at(c).status != pkg_request_satisfied) {
+            one_config_is_not_satisfied = true;
+            break;
+        }
+    }
+    if (one_config_is_not_satisfied && !cloned)
         clone_this();
 
     std::map<config_name_t, vector<string>> build_reasons;
 
     idpo_recursion_result_t rr;
 
+    // if first attempt finds reason to build and this package is not cloned, a second attempt will
+    // follow after a clone
     for (int attempts = 1;; ++attempts) {
         CHECK(attempts <= 2);  // before second iteration there will be a cloning so the second
                                // iteration must finish
         build_reasons.clear();
+        rr.clear();
+        bool for_clone_use_installed_sha = false;
+        bool restore_wsp_before_second_attempt = false;
 
-        // process_deps
         std::remove_reference<decltype(wsp)>::type saved_wsp;
-        {
-            if (cloned) {
-                wsp.requester_stack.emplace_back(pkg_name);
+        // process_deps
+        if (cloned) {
+            wsp.requester_stack.emplace_back(pkg_name);
 
-                rr = install_deps_phase_one(binary_dir, pkg_source_dir,
-                                            keys_of_map(pkg.request.deps_shas), global_cmake_args,
-                                            configs, wsp, cmakex_cache);
+            rr = install_deps_phase_one(binary_dir, pkg_source_dir,
+                                        keys_of_map(pkg.request.deps_shas), global_cmake_args,
+                                        configs, wsp, cmakex_cache);
 
-                CHECK(wsp.requester_stack.back() == pkg_name);
-                wsp.requester_stack.pop_back();
-            } else {
-                // enumerate dependencies from description of installed package
+            CHECK(wsp.requester_stack.back() == pkg_name);
+            wsp.requester_stack.pop_back();
+        } else {
+            // enumerate dependencies from description of installed package
+            LOG_FATAL("This branch is not implemented");
 
-                // todo rather we need to call run_deps_add_pkgs
-                // we need to store the resolved deps.cmake of the package
-                for (auto& kv : installed_result) {
-                    CHECK(kv.second.status == pkg_request_satisfied);
-                    auto deps = concat(keys_of_map(kv.second.installed_config_desc.deps_shas),
-                                       rr.pkgs_encountered);
-                }
-            }
+            // todo implement this branch:
+            // this package is installed but not cloned. So this has been remote built and
+            // installed as headers+binary
+            // the description that came with the binary should contain the detailed
+            // descriptions (requests) of its all dependencies. It's like a deps.cmake file
+            // 'materialized' that is, processed into a similar file we process the deps.cmake
+            // and also git_tags resolved to concrete SHAs.
+            // The dependencies will be either built locally or downloaded based on that
+            // description
+            saved_wsp = wsp;
+            restore_wsp_before_second_attempt = true;
+            for_clone_use_installed_sha = true;
+
+#if 0
+            rr = install_deps_phase_one_remote_build(pkg_name, global_cmake_args, configs, wsp,
+                                                     cmakex_cache);
+#endif
         }
-        current state because we may need to rerun;
 
-        if (any - dep - is - building && !cloned) {
-            restore saved state;
-            build_reason =
-                rerunning(will not be printed)  // will skip next loop over installed configs
-        } else
-            commit new state;
+        if (rr.building_some_pkg) {
+            for (auto& c : pkg.request.b.configs)
+                build_reasons[c] = {"a dependency has been rebuilt"};
+        }
+
+        // todo maybe pkg_desc_t should not include deps_shas
 
         for (auto& kv : installed_result) {
             const auto& config = kv.first;
@@ -413,14 +468,17 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 case pkg_request_satisfied: {
                     // test for new commits or uncommited changes
                     if (cloned) {
-                        if (cloned_sha == k_sha_uncommitted)
+                        if (cloned_sha == k_sha_uncommitted) {
                             build_reasons[config] = {"workspace contains uncommited changes"};
-                        else if (cloned_sha != current_install_desc.c.git_tag)
+                            break;
+                        } else if (cloned_sha != current_install_desc.c.git_sha) {
                             build_reasons[config] = {
                                 "workspace is at a new commit",
                                 stringf("Currently installed from commit: %s",
-                                        current_install_desc.c.git_tag.c_str()),
+                                        current_install_desc.c.git_sha.c_str()),
                                 string("Current commit in workspace: %s", cloned_sha.c_str())};
+                            break;
+                        }
                     }
                     // examine each dependency
                     // collect all dependencies
@@ -444,7 +502,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
                         // this dependency is requested now
 
-                        // the configs this dependency was needed when this package was build
+                        // the configs of this dependency that was needed when this package was
+                        // build
                         // and installed
                         auto it_previnst_dep_configs = current_install_desc.deps_shas.find(d);
                         if (it_previnst_dep_configs == current_install_desc.deps_shas.end()) {
@@ -458,10 +517,13 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         // check if it's installed now
                         auto dep_current_install = installdb.try_get_installed_pkg_all_configs(d);
                         if (dep_current_install.empty()) {
-                            // it's not installed now but it's requested. This would trigger
-                            // building that dependency and then this package in turn
-                            // so let's just leave now and let the missing dependency trigger
-                            // these
+                            // it's not installed now but it's requested. This should have triggered
+                            // building that dependency and then building this package in turn.
+                            // Since we're here it did not happened so this is an internal error.
+                            LOG_FATAL(
+                                "Package '%s', dependency '%s' is not installed but requested but "
+                                "still it didn't trigger building this package.",
+                                pkg_name.c_str(), d.c_str());
                             break;
                         }
 
@@ -530,97 +592,66 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 } break;
                 default:
                     CHECK(false);
-            }
-        }
+            }  // switch on the evaluation result between request config and installed config
+        }      // for all requested configs
 
-        bool rerun = false;
-        if (!build_reasons.empty() && !cloned) {
+        if (build_reasons.empty() || cloned)
+            break;
+        if (restore_wsp_before_second_attempt)
+            wsp = move(saved_wsp);
+        if (for_clone_use_installed_sha) {
             // if it's installed at some commit, clone that commit
-            string cloned_sha;
+            string installed_sha;
             for (auto& kv : installed_result) {
-                if (kv.second.status != pkg_request_not_installed) {
-                    string cs = kv.second.installed_config_desc.c.git_tag;
-                    if (!sha_like(cs))
-                        throwf(
-                            "About to clone the already installed %s (need to be rebuilt). Can't "
-                            "decide which commit to clone since it has been installed from an "
-                            "invalid "
-                            "commit. Probably the workspace contaniner local changes. The "
-                            "offending "
-                            "SHA: %s",
-                            pkg_for_log(pkg_name).c_str(), cs.c_str());
-                    if (cloned_sha.empty())
-                        cloned_sha = cs;
-                    else if (cloned_sha != cs) {
-                        throwf(
-                            "About to clone the already installed %s (need to be rebuilt). Can't "
-                            "decide which commit to clone since different configurations has been "
-                            "installed from different commits. Two offending commit SHAs: %s and "
-                            "%s",
-                            pkg_for_log(pkg_name).c_str(), cloned_sha.c_str(), cs.c_str());
-                    }
+                if (kv.second.status == pkg_request_not_installed)
+                    continue;
+                string cs = kv.second.installed_config_desc.c.git_sha;
+                if (!sha_like(cs))
+                    throwf(
+                        "About to clone the already installed %s (need to be rebuilt). Can't "
+                        "decide which commit to clone since it has been installed from an "
+                        "invalid commit. Probably the workspace contaniner local changes. The "
+                        "offending SHA: %s",
+                        pkg_for_log(pkg_name).c_str(), cs.c_str());
+                if (installed_sha.empty())
+                    installed_sha = cs;
+                else if (installed_sha != cs) {
+                    throwf(
+                        "About to clone the already installed %s (needs to be rebuilt). Can't "
+                        "decide which commit to clone since different configurations has been "
+                        "installed from different commits. Two offending commit SHAs: %s and "
+                        "%s",
+                        pkg_for_log(pkg_name).c_str(), cloned_sha.c_str(), cs.c_str());
                 }
             }
-
-            if (cloned_sha.empty())
-                clone_this();
-            else {
-                clone_this(cloned_sha);  // clone exactly at the already installed commit
-                // and re-run the entire function to make sure we're resolving the same dependencies
-                // for now, the installation record specified the dependencies, after cloning the
-                // deps.cmake
-                // will be re-run
-                rerun = true;
-            }
-        }
-        if (!rerun)
-            break;
-    }
+            CHECK(!installed_sha.empty());  // it can't be empty since if it's not installed
+            // then we should not get here
+            clone_this(installed_sha);
+        } else
+            clone_this();
+    }  // for attempts
 
     // todo deps_shas doesn't seem to be filled
     // todo installed git sha must be current time if local changes
 
     string clone_dir = cfg.pkg_clone_dir(pkg_name);
 
-    string unresolved_git_tag = pkg.request.c.git_tag;
+    // todo for now the first request will determine which commit to build
+    // and second, different request will be an error
+    // If that's not good, relax and implement some heuristics
 
-// todo for now tthe first request will determine which commit to build
-// and second, different request will be an error
-// If that's not good, relax and implement some heuristics
-#if 0
-    if (already_processed) {
-        // verify final, resolved commit SHAs
-        auto& pm = wsp.pkg_map[pkg_name];
-        string prev_git_tag = pm.planned_desc.c.git_tag;
-        if (pkg_request.c.git_tag != prev_git_tag) {
-            throwf(
-                "Different GIT_TAG's: this package has already been requested but with different "
-                "GIT_TAG specification. Previous GIT_TAG was '%s', resolved as %s, current GIT_TAG "
-                "is '%s', resolved as %s",
-                pm.unresolved_git_tag.c_str(), prev_git_tag.c_str(), unresolved_git_tag.c_str(),
-                pkg_request.c.git_tag.c_str());
-        }
-    }
-#endif
+    if (!build_reasons.empty()) {
+        CHECK(cloned);
+        auto& pm = wsp.pkg_map[pkg_name.str()];
+        auto& pd = pm.request;
 
-    // todo: we need to return from install_deps_phase_one if we're going to build a dependency
-    // which should trigger build here, too
-
-    // note: for now, since a dependency with uncommitteed changes will always be built, all the
-    // packages that depend on it will be rebuilt
-
-    auto& pm = wsp.pkg_map[pkg_name.str()];
-    auto& pd = pm.request;
-
-    if (!already_processed) {
         wsp.build_order.push_back(pkg_name.str());
-        pm.unresolved_git_tag = unresolved_git_tag;
+        pm.resolved_git_tag = cloned_sha;
         pd = pkg.request;
-        for (auto& d : rr.pkgs_encountered)
-            pd.deps_shas[d];  // insert empty string
+        pm.build_reasons = build_reasons;
+        rr.building_some_pkg = true;
     }
     rr.add_pkg(pkg_name);
-    // todo update rr.building flag
     return rr;
 }
 }

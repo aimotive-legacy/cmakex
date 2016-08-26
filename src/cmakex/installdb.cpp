@@ -51,6 +51,13 @@ void serialize(Archive& archive, pkg_clone_pars_t& m, uint32_t version)
 }
 
 template <class Archive>
+void serialize(Archive& archive, pkg_clone_pars_sha_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 1);
+    archive(A(git_url), A(git_sha));
+}
+
+template <class Archive>
 void serialize(Archive& archive, pkg_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
