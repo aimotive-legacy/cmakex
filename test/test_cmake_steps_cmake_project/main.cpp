@@ -6,6 +6,6 @@
 int main(int argc, char* argv[])
 {
     fprintf(stdout, "%s\n", STR(DEFINE_THIS));
-    fprintf(stderr, "%s\n", STR(CONFIG));
+    fprintf(stderr, "%s\n", STR(DEFINE_CONFIG));
     return 0;
 }

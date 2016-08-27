@@ -4,16 +4,24 @@ project(cmakex)
 include(CMakePrintHelpers)
 
 set(CMAKE_DEBUG_POSTFIX d)
-set(CMAKE_CXX_STANDARD 11)
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 11)
+endif()
 
 set(gcc_opts "-Werror=return-type -Wformat=2 -Wall -Wextra -Wno-sign-compare")
 
-if(CMAKE_COMPILER_IS_GNUCC)
+if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${gcc_opts}")
+    cmake_print_variables(CMAKE_C_FLAGS)
 endif()
 
-if(CMAKE_COMPILER_IS_GNUCXX)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${gcc_opts}")
+    cmake_print_variables(CMAKE_CXX_FLAGS)
+endif()
+
+if(MSVC)
+    add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN)
 endif()
 
 file(READ "VERSION" version_string)
@@ -42,6 +50,7 @@ find_package(aw-sx REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nowide REQUIRED)
 find_package(Poco REQUIRED Foundation)
+find_package(cereal REQUIRED)
 
 if(NOT CMAKE_CROSSCOMPILING)
     enable_testing()

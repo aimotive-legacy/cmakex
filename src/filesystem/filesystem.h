@@ -14,12 +14,17 @@ public:
     using string_type = std::basic_string<value_type>;
 
     path() = default;
+    path(const char* s) : s(s) {}
     path(const std::string& s) : s(s) {}
     const value_type* c_str() const { return s.c_str(); }
     const string_type& string() const { return s; }
     operator string_type() const { return s; }
     path extension() const;
     path filename() const;
+    bool is_relative() const;
+    bool is_absolute() const;
+    path parent_path() const;
+    path stem() const;
 
 #ifdef _WIN32
     static const value_type preferred_separator = '\\';
@@ -33,15 +38,15 @@ private:
 class filesystem_error
 {
 public:
-    filesystem_error(const std::string& what_arg, std::error_code ec) : what_(what_arg) {}
-    filesystem_error(const std::string& what_arg, const path& p1, std::error_code ec)
+    filesystem_error(const std::string& what_arg, std::error_code /*ec*/) : what_(what_arg) {}
+    filesystem_error(const std::string& what_arg, const path& p1, std::error_code /*ec*/)
         : what_(what_arg), path1_(p1)
     {
     }
     filesystem_error(const std::string& what_arg,
                      const path& p1,
                      const path& p2,
-                     std::error_code ec)
+                     std::error_code /*ec*/)
         : what_(what_arg), path1_(p1), path2_(p2)
     {
     }
@@ -100,6 +105,7 @@ private:
 file_status status(const path& p);
 file_status status(const path& p, std::error_code& ec);
 
+bool exists(const path& p);
 inline bool is_regular_file(file_status s)
 {
     return s.type() == file_type::regular;
@@ -108,11 +114,24 @@ inline bool is_regular_file(const path& p)
 {
     return is_regular_file(status(p));
 }
+inline bool is_directory(file_status s)
+{
+    return s.type() == file_type::directory;
+}
+inline bool is_directory(const path& p)
+{
+    return is_directory(status(p));
+}
 path current_path();
 void current_path(const path& p);
 void remove(const path& p);
 void remove_all(const path& p);
 void create_directories(const path& p);
+path temp_directory_path();
+path canonical(const path& p, const path& base = current_path());
+path absolute(const path& p, const path& base = current_path());
+path lexically_normal(const path& p);
+bool equivalent(const path& x, const path& y);
 }
 
 #endif

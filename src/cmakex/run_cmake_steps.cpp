@@ -5,7 +5,8 @@
 
 #include "filesystem.h"
 
-#include "misc_util.h"
+#include "build.h"
+#include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
 
@@ -14,145 +15,33 @@ namespace cmakex {
 namespace fs = filesystem;
 namespace sx = adasworks::sx;
 
-void run_cmake_steps(const cmakex_pars_t& pars)
+void run_cmake_steps(const processed_command_line_args_cmake_mode_t& pars,
+                     const cmakex_cache_t& cmakex_cache)
 {
-    CHECK(pars.subcommand == cmakex_pars_t::subcommand_cmake_steps);
+    CHECK(!pars.source_dir.empty());
+    CHECK(!pars.binary_dir.empty());
+    CHECK(!pars.configs.empty());
 
     auto main_tic = high_resolution_clock::now();
-    print_out("Started at %s", current_datetime_string_for_log().c_str());
-    {
-        string steps;
-        auto add_comma = [&steps]() {
-            if (!steps.empty())
-                steps += ", ";
-        };
-        int c = 0;
-        if (pars.c) {
-            add_comma();
-            steps += "configure";
-            ++c;
-        }
-        if (pars.b) {
-            add_comma();
-            steps += "build";
-            ++c;
-        }
-        if (pars.t) {
-            add_comma();
-            steps += "test";
-            ++c;
-        }
-        print_out("Performing CMake %s step%s", steps.c_str(), c > 1 ? "s" : "");
-    }
-    {
-        string s = stringf("CMAKE_BINARY_DIR: %s", pars.binary_dir.c_str());
-        if (!pars.source_dir.empty())
-            s += stringf(", CMAKE_SOURCE_DIR: %s", pars.source_dir.c_str());
-        print_out("%s", s.c_str());
-    }
-    if (!pars.build_targets.empty())
-        print_out("Targets: %s", join(pars.build_targets, " ").c_str());
-    if (!pars.configs.empty())
-        print_out("Configurations: %s", join(pars.configs, " ").c_str());
-
-    // add a single, neutral config, if no configs specified
-    auto configs = pars.configs;
-    if (configs.empty())
-        configs = {""};
+    log_info("Started at %s", current_datetime_string_for_log().c_str());
 
     // if need to build but no build targets specified, add a single, default build target
     auto build_targets = pars.build_targets;
-    if (pars.b && build_targets.empty())
+    if (pars.flag_b && build_targets.empty())
         build_targets = {""};
 
-    for (auto& config : configs) {
-        // configure step
-        if (pars.c) {
-            auto tic = high_resolution_clock::now();
-            string step_string = stringf(
-                "configure step%s", config.empty() ? "" : (string(" (") + config + ")").c_str());
-            print_out("Begin %s", step_string.c_str());
-            vector<string> args;
-            if (!config.empty()) {
-                args.emplace_back(string("-DCMAKE_BUILD_TYPE=") + config);
-                args.insert(args.end(), BEGINEND(pars.config_args));
-                log_exec("cmake", args);
-                int r = exec_process("cmake", args);
-                if (r != EXIT_SUCCESS) {
-                    print_err("Configuring failed with error code %d", r);
-                    exit(EXIT_FAILURE);
-                }
-            } else if (pars.config_args_besides_binary_dir) {
-                print_err(
-                    "You specified args for the cmake configuration step besides binary "
-                    "dir:");
-                print_err("\t%s", join(pars.config_args, " ").c_str());
-                print_err("but the 'c' option is missing from the command word");
-                exit(EXIT_FAILURE);
-            }
-            print_out(
-                "End %s, elapsed %s", step_string.c_str(),
-                sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
-        }
+    bool force_config_step_now = !pars.cmake_args.empty() || pars.flag_c;
+    for (auto& config_str : pars.configs) {
+        config_name_t config(config_str);
+        log_info("Building: '%s'", config.get_prefer_NoConfig().c_str());
+        build(pars.binary_dir, "", pars.source_dir, pars.cmake_args, config, build_targets,
+              force_config_step_now, cmakex_cache, pars.build_args, pars.native_tool_args);
 
-        // build step
-        for (auto& target : build_targets) {
-            auto tic = high_resolution_clock::now();
-            string step_string =
-                stringf("build step for %s%s",
-                        target.empty() ? "the default target"
-                                       : stringf("target '%s'", target.c_str()).c_str(),
-                        config.empty() ? "" : (string(" (") + config + ")").c_str());
-            print_out("Begin %s", step_string.c_str());
-            vector<string> args = {string("--build")};
-            CHECK(!pars.binary_dir.empty());
-            args.emplace_back(pars.binary_dir);
-            args.insert(args.end(), BEGINEND(pars.build_args));
-            if (!target.empty()) {
-                args.emplace_back("--target");
-                args.emplace_back(target);
-            }
-            if (!config.empty()) {
-                args.emplace_back("--config");
-                args.emplace_back(config);
-            }
-            args.insert(args.end(), BEGINEND(pars.native_tool_args));
-            log_exec("cmake", args);
-            int r = exec_process("cmake", args);
-            if (r != EXIT_SUCCESS) {
-                print_err("Building failed with error code %d", r);
-                exit(EXIT_FAILURE);
-            }
-            print_out(
-                "End %s, elapsed %s", step_string.c_str(),
-                sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
-        }
+        if (cmakex_cache.multiconfig_generator)
+            force_config_step_now = false;
 
-        // test step
-        if (pars.t) {
-            auto tic = high_resolution_clock::now();
-            string step_string =
-                stringf("test step%s", config.empty() ? "" : (string(" (") + config + ")").c_str());
-            print_out("Begin %s", step_string.c_str());
-            fs::current_path(pars.binary_dir);
-            vector<string> args;
-            if (!config.empty()) {
-                args.emplace_back("-C");
-                args.emplace_back(config);
-            }
-            log_exec("ctest", args);
-            int r = exec_process("ctest", args);
-            if (r != EXIT_SUCCESS) {
-                print_err("Testing failed with error code %d", r);
-                exit(EXIT_FAILURE);
-            }
-            print_out(
-                "End %s, elapsed %s", step_string.c_str(),
-                sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
-        }
     }  // for configs
-    print_out(
-        "Finished at %s, elapsed %s", current_datetime_string_for_log().c_str(),
-        sx::format_duration(dur_sec(high_resolution_clock::now() - main_tic).count()).c_str());
+    log_info("Finished at %s, elapsed %s", current_datetime_string_for_log().c_str(),
+             sx::format_duration(dur_sec(high_resolution_clock::now() - main_tic).count()).c_str());
 }
 }

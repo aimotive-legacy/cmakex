@@ -1,3 +1,4 @@
+
 #ifndef INVOKE_0293740234
 #define INVOKE_0293740234
 
@@ -62,55 +63,88 @@ struct out_err_message_t : public out_err_message_base_t
     string text;     // message text, as received from the pipe
 };
 
+class OutErrMessagesBuilder;
+
 // messages received on stdout and stderr of the launched process
 class OutErrMessages
 {
 private:
     using strings_t = std::deque<char>;
+    using system_clock = std::chrono::system_clock;
 
 public:
     using source_t = internal::out_err_message_internal_t::source_t;
     using msg_clock = internal::out_err_message_internal_t::msg_clock;
 
-    OutErrMessages() { mark_process_start_time(); }
+    OutErrMessages() : end_system_time_(system_clock::time_point::min()) { mark_start_time(); }
     OutErrMessages(const OutErrMessages&) = delete;
     OutErrMessages(OutErrMessages&& x)
         : messages(move(x.messages)),
-          strings(move(x.strings)),
-          process_start_time(move(process_start_time)),
-          process_start_system_time(move(process_start_system_time))
+          stdout_strings(move(x.stdout_strings)),
+          stderr_strings(move(x.stderr_strings)),
+          start_time(move(x.start_time)),
+          start_system_time_(move(x.start_system_time_)),
+          end_system_time_(move(x.end_system_time_))
     {
     }
 
-    void mark_process_start_time();
-    // add_msg is thread-safe
-    void add_msg(source_t source, array_view<const char> msg, atomic_flag_mutex& mutex);
-
+    void mark_start_time();  // also called in ctor
+    void mark_end_time();
+    system_clock::time_point start_system_time() const { return start_system_time_; }
+    system_clock::time_point end_system_time() const { return end_system_time_; }
     bool empty() const { return messages.empty(); }
     ptrdiff_t size() const { return messages.size(); }
     out_err_message_t at(ptrdiff_t idx) const;
 
 private:
-    std::deque<internal::out_err_message_internal_t> messages;
-    strings_t strings;
-    msg_clock::time_point process_start_time;
-    std::chrono::system_clock::time_point process_start_system_time;
+    friend class OutErrMessagesBuilder;
+    using messages_t = std::deque<internal::out_err_message_internal_t>;
+    messages_t messages;
+    strings_t stdout_strings;
+    strings_t stderr_strings;
+    msg_clock::time_point start_time;
+    system_clock::time_point start_system_time_;
+    system_clock::time_point end_system_time_;
+};
+
+enum pipe_mode_t
+{
+    pipe_capture,
+    pipe_echo,
+    pipe_echo_and_capture
 };
 
 class OutErrMessagesBuilder
 {
 public:
-    OutErrMessagesBuilder(bool passthrough_callbacks = true)
-        : passthrough_callbacks(passthrough_callbacks)
+    OutErrMessagesBuilder(pipe_mode_t stdout_mode, pipe_mode_t stderr_mode)
+        : stdout_mode(stdout_mode), stderr_mode(stderr_mode)
     {
+        clear();
     }
     exec_process_output_callback_t stdout_callback();
     exec_process_output_callback_t stderr_callback();
-    OutErrMessages move_result() { return move(out_err_messages); }
+    OutErrMessages move_result()
+    {
+        out_err_messages.mark_end_time();
+        auto tmp = move(out_err_messages);
+        clear();
+        return tmp;
+    }
+
 private:
-    const bool passthrough_callbacks;
+    using source_t = OutErrMessages::source_t;
+    using msg_clock = OutErrMessages::msg_clock;
+    using strings_t = OutErrMessages::strings_t;
+
+    void clear() { last_unfinished_stdout_message = last_unfinished_stderr_message = nullptr; }
+    void add_msg(source_t source, array_view<const char> msg);
+
+    const pipe_mode_t stdout_mode, stderr_mode;
     OutErrMessages out_err_messages;
     atomic_flag_mutex mutex;
+    internal::out_err_message_internal_t* last_unfinished_stdout_message = nullptr;
+    internal::out_err_message_internal_t* last_unfinished_stderr_message = nullptr;
 };
 }
 #endif
