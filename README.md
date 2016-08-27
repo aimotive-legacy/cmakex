@@ -15,16 +15,17 @@ command. It adds the following interdependent features:
 1. Execute multiple `cmake` steps with one command. For example, configure,
    install, test a project for debug & release configs with one, concise
    command, without changing directories.
-2. Define common cmake option groups in a `YAML` file. For example,
-   cmake-generator settings, platform and toolchain options can be defined
-   and added to the current cmake configuration step with a single switch
+2. Define common cmake option groups (presets) in a `YAML` file. Such a preset
+   can be a set of cmake-generator settings, platform and toolchain options. The
+   preset can be added to the current build options with a single switch.
 3. Download (git-clone), configure, install a package with a single command
    line. It's the command-line version of the CMake ExternalProject module.
-4. Organize the dependencies of your project with a simple cmake-file listing
-   the dependent packages.
-5. Install a local or remote build-server which builds, caches and provides
-   installable packages, automatically managing the full dependency graph,
-   keeping track of versions and build settings.
+4. Describe the dependencies of your project in a simple cmake-file with
+   `ExternalProject_Add`-like parameters. The dependencies will be automatically
+   downloaded (git-cloned), configured, built, installed.
+5. (to be implemented) Install a local or remote build-server which builds,
+   caches and provides installable packages, automatically managing the full
+   dependency graph, keeping track of versions and build settings.
 
 And all this is
 
@@ -46,8 +47,7 @@ For a quick release build:
 ## Tutorial
 
 ### Multiple CMake Commands
-### CMake Option Groups
-### Add-Pkg Mode with Local Build
+### CMake Presets
 ### Build Script with Dependencies
 ### Local Build Server
 ### Remote Build Server
@@ -56,7 +56,6 @@ For a quick release build:
 
 ### Multiple CMake Commands
 ### CMake Option Groups
-### Add-Pkg Mode with Local Build
 ### Build Script with Dependencies
 ### Local Build Server
 ### Remote Build Server
