@@ -33,7 +33,7 @@ void log_info_framed_message(string_par msg)
 
 void log_warn(const char* s, ...)
 {
-    printf("-- Warning: ");
+    printf("-- WARNING: ");
     va_list ap;
     va_start(ap, s);
     vprintf(s, ap);
@@ -42,7 +42,7 @@ void log_warn(const char* s, ...)
 }
 void log_error(const char* s, ...)
 {
-    fprintf(stderr, "cmakex: [ERROR] ");
+    fprintf(stderr, "cmakex: ERROR: ");
     va_list ap;
     va_start(ap, s);
     vfprintf(stderr, s, ap);

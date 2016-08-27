@@ -21,7 +21,7 @@ void build(string_par binary_dir,
            const vector<string>& build_targets,
            bool force_config_step,
            const cmakex_cache_t& cmakex_cache,
-           const vector<string>& build_args,
+           vector<string> build_args,
            const vector<string>& native_tool_args)
 {
     cmakex_config_t cfg(binary_dir);
@@ -70,12 +70,22 @@ void build(string_par binary_dir,
                 stringf("-DCMAKE_BUILD_TYPE=%s", config.get_prefer_empty().c_str()));
     }
 
-    force_config_step =
-        force_config_step || !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
+    const bool initial_build = !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
+    force_config_step = force_config_step || initial_build;
 
-    bool cmake_build_type_changing;
+    // clean first handled specially
+    // 1. it should be applied only once
+    // 2. sometimes it should be applied automatically
+    bool clean_first = is_one_of("--clean-first", build_args);
+    bool clean_first_added = false;
+    if (clean_first) {
+        build_args.erase(
+            remove_if(BEGINEND(build_args), [](const string& x) { return x == "--clean-first"; }),
+            build_args.end());
+    }
     {  // scope only
         CMakeCacheTracker cct(pkg_bin_dir_of_config);
+        bool cmake_build_type_changing;
         vector<string> cmake_args_to_apply;
         if (cmakex_cache.per_config_bin_dirs) {
             // apply and confirm args here and use it for new bin dirs
@@ -90,6 +100,11 @@ void build(string_par binary_dir,
 
         // do config step only if needed
         if (force_config_step || !cmake_args_to_apply.empty()) {
+            if (cmake_build_type_changing && !initial_build) {
+                clean_first_added = !clean_first;
+                clean_first = true;
+            }
+
             cmake_args_to_apply.insert(
                 cmake_args_to_apply.begin(),
                 {string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config});
@@ -137,6 +152,19 @@ void build(string_par binary_dir,
         }
 
         append_inplace(args, build_args);
+
+        // when changing CMAKE_BUILD_TYPE the makefile generators usually fail to update the
+        // configuration-dependent things. An automatic '--clean-first' helps
+        if (target == "clean")
+            clean_first = false;
+        else if (clean_first) {
+            if (clean_first_added)
+                log_warn(
+                    "Automatically adding '--clean-first' because CMAKE_BUILD_TYPE is changing");
+            args.emplace_back("--clean-first");
+            clean_first = false;  // add only for the first target
+        }
+
         if (!native_tool_args.empty()) {
             args.emplace_back("--");
             append_inplace(args, native_tool_args);

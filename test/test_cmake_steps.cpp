@@ -92,8 +92,7 @@ int main(int argc, char* argv[])
                                    "-B",
                                    build_dir.c_str(),
                                    (string("-DCMAKE_INSTALL_PREFIX=") + install_dir).c_str(),
-                                   "-DDEFINE_THIS=scoobydoo",
-                                   "--clean-first"};
+                                   "-DDEFINE_THIS=scoobydoo"};
             log_exec(args);
             int r = cmakex::exec_process(cmakex_path, args);
             CHECK(r == 0);
