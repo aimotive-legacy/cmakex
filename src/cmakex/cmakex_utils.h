@@ -116,7 +116,7 @@ public:
     CMakeCacheTracker(string_par bin_dir, string_par filename);
 
     // Call before cmake-configure
-    // returns cmake_args and possibly dditional settings to bring the cache into the desired state
+    // returns cmake_args and possibly additional settings to bring the cache into the desired state
     // (this depends on how the desired_vars and assumed_vars compare)
     // If force_input_cmake_args then all the input cmake_args will be returned, too
     // If it's false, only those will be returned whose cache values is either different or
@@ -125,9 +125,11 @@ public:
     // uncertain.
     // If reference target is given, then other cmake args will be added in order to
     // take this tracker into the reference state.
-    vector<string> about_to_configure(const vector<string>& cmake_args,
-                                      bool force_input_cmake_args,
-                                      string_par reference_target_path = "");
+    // The second element of the tuple is the cmake_build_type_changing flag. Can be used to
+    // automatically add --clean-first if the current CMAKE_BUILD_TYPE differs from the previous one
+    tuple<vector<string>, bool> about_to_configure(const vector<string>& cmake_args,
+                                                   bool force_input_cmake_args,
+                                                   string_par reference_target_path = "");
 
     void cmake_config_ok();  // call after successful cmake-config
 

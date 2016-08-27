@@ -493,9 +493,10 @@ void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
     ccc.cmake_config_ok();
 }
 
-vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in,
-                                                     bool force_input_cmake_args,
-                                                     string_par ref_path)
+tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
+    const vector<string>& cmake_args_in,
+    bool force_input_cmake_args,
+    string_par ref_path)
 {
     using var_t = cmake_cache_tracker_t::var_t;
     using var_status_t = cmake_cache_tracker_t::var_status_t;
@@ -618,6 +619,16 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
             cct.cmake_toolchain_file_sha = file_sha(pca.value);
     }
 
+    // remember CMAKE_BUILD_TYPE state
+    bool cmake_build_type_changing = false;
+    it = cct.vars.find("CMAKE_BUILD_TYPE");
+    if (it != cct.vars.end()) {
+        auto pca = parse_cmake_arg(it->second.value);
+        if (pca.switch_ == "-D")
+            cmake_build_type_changing =
+                it->second.status != cmake_cache_tracker_t::vs_in_cmakecache;
+    }
+
     fs::create_directories(fs::path(path).parent_path());
     save_json_output_archive(path, cct);
 
@@ -646,7 +657,7 @@ vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake
     else
         append_inplace(cmake_args_to_apply, current_request_nonvar_args);
 
-    return normalize_cmake_args(cmake_args_to_apply);
+    return {normalize_cmake_args(cmake_args_to_apply), cmake_build_type_changing};
 }
 
 void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config

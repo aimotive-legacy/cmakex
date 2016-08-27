@@ -20,7 +20,9 @@ void build(string_par binary_dir,
            config_name_t config,
            const vector<string>& build_targets,
            bool force_config_step,
-           const cmakex_cache_t& cmakex_cache)
+           const cmakex_cache_t& cmakex_cache,
+           const vector<string>& build_args,
+           const vector<string>& native_tool_args)
 {
     cmakex_config_t cfg(binary_dir);
     CHECK(cmakex_cache.valid);
@@ -71,6 +73,7 @@ void build(string_par binary_dir,
     force_config_step =
         force_config_step || !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
 
+    bool cmake_build_type_changing;
     {  // scope only
         CMakeCacheTracker cct(pkg_bin_dir_of_config);
         vector<string> cmake_args_to_apply;
@@ -79,10 +82,11 @@ void build(string_par binary_dir,
             string bin_dir_common = pkg_name.empty() ? cfg.main_binary_dir_common()
                                                      : cfg.pkg_binary_dir_common(pkg_name);
             update_reference_cmake_cache_tracker(bin_dir_common, cmake_args);
-            cmake_args_to_apply =
+            tie(cmake_args_to_apply, cmake_build_type_changing) =
                 cct.about_to_configure(cmake_args, force_config_step, bin_dir_common);
         } else
-            cmake_args_to_apply = cct.about_to_configure(cmake_args, force_config_step);
+            tie(cmake_args_to_apply, cmake_build_type_changing) =
+                cct.about_to_configure(cmake_args, force_config_step);
 
         // do config step only if needed
         if (force_config_step || !cmake_args_to_apply.empty()) {
@@ -132,9 +136,11 @@ void build(string_par binary_dir,
             args.insert(args.end(), {"--config", config.get_prefer_NoConfig().c_str()});
         }
 
-        // todo add build_args
-        // todo add native tool args
-        // todo clear install dir if --clean-first
+        append_inplace(args, build_args);
+        if (!native_tool_args.empty()) {
+            args.emplace_back("--");
+            append_inplace(args, native_tool_args);
+        }
 
         log_exec("cmake", args);
         {  // scope only

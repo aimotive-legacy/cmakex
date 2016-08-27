@@ -10,7 +10,9 @@ namespace cmakex {
 // build & install if needed
 void install_deps_phase_two(string_par binary_dir,
                             deps_recursion_wsp_t& wsp,
-                            bool force_config_step);
+                            bool force_config_step,
+                            const vector<string>& build_args,
+                            const vector<string>& native_tool_args);
 }
 
 #endif

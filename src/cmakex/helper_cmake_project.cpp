@@ -146,7 +146,8 @@ void HelperCmakeProject::configure(const vector<string>& global_cmake_args)
     CMakeCacheTracker cvt(build_script_executor_binary_dir);
 
     {
-        auto diff_global_cmake_args = cvt.about_to_configure(global_cmake_args, true);
+        auto t = cvt.about_to_configure(global_cmake_args, true);
+        auto& diff_global_cmake_args = get<0>(t);
         args.insert(args.end(), BEGINEND(diff_global_cmake_args));
     }
 

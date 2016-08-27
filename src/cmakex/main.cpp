@@ -66,7 +66,8 @@ int main(int argc, char* argv[])
                 configs.emplace_back(c);
             install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, global_cmake_args, configs,
                                    wsp, cmakex_cache);
-            install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c);
+            install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c,
+                                   pars.build_args, pars.native_tool_args);
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
                      wsp.pkg_map.size() == 1 ? "y" : "ies",
                      wsp.pkg_map.size() == 1 ? "has" : "have");

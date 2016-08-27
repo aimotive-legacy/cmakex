@@ -16,7 +16,9 @@ void build(
     const vector<string>& build_targets,
     bool force_config_step,  // config even there are no cmake_args different to what are in the
                              // cache
-    const cmakex_cache_t& cmakex_cache);
+    const cmakex_cache_t& cmakex_cache,
+    const vector<string>& build_args,
+    const vector<string>& native_tool_args);
 }
 
 #endif

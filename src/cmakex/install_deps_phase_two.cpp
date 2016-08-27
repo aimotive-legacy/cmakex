@@ -24,7 +24,9 @@ vector<string> replace_empty_config(vector<string> x)
 
 void install_deps_phase_two(string_par binary_dir,
                             deps_recursion_wsp_t& wsp,
-                            bool force_config_step)
+                            bool force_config_step,
+                            const vector<string>& build_args,
+                            const vector<string>& native_tool_args)
 {
     log_info("");
     InstallDB installdb(binary_dir);
@@ -58,7 +60,8 @@ void install_deps_phase_two(string_par binary_dir,
                     log_info("%s%s", s1.c_str(), it->c_str());
             }
             build(binary_dir, p, wp.request.b.source_dir, wp.final_cmake_args, config,
-                  {"", "install"}, force_config_step, cfg.cmakex_cache());
+                  {"", "install"}, force_config_step, cfg.cmakex_cache(), build_args,
+                  native_tool_args);
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
             // same cmake args.

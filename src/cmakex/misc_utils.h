@@ -1,6 +1,7 @@
 #ifndef MISC_UTIL_23923948
 #define MISC_UTIL_23923948
 
+#include <algorithm>
 #include <deque>
 #include <map>
 #include <set>

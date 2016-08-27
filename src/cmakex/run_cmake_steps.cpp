@@ -35,7 +35,7 @@ void run_cmake_steps(const processed_command_line_args_cmake_mode_t& pars,
         config_name_t config(config_str);
         log_info("Building: '%s'", config.get_prefer_NoConfig().c_str());
         build(pars.binary_dir, "", pars.source_dir, pars.cmake_args, config, build_targets,
-              force_config_step_now, cmakex_cache);
+              force_config_step_now, cmakex_cache, pars.build_args, pars.native_tool_args);
 
         if (cmakex_cache.multiconfig_generator)
             force_config_step_now = false;
