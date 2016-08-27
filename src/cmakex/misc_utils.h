@@ -172,7 +172,7 @@ void append_inplace(Container1& c1, const Container2& c2)
 }
 
 template <class T>
-void reserve_if_applicable(T& x, typename T::size_type y)
+void reserve_if_applicable(T&, typename T::size_type)
 {
 }
 

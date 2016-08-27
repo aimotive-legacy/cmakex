@@ -147,7 +147,7 @@ void slf_printf(slf_helper_t& h, string_par s)
         printf("%s", s.c_str());
 }
 
-void save_log_from_oem(string_par prefix_msg,
+void save_log_from_oem(string_par /*prefix_msg*/,
                        int result,
                        const OutErrMessages& oem,
                        string_par log_dir,

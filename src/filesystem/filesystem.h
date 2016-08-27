@@ -38,15 +38,15 @@ private:
 class filesystem_error
 {
 public:
-    filesystem_error(const std::string& what_arg, std::error_code ec) : what_(what_arg) {}
-    filesystem_error(const std::string& what_arg, const path& p1, std::error_code ec)
+    filesystem_error(const std::string& what_arg, std::error_code /*ec*/) : what_(what_arg) {}
+    filesystem_error(const std::string& what_arg, const path& p1, std::error_code /*ec*/)
         : what_(what_arg), path1_(p1)
     {
     }
     filesystem_error(const std::string& what_arg,
                      const path& p1,
                      const path& p2,
-                     std::error_code ec)
+                     std::error_code /*ec*/)
         : what_(what_arg), path1_(p1), path2_(p2)
     {
     }

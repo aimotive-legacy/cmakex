@@ -1,10 +1,10 @@
 #include "filesystem.h"
 
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <cerrno>
 #include <cstdlib>
 #include <memory>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include <Poco/File.h>
 #include <Poco/Path.h>
@@ -303,7 +303,7 @@ bool is_reparse_point_a_symlink(const path& p)
                IO_REPARSE_TAG_MOUNT_POINT;  // aka "directory junction" or "junction"
 }
 #else
-bool not_found_error(int errval)
+bool not_found_error(int /*errval*/)
 {
     return errno == ENOENT || errno == ENOTDIR;
 }
