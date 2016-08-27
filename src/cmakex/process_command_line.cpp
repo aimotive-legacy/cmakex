@@ -245,8 +245,8 @@ struct cmake_cache_t
 cmake_cache_t read_cmake_cache(string_par path)
 {
     const vector<string> words = {"CMAKE_HOME_DIRECTORY", "CMAKE_GENERATOR",
-                                "CMAKE_GENERATOR_TOOLSET", "CMAKE_GENERATOR_PLATFORM",
-                                "CMAKE_EXTRA_GENERATOR"};
+                                  "CMAKE_GENERATOR_TOOLSET", "CMAKE_GENERATOR_PLATFORM",
+                                  "CMAKE_EXTRA_GENERATOR"};
     cmake_cache_t cache;
     auto f = must_fopen(path, "r");
     while (!feof(f)) {

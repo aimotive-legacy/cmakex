@@ -176,9 +176,7 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
         }
     };
 
-	auto throw_if = [&throw_if_msg](bool cond) {
-		throw_if_msg(cond, nullptr);
-	};
+    auto throw_if = [&throw_if_msg](bool cond) { throw_if_msg(cond, nullptr); };
 
     const char* pos_end = strchr(x.c_str(), 0);
 

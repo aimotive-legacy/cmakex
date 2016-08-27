@@ -99,7 +99,7 @@ void clone(string_par pkg_name,
                 clone_args = {"--branch", cp.git_tag.c_str(), "--depth", "1"};
         }
     }
-	append_inplace(clone_args, vector<string>({cp.git_url.c_str(), clone_dir.c_str()}));
+    append_inplace(clone_args, vector<string>({cp.git_url.c_str(), clone_dir.c_str()}));
     git_clone(clone_args);
     if (do_checkout) {
         if (git_checkout({cp.git_tag}, clone_dir) != 0) {

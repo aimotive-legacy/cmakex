@@ -365,19 +365,17 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
 
-	auto clone_this_at_sha = [&pkg, &wsp, &clone_helper, &pkg_name](string sha) {
-		auto prc = pkg.request.c;
-		if (!sha.empty())
-			prc.git_tag = sha;
-		clone_helper.clone(prc, pkg.request.git_shallow);
-		wsp.pkg_map.at(pkg_name.str()).just_cloned = true;
-	};
-	
-	auto clone_this = [&clone_this_at_sha]() {
-		clone_this_at_sha({});
-	};
+    auto clone_this_at_sha = [&pkg, &wsp, &clone_helper, &pkg_name](string sha) {
+        auto prc = pkg.request.c;
+        if (!sha.empty())
+            prc.git_tag = sha;
+        clone_helper.clone(prc, pkg.request.git_shallow);
+        wsp.pkg_map.at(pkg_name.str()).just_cloned = true;
+    };
 
-	string pkg_source_dir = cfg.pkg_clone_dir(pkg_name);
+    auto clone_this = [&clone_this_at_sha]() { clone_this_at_sha({}); };
+
+    string pkg_source_dir = cfg.pkg_clone_dir(pkg_name);
     if (!pkg.request.b.source_dir.empty())
         pkg_source_dir += "/" + pkg.request.b.source_dir;
 
