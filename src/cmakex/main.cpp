@@ -48,7 +48,8 @@ int main(int argc, char* argv[])
 
         // cmakex_cache may contain new data to the stored cmakex_cache, or
         // in case of a first cmakex call on this binary dir, it is not saved at all
-        // We'll save it on the first successful configuration: either after configuring the wrapper
+        // We'll save it on the first successful configuration: either after configuring the
+        // wrapper
         // project or after configuring the main project
 
         CHECK(!pars.source_dir.empty());

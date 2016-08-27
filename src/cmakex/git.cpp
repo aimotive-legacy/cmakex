@@ -163,7 +163,7 @@ tuple<int, string> git_ls_remote(string_par url, string_par ref)
             break;
         }
     }
-    return {r, s};
+    return make_tuple(r, move(s));
 }
 
 string git_rev_parse(string_par ref, string_par dir)
@@ -238,14 +238,14 @@ tuple<resolve_ref_status_t, string> git_resolve_ref_on_remote(string_par git_url
     string sha;
     tie(r, sha) = git_ls_remote(git_url, ref);
     if (r == 0)
-        return {resolve_ref_success, sha};
+        return make_tuple(resolve_ref_success, move(sha));
     if (r == 2) {
         if (sha_like(ref))
-            return {resolve_ref_sha_like, string{}};
+            return make_tuple(resolve_ref_sha_like, string{});
         else
-            return {resolve_ref_not_found, string{}};
+            return make_tuple(resolve_ref_not_found, string{});
     }
-    return {resolve_ref_error, string{}};
+    return make_tuple(resolve_ref_error, string{});
 }
 
 string must_git_resolve_ref_on_remote(string_par git_url, string_par ref, bool allow_sha)

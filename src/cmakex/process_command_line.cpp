@@ -510,6 +510,6 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     pcla.cmake_args = normalize_cmake_args(pcla.cmake_args);
 
-    return {pcla, cmakex_cache};
+    return make_tuple(move(pcla), move(cmakex_cache));
 }
 }

@@ -30,6 +30,7 @@ using std::runtime_error;
 using std::pair;
 using std::get;
 using std::tie;
+using std::make_tuple;
 
 namespace sx = adasworks::sx;
 

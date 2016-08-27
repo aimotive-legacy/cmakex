@@ -34,9 +34,10 @@ tuple<pkg_clone_dir_status_t, string> pkg_clone_dir_status(string_par binary_dir
         return make_tuple(pkg_clone_dir_nonempty_nongit, string{});
     // so it has valid sha
     auto git_status_result = git_status(clone_dir);
-    return make_tuple(git_status_result.clean_or_untracked_only() ? pkg_clone_dir_git
-                                                                  : pkg_clone_dir_git_local_changes,
-                      sha);
+    return make_tuple(
+        move(git_status_result.clean_or_untracked_only() ? pkg_clone_dir_git
+                                                         : pkg_clone_dir_git_local_changes),
+        move(sha));
 }
 void clone(string_par pkg_name,
            const pkg_clone_pars_t& cp,

@@ -657,7 +657,7 @@ tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
     else
         append_inplace(cmake_args_to_apply, current_request_nonvar_args);
 
-    return {normalize_cmake_args(cmake_args_to_apply), cmake_build_type_changing};
+    return make_tuple(normalize_cmake_args(cmake_args_to_apply), cmake_build_type_changing);
 }
 
 void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
