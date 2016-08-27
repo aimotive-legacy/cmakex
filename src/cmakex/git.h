@@ -8,7 +8,7 @@ namespace cmakex {
 
 // special SHA value to indicate uncommited changes
 // when comparing SHA's this should be evaluted as different from every SHA string even from itself
-static const char* k_sha_uncommitted = "<uncommitted>";
+static const char* const k_sha_uncommitted = "<uncommitted>";
 
 // find git with cmake's find_package(Git), on failure returns "git"
 string find_git_or_return_git();

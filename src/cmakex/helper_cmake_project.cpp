@@ -128,7 +128,8 @@ void HelperCmakeProject::configure(const vector<string>& global_cmake_args)
             int c_bufsize = 128;
             char buf[c_bufsize];
             buf[0] = 0;
-            fgets(buf, c_bufsize, f);
+            auto r = fgets(buf, c_bufsize, f);
+            (void)r;  // does not count, the hash will decide in the next line
             cmakelists_exists = strncmp(buf, cmakelists_text_hash.c_str(), c_bufsize) == 0;
             fclose(f);
         } while (false);
