@@ -21,8 +21,6 @@ void build(string_par binary_dir,
            const vector<string>& build_targets,
            bool force_config_step)
 {
-    log_info("Configuration: %s", config.get_prefer_NoConfig().c_str());
-
     cmakex_config_t cfg(binary_dir);
     CHECK(cfg.cmakex_cache().valid);
 

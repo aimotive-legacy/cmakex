@@ -15,6 +15,9 @@
 #include "print.h"
 #include "run_add_pkgs.h"
 
+// todo print directories with a single function, maybe quoted only if containing space, escape
+// quote, too
+
 namespace cmakex {
 
 namespace fs = filesystem;
@@ -238,7 +241,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     // create source dir
 
-    log_info("Configuring \"%s\" (using script executor helper project)", deps_script_file.c_str());
+    log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
     HelperCmakeProject hcp(binary_dir_sp);
     hcp.configure(global_cmake_args, cmakex_cache);
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file);

@@ -84,6 +84,7 @@ string deps_script_wrapper_cmakelists_checksum(const std::string& x)
     return stringf("# script hash: %s", hs.c_str());
 }
 
+// todo no twice printing processing dependency script
 HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
     : binary_dir(fs::absolute(binary_dir.c_str()).string()),
       cfg(binary_dir),
