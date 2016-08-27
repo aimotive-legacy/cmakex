@@ -28,7 +28,7 @@ void install_deps_phase_two(string_par binary_dir,
                             const vector<string>& build_args,
                             const vector<string>& native_tool_args)
 {
-    log_info("");
+    log_info();
     InstallDB installdb(binary_dir);
     for (auto& p : wsp.build_order) {
         auto& wp = wsp.pkg_map[p];
@@ -60,7 +60,7 @@ void install_deps_phase_two(string_par binary_dir,
                     log_info("%s%s", s1.c_str(), it->c_str());
             }
             build(binary_dir, p, wp.request.b.source_dir, wp.final_cmake_args, config,
-                  {"", "install"}, force_config_step, cfg.cmakex_cache(), build_args,
+                  {"", "install"}, force_config_step_now, cfg.cmakex_cache(), build_args,
                   native_tool_args);
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
@@ -90,7 +90,7 @@ void install_deps_phase_two(string_par binary_dir,
             }
             installdb.install_with_unspecified_files(desc);
         }
-        log_info("");
+        log_info();
     }  // iterate over build order
 }
 }

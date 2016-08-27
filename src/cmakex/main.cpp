@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
                      wsp.pkg_map.size() == 1 ? "y" : "ies",
                      wsp.pkg_map.size() == 1 ? "has" : "have");
-            log_info("");
+            log_info();
         }
         if (pars.deps_mode == dm_deps_and_main) {
             log_info_framed_message(stringf("Building main project"));

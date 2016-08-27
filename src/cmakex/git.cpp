@@ -266,6 +266,8 @@ string must_git_resolve_ref_on_remote(string_par git_url, string_par ref, bool a
         default:
             CHECK(false);
     }
+    // never here
+    return {};
 }
 
 bool sha_like(string_par x)

@@ -14,6 +14,11 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
+void log_info()
+{
+    printf("--\n");
+}
+
 void log_info(const char* s, ...)
 {
     printf("-- ");

@@ -12,6 +12,7 @@ namespace cmakex {
 class OutErrMessages;
 
 void log_info(const char* s, ...) AW_PRINTFLIKE(1, 2);
+void log_info();
 void log_info_framed_message(string_par msg);
 void log_warn(const char* s, ...) AW_PRINTFLIKE(1, 2);
 void log_error(const char* s, ...) AW_PRINTFLIKE(1, 2);
