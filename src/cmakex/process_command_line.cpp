@@ -349,7 +349,8 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     cmakex_config_t cfg(pcla.binary_dir);
 
     cmake_cache_t cmake_cache;
-    bool binary_dir_has_cmake_cache;
+    bool binary_dir_has_cmake_cache =
+        false;  // silencing warning, otherwise it always will be set before read
     bool cmake_cache_checked = false;
     auto check_cmake_cache = [&pcla, &binary_dir_has_cmake_cache, &cmake_cache_checked,
                               &cmake_cache]() {
