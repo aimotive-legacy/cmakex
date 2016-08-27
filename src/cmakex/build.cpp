@@ -19,10 +19,11 @@ void build(string_par binary_dir,
            const vector<string>& cmake_args_in,
            config_name_t config,
            const vector<string>& build_targets,
-           bool force_config_step)
+           bool force_config_step,
+           const cmakex_cache_t& cmakex_cache)
 {
     cmakex_config_t cfg(binary_dir);
-    CHECK(cfg.cmakex_cache().valid);
+    CHECK(cmakex_cache.valid);
 
     // cmake-configure step: Need to do it if
     //
@@ -35,13 +36,13 @@ void build(string_par binary_dir,
     if (pkg_name.empty()) {           // main project
         source_dir = pkg_source_dir;  // cwd-relative or absolute
         pkg_bin_dir_of_config =
-            cfg.main_binary_dir_of_config(config, cfg.cmakex_cache().per_config_bin_dirs);
+            cfg.main_binary_dir_of_config(config, cmakex_cache.per_config_bin_dirs);
     } else {
         source_dir = cfg.pkg_clone_dir(pkg_name);
         if (!pkg_source_dir.empty())
             source_dir += "/" + pkg_source_dir.str();
         pkg_bin_dir_of_config =
-            cfg.pkg_binary_dir_of_config(pkg_name, config, cfg.cmakex_cache().per_config_bin_dirs);
+            cfg.pkg_binary_dir_of_config(pkg_name, config, cmakex_cache.per_config_bin_dirs);
 
         // check if there's no install_prefix
         for (auto& c : cmake_args) {
@@ -59,7 +60,7 @@ void build(string_par binary_dir,
             stringf("-DCMAKE_INSTALL_PREFIX=%s", cfg.deps_install_dir().c_str()));
     }
 
-    if (!cfg.cmakex_cache().multiconfig_generator) {
+    if (!cmakex_cache.multiconfig_generator) {
         if (config.is_noconfig())
             cmake_args.emplace_back(stringf("-UCMAKE_BUILD_TYPE"));
         else
@@ -73,7 +74,7 @@ void build(string_par binary_dir,
     {  // scope only
         CMakeCacheTracker cct(pkg_bin_dir_of_config);
         vector<string> cmake_args_to_apply;
-        if (cfg.cmakex_cache().per_config_bin_dirs) {
+        if (cmakex_cache.per_config_bin_dirs) {
             // apply and confirm args here and use it for new bin dirs
             string bin_dir_common = pkg_name.empty() ? cfg.main_binary_dir_common()
                                                      : cfg.pkg_binary_dir_common(pkg_name);
@@ -111,6 +112,12 @@ void build(string_par binary_dir,
             // but if it's empty there are no pending variables so the cmake_config_ok
             // will not be missing
             cct.cmake_config_ok();
+
+            // after successful configuration the cmake generator setting has been validated and
+            // fixed so we can write out the cmakex cache if it's dirty
+            // when processing dependencies the cmakex cache has already been written out after
+            // configuring the helper project
+            write_cmakex_cache_if_dirty(binary_dir, cmakex_cache);
         }
     }
 
@@ -120,7 +127,7 @@ void build(string_par binary_dir,
             args.insert(args.end(), {"--target", target.c_str()});
         }
 
-        if (cfg.cmakex_cache().multiconfig_generator) {
+        if (cmakex_cache.multiconfig_generator) {
             CHECK(!config.is_noconfig());
             args.insert(args.end(), {"--config", config.get_prefer_NoConfig().c_str()});
         }

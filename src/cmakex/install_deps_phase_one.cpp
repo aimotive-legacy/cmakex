@@ -243,11 +243,16 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
     HelperCmakeProject hcp(binary_dir_sp);
-    hcp.configure(global_cmake_args, cmakex_cache);
+    hcp.configure(global_cmake_args);
+
+    // after successful configuration the cmake generator setting has been validated and fixed so
+    // we're writing out the cmakex cache
+    string binary_dir = fs::absolute(binary_dir_sp.c_str()).string();
+    write_cmakex_cache_if_dirty(binary_dir, cmakex_cache);
+
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file);
 
     idpo_recursion_result_t rr;
-    string binary_dir = fs::absolute(binary_dir_sp.c_str()).string();
 
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {

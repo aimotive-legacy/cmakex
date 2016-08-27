@@ -66,6 +66,13 @@ int main(int argc, char* argv[])
         }
         fs::create_directories(build_dir);
 
+        auto log_exec = [](const vector<string>& args) {
+            string e = "$ cmakex";
+            for (auto& a : args)
+                e += string(" ") + a;
+            LOG_INFO("%s", e.c_str());
+        };
+
         {
             vector<string> args = {"cdri",
                                    "-H",
@@ -74,6 +81,7 @@ int main(int argc, char* argv[])
                                    build_dir.c_str(),
                                    (string("-DCMAKE_INSTALL_PREFIX=") + install_dir).c_str(),
                                    "-DDEFINE_THIS=scoobydoo"};
+            log_exec(args);
             int r = cmakex::exec_process(cmakex_path, args);
             CHECK(r != 0);
         }
@@ -86,6 +94,7 @@ int main(int argc, char* argv[])
                                    (string("-DCMAKE_INSTALL_PREFIX=") + install_dir).c_str(),
                                    "-DDEFINE_THIS=scoobydoo",
                                    "--clean-first"};
+            log_exec(args);
             int r = cmakex::exec_process(cmakex_path, args);
             CHECK(r == 0);
         }
@@ -111,6 +120,8 @@ int main(int argc, char* argv[])
             CHECK(m1.source == cmakex::out_err_message_t::source_stdout);
             CHECK(m1.text.substr(0, expected_out.size()) == expected_out);
             CHECK(m2.source == cmakex::out_err_message_t::source_stderr);
+            LOG_INFO("checking '%s' == '%s'", m2.text.substr(0, expected_err.size()).c_str(),
+                     expected_err.c_str());
             CHECK(m2.text.substr(0, expected_err.size()) == expected_err);
         }
 

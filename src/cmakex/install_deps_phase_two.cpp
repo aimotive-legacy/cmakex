@@ -58,7 +58,7 @@ void install_deps_phase_two(string_par binary_dir,
                     log_info("%s%s", s1.c_str(), it->c_str());
             }
             build(binary_dir, p, wp.request.b.source_dir, wp.final_cmake_args, config,
-                  {"", "install"}, force_config_step);
+                  {"", "install"}, force_config_step, cfg.cmakex_cache());
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
             // same cmake args.

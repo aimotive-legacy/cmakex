@@ -14,9 +14,9 @@ void build(
     const vector<string>& cmake_args,
     config_name_t config,
     const vector<string>& build_targets,
-    bool force_config_step  // config even there are no cmake_args different to what are in
-                            // the cache
-    );
+    bool force_config_step,  // config even there are no cmake_args different to what are in the
+                             // cache
+    const cmakex_cache_t& cmakex_cache);
 }
 
 #endif

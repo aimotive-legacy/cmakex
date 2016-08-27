@@ -95,8 +95,7 @@ HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
 {
 }
 
-void HelperCmakeProject::configure(const vector<string>& global_cmake_args,
-                                   const cmakex_cache_t& cmakex_cache)
+void HelperCmakeProject::configure(const vector<string>& global_cmake_args)
 {
     for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
         if (!fs::is_directory(d)) {
@@ -164,7 +163,6 @@ void HelperCmakeProject::configure(const vector<string>& global_cmake_args,
         throwf("Failed configuring dependency script wrapper project, result: %d.", r);
 
     cvt.cmake_config_ok();
-    write_cmakex_cache_if_dirty(binary_dir, cmakex_cache);
 }
 vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
 {

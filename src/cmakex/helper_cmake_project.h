@@ -10,7 +10,7 @@ class HelperCmakeProject
 {
 public:
     HelperCmakeProject(string_par binary_dir);
-    void configure(const vector<string>& global_cmake_args, const cmakex_cache_t& cmakex_cache);
+    void configure(const vector<string>& global_cmake_args);
     vector<string> run_deps_script(string_par deps_script_file);
 
 private:
