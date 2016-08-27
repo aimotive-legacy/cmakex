@@ -141,14 +141,14 @@ void build(string_par binary_dir,
     }
 
     for (auto& target : build_targets) {
-        vector<string> args{{"--build", pkg_bin_dir_of_config}};
+        vector<string> args = {"--build", pkg_bin_dir_of_config.c_str()};
         if (!target.empty()) {
-            args.insert(args.end(), {"--target", target.c_str()});
-        }
+			append_inplace(args, vector<string>({ "--target", target.c_str() }));
+		}
 
         if (cmakex_cache.multiconfig_generator) {
             CHECK(!config.is_noconfig());
-            args.insert(args.end(), {"--config", config.get_prefer_NoConfig().c_str()});
+			append_inplace(args, vector<string>({"--config", config.get_prefer_NoConfig().c_str()}));
         }
 
         append_inplace(args, build_args);

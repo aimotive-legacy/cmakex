@@ -167,7 +167,7 @@ string pkg_for_log(string_par pkg_name)
 
 parsed_cmake_arg_t parse_cmake_arg(string_par x)
 {
-    auto throw_if = [&x](bool cond, const char* reason = nullptr) {
+    auto throw_if_msg = [&x](bool cond, const char* reason) {
         if (cond) {
             if (reason)
                 throwf("Invalid CMAKE_ARG: '%s', reason: %s", x.c_str(), reason);
@@ -175,6 +175,10 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
                 throwf("Invalid CMAKE_ARG: '%s'", x.c_str());
         }
     };
+
+	auto throw_if = [&throw_if_msg](bool cond) {
+		throw_if_msg(cond, nullptr);
+	};
 
     const char* pos_end = strchr(x.c_str(), 0);
 
@@ -202,7 +206,7 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
         const char* pos_name = x.c_str() + 2;
         const char* pos_equal = strchr(pos_name, '=');
 
-        throw_if(!pos_equal, "no equal sign");
+        throw_if_msg(!pos_equal, "no equal sign");
 
         const char* pos_colon = strchr(pos_name, ':');
 
@@ -215,7 +219,7 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
 
         r.name.assign(pos_name, pos_name_end);
 
-        throw_if(r.name.empty(), "missing variable name");
+        throw_if_msg(r.name.empty(), "missing variable name");
 
         if (pos_colon < pos_equal)
             r.type.assign(pos_colon + 1, pos_equal);

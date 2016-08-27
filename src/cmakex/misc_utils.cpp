@@ -1,5 +1,6 @@
 #include "misc_utils.h"
 
+#include <cctype>
 #include <cerrno>
 
 #include <Poco/SHA1Engine.h>

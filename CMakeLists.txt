@@ -20,6 +20,10 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     cmake_print_variables(CMAKE_CXX_FLAGS)
 endif()
 
+if(MSVC)
+    add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN -DVC_EXTRALEAN)
+endif()
+
 file(READ "VERSION" version_string)
 string(STRIP "${version_string}" version_string)
 

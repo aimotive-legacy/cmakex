@@ -17,9 +17,15 @@
 #include <nowide/convert.hpp>
 
 #if defined(_WIN32)
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#define WIN32_EXTRALEAN
+#endif
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN
+#endif
 #include <Windows.h>
 //#include <WinIoCtl.h>
 #else
@@ -587,30 +593,6 @@ path lexically_normal(const path& p)
 
     return pq.toString();
 }
-
-#ifdef _WIN32
-struct handle_wrapper
-{
-    HANDLE handle;
-    handle_wrapper(HANDLE h) : handle(h) {}
-    ~handle_wrapper()
-    {
-        if (handle != INVALID_HANDLE_VALUE)
-            ::CloseHandle(handle);
-    }
-};
-HANDLE create_file_handle(const path& p,
-                          DWORD dwDesiredAccess,
-                          DWORD dwShareMode,
-                          LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-                          DWORD dwCreationDisposition,
-                          DWORD dwFlagsAndAttributes,
-                          HANDLE hTemplateFile)
-{
-    return ::CreateFileW(p.c_str(), dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                         dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-}
-#endif
 
 bool equivalent(const path& p1, const path& p2)
 {

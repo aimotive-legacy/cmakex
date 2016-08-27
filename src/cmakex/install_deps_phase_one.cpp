@@ -365,15 +365,19 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
 
-    auto clone_this = [&pkg, &wsp, &clone_helper, &pkg_name](string sha = "") {
-        auto prc = pkg.request.c;
-        if (!sha.empty())
-            prc.git_tag = sha;
-        clone_helper.clone(prc, pkg.request.git_shallow);
-        wsp.pkg_map.at(pkg_name.str()).just_cloned = true;
-    };
+	auto clone_this_at_sha = [&pkg, &wsp, &clone_helper, &pkg_name](string sha) {
+		auto prc = pkg.request.c;
+		if (!sha.empty())
+			prc.git_tag = sha;
+		clone_helper.clone(prc, pkg.request.git_shallow);
+		wsp.pkg_map.at(pkg_name.str()).just_cloned = true;
+	};
+	
+	auto clone_this = [&clone_this_at_sha]() {
+		clone_this_at_sha({});
+	};
 
-    string pkg_source_dir = cfg.pkg_clone_dir(pkg_name);
+	string pkg_source_dir = cfg.pkg_clone_dir(pkg_name);
     if (!pkg.request.b.source_dir.empty())
         pkg_source_dir += "/" + pkg.request.b.source_dir;
 
@@ -445,7 +449,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
         if (rr.building_some_pkg) {
             for (auto& c : pkg.request.b.configs)
-                build_reasons[c] = {"a dependency has been rebuilt"};
+                build_reasons[c].assign(1, "a dependency has been rebuilt");
         }
 
         // todo maybe pkg_desc_t should not include deps_shas
@@ -634,7 +638,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             }
             CHECK(!installed_sha.empty());  // it can't be empty since if it's not installed
             // then we should not get here
-            clone_this(installed_sha);
+            clone_this_at_sha(installed_sha);
         } else
             clone_this();
     }  // for attempts

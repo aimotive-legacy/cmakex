@@ -125,7 +125,7 @@ void HelperCmakeProject::configure(const vector<string>& global_cmake_args)
             FILE* f = nowide::fopen(cmakelists_path.c_str(), "r");
             if (!f)
                 break;
-            int c_bufsize = 128;
+            const int c_bufsize = 128;
             char buf[c_bufsize];
             buf[0] = 0;
             auto r = fgets(buf, c_bufsize, f);
