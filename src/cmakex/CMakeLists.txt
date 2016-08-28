@@ -24,4 +24,5 @@ target_link_libraries(cmakex PRIVATE
     Poco::Foundation
     cereal
     process
+    libgetpreset
 )

@@ -1,0 +1,153 @@
+# CMakeX Preset Database
+# ======================
+#
+# This YAML file describes *presets*, that is, configurations for the `cmakex`
+# tool. The file is parsed by the `getpreset` command which can also be used
+# to manually retrieve data from the YAML file.
+#
+# The file describes a set of *presets*, each identified by a unique name. A
+# preset may contain the following fields:
+#
+# - `alias`: alternative (short) name or names for the preset.
+# - `args`: arguments to passed to the `cmake` command (configuration step)
+# - `arch`: a single string which defaults to the name of the preset. It can
+#           be used to create a subdir under the install directory. See the
+#           `CMAKE_INSTALL_PREFIX` in the documentation of `cmakex`
+#
+# Structure of the CMakeX Preset File
+# ==========================
+#
+# Only the following top-level keys will be parsed: `variables`, `presets`.
+#
+# Variables
+# ---------
+#
+# The optional `variables` top-level key may contain a key-value map which
+# defines variables to be referenced by other values in the same document.
+# There's one predefined variable: `CMAKE_CURRENT_LIST_DIR` contains the
+# directory of the document. Example:
+#
+#     variables:
+#         TOOLCHAIN_DIR: ${CMAKE_CURRENT_LIST_DIR}/../toolchains
+#
+# Later, a preset may use this variable:
+#
+#     my-preset:
+#         args: -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_DIR}/toolchain.cmake
+#
+# Presets
+# -------
+#
+# The `presets` top-level key contains the map of presets. Example:
+#
+#     presets:
+#         linux:
+#             alias: makefile
+#             args: -DA=B -DC=D
+#         vs2013:
+#             args: -G "Visual Studio 12"
+#         vs2013-X:
+#             arch: vs2013
+#             args:
+#                 - -G "Visual Studio 12"
+#                 - -DMORE=ARGS
+#
+# 
+# Note: according to the rules of YAML, you can mix quoted and non-quoted
+# strings on a line but the first item must be non-quoted:
+#
+#     args: -DTHIS -DIS "-DGOOD"
+#     args: "-DTHIS" IS WRONG
+#
+# Format of the Fields
+# --------------------
+#
+# The string items for `args` will be interpreted as a space-separated list of
+# arguments, double-quotes will be honored.
+#
+# The `alias` and `args` fields can be a single string or sequence of strings.
+# Nested sequences will be automatically flattened. That's why YAML-anchors
+# can be used and they work as expected:
+#
+#     common_args: &common_args
+#         - -DCMAKE_DEBUG_POSTFIX=d
+#     presets:
+#         preset1:
+#             args: [*commmon_args, -GXCode]
+#         preset2:
+#             args:
+#                 - *commmon_args
+#                 - -DMORE=ARGS
+#
+# YAML help
+# =========
+#
+# - main website: http://www.yaml.org/
+# - YAML reference parser: http://ben-kiki.org/ypaste/cgi-bin/ypaste.pl
+#
+
+common_args: &common_args
+    - -DCMAKE_DEBUG_POSTFIX=_d
+common_unix_args: &common_unix_args
+    - *common_args
+    - -DCMAKE_POSITION_INDEPENDENT_CODE=1 -DCMAKE_CXX_STANDARD=11
+
+variables:
+    TOOLCHAIN_DIR: ${CMAKE_CURRENT_LIST_DIR}/../cmake/toolchain
+
+presets:
+    # Manual presets (no jenkins label)
+    eclipse-3.8:
+        args: [*common_unix_args, -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_ECLIPSE_VERSION=3.8]
+    eclipse-4.5:
+        args: [*common_unix_args, -G "Eclipse CDT4 - Unix Makefiles" -DCMAKE_ECLIPSE_VERSION=4.5]
+    kate:
+        args: [*common_unix_args, -G "Kate - Unix Makefiles"]
+
+    # Visual Studio
+    x86-win32-msvc12: # _MSC_VER = 1800
+        alias: vs2013
+        args: [*common_args, -G "Visual Studio 12"]
+    x86_64-win32-msvc12: # _MSC_VER = 1800
+        alias: vs2013-x64
+        cmake: [*common_args, -G "Visual Studio 12 Win64"]
+    x86_64-win32-msvc14: # _MSC_VER = 1900
+        alias: vs2015
+        cmake: [*common_args, -G "Visual Studio 14"]
+    x86_64-win32-msvc14: # _MSC_VER = 1900
+        alias: vs2015-x64
+        cmake: [*common_args, -G "Visual Studio 14 Win64"]
+
+    # Darwin, actually OSX
+    x86_64-apple-darwin15:
+        alias: macosx
+        args: *common_unix_args
+    x86_64-apple-darwin15-xcode:
+        arch: x86_64-apple-darwin15
+        args: [*common_unix_args, -GXcode]
+
+    # Native Linux
+    x86_64-linux-gnu:
+        alias: linux
+        args: *common_unix_args
+
+    # Cross-compile Linux
+    arm-linux-gnueabihf:
+        alias: linux_arm
+        args:
+            - [*common_unix_args, -G "Kate - Unix Makefiles"]
+            - -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_DIR}/arm-linux-gnueabihf.cmake
+    aarch64-linux-gnu:
+        args:
+            - [*common_unix_args, -G "Kate - Unix Makefiles"]
+            - -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_DIR}/aarch64-linux-gnu.cmake -DAARCH64-LINUX-GNU-MINIMAL=1
+
+    # Vibrante 4.0 Linux
+    aarch64-v4l-gnu-alpha1.6:
+        args:
+            - [*common_unix_args, -G "Kate - Unix Makefiles"]
+            - -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_DIR}/aarch64-v4l-gnu.cmake -DVIBRANTE_PDK_ENV_VAR_POSTFIX=_alpha1.6
+    aarch64-v4l-gnu:
+        args:
+            - [*common_unix_args, -G "Kate - Unix Makefiles"]
+            - -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_DIR}/aarch64-v4l-gnu.cmake

@@ -3,6 +3,7 @@
 #include <adasworks/sx/check.h>
 
 #include "cmakex_utils.h"
+#include "getpreset.h"
 #include "misc_utils.h"
 #include "print.h"
 #include "process_command_line.h"
@@ -216,6 +217,12 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 pars.arg_B = argv[argix];
             } else
                 pars.arg_B = make_string(butleft(arg, 2));
+        } else if (arg == "-p") {
+            if (++argix >= argc)
+                badpars_exit("Missing argument after '-p'");
+            if (!pars.arg_p.empty())
+                badpars_exit("Multiple '-p' options.");
+            pars.arg_p = argv[argix];
         } else if (!starts_with(arg, '-')) {
             pars.free_args.emplace_back(arg);
         } else {
@@ -267,12 +274,37 @@ cmake_cache_t read_cmake_cache(string_par path)
     return cache;
 }
 
+// todo multiple presets
+
 tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_line_2(
     const command_line_args_cmake_mode_t& cla)
 
 {
     processed_command_line_args_cmake_mode_t pcla;
     *static_cast<base_command_line_args_cmake_mode_t*>(&pcla) = cla;  // slice to common base
+
+    // resolve preset
+    if (!cla.arg_p.empty()) {
+        string msg;
+        string file, alias;
+        vector<string> preset_args, name;
+        try {
+            tie(name, file, alias) = libgetpreset::getpreset(cla.arg_p, "name");
+            tie(preset_args, file, alias) = libgetpreset::getpreset(cla.arg_p, "args");
+        } catch (const exception& e) {
+            msg = e.what();
+        } catch (...) {
+            msg = "Unknown error";
+        }
+        if (!msg.empty())
+            throwf("Invalid '-p' argument, reason: %s", msg.c_str());
+        CHECK(name.size() == 1);
+        log_info("Using preset '%s'%s from \"%s\"", name.front().c_str(),
+                 alias == name[0] ? "" : stringf(" (alias: %s)", alias.c_str()).c_str(),
+                 file.c_str());
+        prepend_inplace(pcla.cmake_args, preset_args);
+    }
+
     if (cla.free_args.empty()) {
         if (cla.arg_H.empty()) {
             if (cla.arg_B.empty()) {

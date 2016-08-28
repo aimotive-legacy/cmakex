@@ -169,6 +169,7 @@ struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
     vector<string> free_args;
     string arg_H;
     string arg_B;
+    string arg_p;  // preset: [path/]preset-name
 };
 
 struct cmakex_cache_t
