@@ -250,6 +250,32 @@ parsed_cmake_arg_t parse_cmake_arg(string_par x)
     return r;
 }
 
+string format_cmake_arg(const parsed_cmake_arg_t& a)
+{
+    if (is_one_of(a.switch_, {"-C", "-G", "-T", "-A"})) {
+        CHECK(a.type.empty() && a.name.empty());
+        return stringf("%s%s", a.switch_.c_str(), a.value.c_str());
+    }
+    if (a.switch_ == "-U") {
+        CHECK(a.type.empty());
+        return stringf("-U%s", a.name.c_str());
+    }
+    if (a.switch_ == "-D") {
+        if (a.type.empty())
+            return stringf("-D%s=%s", a.name.c_str(), a.value.c_str());
+        else
+            return stringf("-D%s:%s=%s", a.name.c_str(), a.type.c_str(), a.value.c_str());
+    }
+
+    if (a.switch_ == "--graphwiz==") {
+        CHECK(a.type.empty() && a.name.empty());
+        return stringf("--graphiz==%s", a.value.c_str());
+    }
+
+    CHECK(a.name.empty() && a.type.empty() && a.value.empty());
+    return a.switch_;
+}
+
 string extract_generator_from_cmake_args(const vector<string>& cmake_args)
 {
     vector<string> cmake_generators;
@@ -751,12 +777,7 @@ vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, s
 vector<string> cmakex_prefix_path_to_vector(string_par x)
 {
     vector<string> r;
-#ifdef _WIN32
-    const char separator = ';';
-#else
-    const char separator = ':';
-#endif
-    auto v = split(x, separator);
+    auto v = split(x, system_path_separator());
     for (auto& p : v) {
         if (!p.empty())
             r.emplace_back(p);

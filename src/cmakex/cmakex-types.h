@@ -194,6 +194,7 @@ struct base_command_line_args_cmake_mode_t
     // does not count
     vector<string> cmake_args;  // two-word args like -D X will be joined into one: -DX
     deps_mode_t deps_mode = dm_main_only;
+    string deps_script;
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t

@@ -158,6 +158,29 @@ void insert_new_request_into_wsp(pkg_request_t&& req, deps_recursion_wsp_t& wsp)
     }
 }
 
+idpo_recursion_result_t process_pkgs_to_process(string_par binary_dir,
+                                                const vector<string>& global_cmake_args,
+                                                const vector<config_name_t>& configs,
+                                                deps_recursion_wsp_t& wsp,
+                                                const cmakex_cache_t& cmakex_cache)
+{
+    idpo_recursion_result_t rr;
+
+    while (!wsp.pkgs_to_process.empty()) {
+        string pkg_name;
+        {
+            auto it_begin = wsp.pkgs_to_process.begin();
+            pkg_name = *it_begin;
+            wsp.pkgs_to_process.erase(it_begin);
+        }
+        auto rr_below =
+            run_deps_add_pkg(pkg_name, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+        rr.add(rr_below);
+    }
+
+    return rr;
+}
+
 idpo_recursion_result_t install_deps_phase_one_request_deps(string_par binary_dir,
                                                             const vector<string>& request_deps,
                                                             const vector<string>& global_cmake_args,
@@ -165,20 +188,11 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(string_par binary_di
                                                             deps_recursion_wsp_t& wsp,
                                                             const cmakex_cache_t& cmakex_cache)
 {
-    idpo_recursion_result_t rr;
-
     // for each pkg:
     for (auto& d : request_deps)
         insert_new_request_into_wsp(pkg_request_t(d, configs, true), wsp);
 
-    // for each pkg:
-    for (auto& d : request_deps) {
-        auto rr_below =
-            run_deps_add_pkg(d, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
-        rr.add(rr_below);
-    }
-
-    return rr;
+    return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
 }
 
 // todo dependencies can be specified for a package on the add_pkg command. Now if it turns out that
@@ -191,13 +205,16 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
                                                const vector<string>& global_cmake_args,
                                                const vector<config_name_t>& configs,
                                                deps_recursion_wsp_t& wsp,
-                                               const cmakex_cache_t& cmakex_cache)
+                                               const cmakex_cache_t& cmakex_cache,
+                                               string_par custom_deps_script_file)
 {
     CHECK(!binary_dir.empty());
     CHECK(!configs.empty());
-    if (!source_dir.empty()) {
-        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
-                                                       "/" + k_deps_script_filename);
+    if (!source_dir.empty() || !custom_deps_script_file.empty()) {
+        string deps_script_file = fs::lexically_normal(
+            custom_deps_script_file.empty()
+                ? fs::absolute(source_dir.str()).string() + "/" + k_deps_script_filename
+                : custom_deps_script_file.str());
         if (fs::is_regular_file(deps_script_file)) {
             if (!request_deps.empty())
                 log_warn("Using dependency script \"%s\" instead of specified dependencies.",
@@ -213,7 +230,7 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
 // todo: is it still a problem when we're build Debug from all packages, then Release (separate
 // command) then Debug again and it will try to rebuild almost all the packages?
 
-idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir_sp,
+idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir,
                                                            string_par deps_script_file,
                                                            const vector<string>& global_cmake_args,
                                                            const vector<config_name_t>& configs,
@@ -232,10 +249,8 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     // create source dir
 
     log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
-    HelperCmakeProject hcp(binary_dir_sp);
+    HelperCmakeProject hcp(binary_dir);
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file);
-
-    idpo_recursion_result_t rr;
 
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
@@ -243,19 +258,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
         insert_new_request_into_wsp(pkg_request_t(pkg_request_from_args(args, configs)), wsp);
     }
 
-    while (!wsp.pkgs_to_process.empty()) {
-        string pkg_name;
-        {
-            auto it_begin = wsp.pkgs_to_process.begin();
-            pkg_name = *it_begin;
-            wsp.pkgs_to_process.erase(it_begin);
-        }
-        auto rr_below = run_deps_add_pkg(pkg_name, binary_dir_sp, global_cmake_args, configs, wsp,
-                                         cmakex_cache);
-        rr.add(rr_below);
-    }
-
-    return rr;
+    return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
 }
 
 /*
@@ -383,26 +386,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     if (!pkg.request.b.source_dir.empty())
         pkg_source_dir += "/" + pkg.request.b.source_dir;
 
-    bool use_installed_desc_as_request = false;
-    if (pkg.request.name_only()) {
-        if (pkg.found_on_prefix_path.empty())
-            throwf("No definition found for package %s", pkg_for_log(pkg_name).c_str());
-        use_installed_desc_as_request = true;
-    }
+    if (pkg.request.name_only() && pkg.found_on_prefix_path.empty())
+        throwf("No definition found for package %s", pkg_for_log(pkg_name).c_str());
 
     // determine installed status
     auto installed_result = installdb.evaluate_pkg_request_build_pars(
         pkg_name, pkg.request.b.source_dir, pkg.final_cmake_args, pkg.request.b.configs(),
         pkg.found_on_prefix_path);
     CHECK(installed_result.size() == pkg.request.b.configs().size());
-    // at this point, if we found it on prefix path, we've already overwritten the requested config
-    // with the installed one.
-    // verify this
-    if (!pkg.found_on_prefix_path.empty()) {
-        auto rcs = pkg.request.b.configs();
-        std::sort(BEGINEND(rcs));
-        CHECK(rcs == keys_of_map(installed_result));
-    }
 
     // if it's not found on a prefix path
     if (pkg.found_on_prefix_path.empty()) {
@@ -419,6 +410,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         if (one_config_is_not_satisfied && !cloned)
             clone_this();
     } else {
+        // at this point, if we found it on prefix path, we've already overwritten the requested
+        // config
+        // with the installed one.
+        // verify this
+        auto rcs = pkg.request.b.configs();
+        std::sort(BEGINEND(rcs));
+        CHECK(rcs == keys_of_map(installed_result));
+
         // if it's found on a prefix_path it must be good as it is, we can't change those
         // also, it must not be cloned
         if (cloned) {
@@ -512,7 +511,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             wsp.requester_stack.emplace_back(pkg_name);
 
             rr = install_deps_phase_one(binary_dir, pkg_source_dir, to_vector(pkg.request.depends),
-                                        global_cmake_args, configs, wsp, cmakex_cache);
+                                        global_cmake_args, configs, wsp, cmakex_cache, "");
 
             CHECK(wsp.requester_stack.back() == pkg_name);
             wsp.requester_stack.pop_back();

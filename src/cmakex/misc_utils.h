@@ -256,6 +256,7 @@ Container sort_copy(const Container& x)
     std::sort(BEGINEND(y));
     return y;
 }
+char system_path_separator();
 }
 
 #endif

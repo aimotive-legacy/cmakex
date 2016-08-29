@@ -84,7 +84,6 @@ string deps_script_wrapper_cmakelists_checksum(const std::string& x)
     return stringf("# script hash: %s", hs.c_str());
 }
 
-// todo no twice printing processing dependency script
 HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
     : binary_dir(fs::absolute(binary_dir.c_str()).string()),
       cfg(binary_dir),
@@ -167,6 +166,7 @@ CMakeCacheTracker::report_t HelperCmakeProject::configure(const vector<string>& 
     return cvt.cmake_config_ok();
 }
 
+// todo detect if there's cmake and git and provide better error message
 vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
 {
     vector<string> args;
@@ -179,7 +179,6 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
                       deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
 
-    log_info("Processing dependency script.");
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());

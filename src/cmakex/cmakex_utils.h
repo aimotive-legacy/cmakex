@@ -67,8 +67,9 @@ struct parsed_cmake_arg_t
     string value;  // part after '=' or, for -C, -G, -T, A: the argument
 };
 
-// expects merges arguments: -DA=B instead of -D A=B
+// expects merged arguments: -DA=B instead of -D A=B
 parsed_cmake_arg_t parse_cmake_arg(string_par x);
+string format_cmake_arg(const parsed_cmake_arg_t& a);
 
 pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str,
                                        const vector<config_name_t>& default_configs);

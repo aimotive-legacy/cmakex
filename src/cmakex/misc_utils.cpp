@@ -341,4 +341,12 @@ string tolower(string_par x)
         r[i] = std::tolower(x[i]);
     return r;
 }
+char system_path_separator()
+{
+#ifdef _WIN32
+    return ';';
+#else
+    return ':';
+#endif
+}
 }

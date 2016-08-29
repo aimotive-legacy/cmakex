@@ -191,14 +191,24 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
             pars.configs.emplace_back(c);
         } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
             pars.build_args.emplace_back(arg);
-        else if (arg == "--deps") {
+        else if (arg == "--deps" || starts_with(arg, "--deps=")) {
             if (pars.deps_mode != dm_main_only)
                 badpars_exit("'--deps' or '--deps-only' specified multiple times");
             pars.deps_mode = dm_deps_and_main;
-        } else if (arg == "--deps-only") {
+            if (starts_with(arg, "--deps=")) {
+                pars.deps_script = make_string(butleft(arg, strlen("--deps=")));
+                if (pars.deps_script.empty())
+                    badpars_exit("Missing path after '--deps='");
+            }
+        } else if (arg == "--deps-only" || starts_with(arg, "--deps-only=")) {
             if (pars.deps_mode != dm_main_only)
                 badpars_exit("'--deps' or '--deps-only' specified multiple times");
             pars.deps_mode = dm_deps_only;
+            if (starts_with(arg, "--deps-only=")) {
+                pars.deps_script = make_string(butleft(arg, strlen("--deps-only=")));
+                if (pars.deps_script.empty())
+                    badpars_exit("Missing path after '--deps-only='");
+            }
         } else if (starts_with(arg, "-H")) {
             if (arg == "-H") {
                 // unlike cmake, here we support the '-H <path>' style, too
@@ -280,6 +290,19 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 {
     processed_command_line_args_cmake_mode_t pcla;
     *static_cast<base_command_line_args_cmake_mode_t*>(&pcla) = cla;  // slice to common base
+
+    // complete relative paths for CMAKE_INSTALL_PREFIX, CMAKE_PREFIX_PATH
+    for (auto& a : pcla.cmake_args) {
+        auto b = parse_cmake_arg(a);
+        if ((b.name == "CMAKE_PREFIX_PATH" || b.name == "CMAKE_INSTALL_PREFIX") &&
+            b.switch_ == "-D") {
+            auto v = cmakex_prefix_path_to_vector(b.value);
+            for (auto& p : v)
+                p = fs::absolute(p);
+            b.value = join(v, string{system_path_separator()});
+            a = format_cmake_arg(b);
+        }
+    }
 
     // resolve preset
     if (!cla.arg_p.empty()) {
@@ -426,22 +449,29 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         }
     }
 
-    if (pcla.source_dir.empty())
-        badpars_exit(
-            stringf("No source dir has been specified and the binary dir \"%s\" is not valid "
-                    "(contains no CMakeCache.txt or %s)",
-                    pcla.binary_dir.c_str(), k_cmakex_cache_filename));
+    string home_directory;
 
-    CHECK(!pcla.source_dir.empty());
+    if (pcla.deps_mode != dm_deps_only) {
+        if (pcla.source_dir.empty())
+            badpars_exit(
+                stringf("No source dir has been specified and the binary dir \"%s\" is not valid "
+                        "(contains no CMakeCache.txt or %s)",
+                        pcla.binary_dir.c_str(), k_cmakex_cache_filename));
 
-    if (!is_valid_source_dir(pcla.source_dir))
-        badpars_exit(stringf("The source dir \"%s\" is not valid (no CMakeLists.txt)",
-                             pcla.source_dir.c_str()));
+        CHECK(!pcla.source_dir.empty());
 
-    string home_directory = fs::canonical(pcla.source_dir).string();
+        if (!is_valid_source_dir(pcla.source_dir))
+            badpars_exit(stringf("The source dir \"%s\" is not valid (no CMakeLists.txt)",
+                                 pcla.source_dir.c_str()));
+
+        home_directory = fs::canonical(pcla.source_dir).string();
+    }
 
     if (cmakex_cache.valid) {
-        CHECK(fs::equivalent(cmakex_cache.home_directory, home_directory));
+        if (cmakex_cache.home_directory.empty())
+            cmakex_cache.home_directory = home_directory;
+        else
+            CHECK(fs::equivalent(cmakex_cache.home_directory, home_directory));
     } else {
         cmakex_cache.home_directory = home_directory;
         string cmake_generator;
@@ -523,11 +553,14 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         }
     }
 
-    if (fs::path(pcla.source_dir).is_absolute())
-        log_info("Using source dir: \"%s\"", pcla.source_dir.c_str());
-    else {
-        log_info("Using source dir: \"%s\" -> \"%s\"", pcla.source_dir.c_str(),
-                 strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.source_dir))).c_str());
+    if (!pcla.source_dir.empty()) {
+        if (fs::path(pcla.source_dir).is_absolute())
+            log_info("Using source dir: \"%s\"", pcla.source_dir.c_str());
+        else {
+            log_info(
+                "Using source dir: \"%s\" -> \"%s\"", pcla.source_dir.c_str(),
+                strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.source_dir))).c_str());
+        }
     }
 
     const char* using_or_creating =
