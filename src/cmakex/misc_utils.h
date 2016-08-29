@@ -204,6 +204,16 @@ void prepend_inplace(Container1& c1, const Container2& c2)
     c1.insert(c1.begin(), c2.begin(), c2.end());
 }
 
+template <class Set>
+std::vector<typename Set::key_type> keys_of_set(const Set& m)
+{
+    std::vector<typename Set::key_type> v;
+    v.reserve(m.size());
+    for (auto& x : m)
+        v.emplace_back(x);
+    return v;
+}
+
 template <class Map>
 std::vector<typename Map::key_type> keys_of_map(const Map& m)
 {
@@ -237,6 +247,13 @@ vector<T> stable_unique(const vector<T>& x)
         if (!linear_search(y, xe))
             y.emplace_back(xe);
     }
+    return y;
+}
+template <class Container>
+Container sort_copy(const Container& x)
+{
+    Container y(x);
+    std::sort(BEGINEND(y));
     return y;
 }
 }

@@ -41,43 +41,6 @@ void idpo_recursion_result_t::add_pkg(string_par x)
     normalize();
 }
 
-void fail_if_current_clone_has_different_commit(string req_git_tag,
-                                                string_par clone_dir,
-                                                string_par cloned_sha,
-                                                string_par git_url)
-{
-    // if HEAD/branch is requested need to check ls-remote
-    // if tag/SHA requested check local clone
-
-    if (req_git_tag.empty())
-        req_git_tag = "HEAD";
-
-    string msg = stringf(
-        "Because of the '--strict' option the directory \"%s\" should be "
-        "reset to the remote's '%s' commit in order to build it. Reset manually or remove the "
-        "directory.",
-        clone_dir.c_str(), req_git_tag.c_str());
-
-    if (cloned_sha == k_sha_uncommitted)  // no need to check further
-        throwf("%s", msg.c_str());
-    // find out if we have the exact same commit cloned out as req_git_tag
-    // req_git_tag can be empty=branch/tag/sha
-    if (cloned_sha != req_git_tag) {  // req_git_tag was an SHA
-        // check remote
-        auto lsr = git_ls_remote(git_url, req_git_tag);
-        if (get<0>(lsr) == 0) {
-            if (cloned_sha != get<1>(lsr))
-                throwf("%s", msg.c_str());
-        } else {
-            throwf(
-                "Because of the '--strict' option the requested ref '%s' "
-                "needs to be resolved by the remote \"%s\" but 'git "
-                "ls-remote' failed (%d)",
-                req_git_tag.c_str(), git_url.c_str(), get<0>(lsr));
-        }
-    }
-}
-
 idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir,
                                                            string_par deps_script_filename,
                                                            const vector<string>& global_cmake_args,
@@ -85,58 +48,13 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
                                                            deps_recursion_wsp_t& wsp,
                                                            const cmakex_cache_t& cmakex_cache);
 
-idpo_recursion_result_t install_deps_phase_one_request_deps(string_par binary_dir,
-                                                            const vector<string>& request_deps,
-                                                            const vector<string>& global_cmake_args,
-                                                            const vector<config_name_t>& configs,
-                                                            deps_recursion_wsp_t& wsp,
-                                                            const cmakex_cache_t& cmakex_cache)
-{
-    idpo_recursion_result_t rr;
-
-    // for each pkg:
-    for (auto& d : request_deps) {
-        auto rr_below =
-            run_deps_add_pkg(d, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
-        rr.add(rr_below);
-    }
-
-    return rr;
-}
-
-idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
-                                               string_par source_dir,
-                                               const vector<string>& request_deps,
-                                               const vector<string>& global_cmake_args,
-                                               const vector<config_name_t>& configs,
-                                               deps_recursion_wsp_t& wsp,
-                                               const cmakex_cache_t& cmakex_cache)
-{
-    CHECK(!binary_dir.empty());
-    CHECK(!configs.empty());
-    if (!source_dir.empty()) {
-        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
-                                                       "/" + k_deps_script_filename);
-        if (fs::is_regular_file(deps_script_file)) {
-            if (!request_deps.empty())
-                log_warn("Using dependency script \"%s\" instead of specified dependencies.",
-                         deps_script_file.c_str());
-            return install_deps_phase_one_deps_script(
-                binary_dir, deps_script_file, global_cmake_args, configs, wsp, cmakex_cache);
-        }
-    }
-    return install_deps_phase_one_request_deps(binary_dir, request_deps, global_cmake_args, configs,
-                                               wsp, cmakex_cache);
-}
-
-// todo: is it still a problem when we're build Debug from all packages, then Release (separate
-// command) then Debug again and it will try to rebuild almost all the packages?
-
-void verify_if_requests_are_compatible(const pkg_request_t& r1,
-                                       const pkg_request_t& r2,
-                                       const vector<config_name_t>& configs)
+// todo what if the existing r1 is name-only, r2 is normal
+// is it possible or what to do then?
+void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_request_t& r2)
 {
     CHECK(r1.name == r2.name);
+    CHECK(!r1.name_only());
+    CHECK(!r2.name_only());
     auto& pkg_name = r1.name;
 
     // check for possible conflicts with existing requests
@@ -170,24 +88,13 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1,
     }
 
     // compare configs
-    auto ec1 = b1.configs;
+    auto& ec1 = b1.configs();
+    CHECK(!ec1.empty());
     const char* fcl = " (from command line)";
-    const char* fcl1 = "";
-    if (ec1.empty()) {
-        ec1 = configs;
-        fcl1 = fcl;
-    }
-    const char* fcl2 = "";
-    auto ec2 = b2.configs;
-    if (ec2.empty()) {
-        ec2 = configs;
-        fcl2 = fcl;
-    }
-
-    std::sort(BEGINEND(ec1));
-    std::sort(BEGINEND(ec2));
-    sx::unique_trunc(ec1);
-    sx::unique_trunc(ec2);
+    const char* fcl1 = b1.using_default_configs() ? fcl : "";
+    auto& ec2 = b2.configs();
+    CHECK(!ec2.empty());
+    const char* fcl2 = b2.using_default_configs() ? fcl : "";
 
     if (ec1 != ec2) {
         auto v1 = join(get_prefer_NoConfig(ec1), ", ");
@@ -223,6 +130,89 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1,
             pkg_name.c_str(), join(d1, ", ").c_str(), join(d2, ", ").c_str());
 }
 
+// if it's not there, insert
+// if it's there:
+// - if it's compatible (identical), do nothing
+// - if it's not compatible:
+//   - if the existing is name-only: check if it's not yet processed and overwrite
+//   - throw otherwise
+void insert_new_request_into_wsp(pkg_request_t&& req, deps_recursion_wsp_t& wsp)
+{
+    auto it = wsp.pkg_map.find(req.name);
+    const bool to_be_processed = wsp.pkgs_to_process.count(req.name) > 0;
+    if (it == wsp.pkg_map.end()) {
+        // first time we encounter this package
+        CHECK(!to_be_processed);
+        wsp.pkgs_to_process.insert(req.name);
+        wsp.pkg_map.emplace(std::piecewise_construct, std::forward_as_tuple(req.name),
+                            std::forward_as_tuple(move(req)));
+    } else {
+        if (it->second.request.name_only()) {
+            CHECK(to_be_processed);
+            if (!req.name_only())
+                it->second.request = move(req);
+        } else {
+            if (!req.name_only())
+                verify_if_requests_are_compatible(it->second.request, req);
+        }
+    }
+}
+
+idpo_recursion_result_t install_deps_phase_one_request_deps(string_par binary_dir,
+                                                            const vector<string>& request_deps,
+                                                            const vector<string>& global_cmake_args,
+                                                            const vector<config_name_t>& configs,
+                                                            deps_recursion_wsp_t& wsp,
+                                                            const cmakex_cache_t& cmakex_cache)
+{
+    idpo_recursion_result_t rr;
+
+    // for each pkg:
+    for (auto& d : request_deps)
+        insert_new_request_into_wsp(pkg_request_t(d, configs, true), wsp);
+
+    // for each pkg:
+    for (auto& d : request_deps) {
+        auto rr_below =
+            run_deps_add_pkg(d, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+        rr.add(rr_below);
+    }
+
+    return rr;
+}
+
+// todo dependencies can be specified for a package on the add_pkg command. Now if it turns out that
+// the package has a deps.cmake which defines an other set of dependencies we need to overwrite the
+// list of deps coming from the add_pkg. Where is the part where we overwriting the previous depends
+// field of the request?
+idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
+                                               string_par source_dir,
+                                               const vector<string>& request_deps,
+                                               const vector<string>& global_cmake_args,
+                                               const vector<config_name_t>& configs,
+                                               deps_recursion_wsp_t& wsp,
+                                               const cmakex_cache_t& cmakex_cache)
+{
+    CHECK(!binary_dir.empty());
+    CHECK(!configs.empty());
+    if (!source_dir.empty()) {
+        string deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() +
+                                                       "/" + k_deps_script_filename);
+        if (fs::is_regular_file(deps_script_file)) {
+            if (!request_deps.empty())
+                log_warn("Using dependency script \"%s\" instead of specified dependencies.",
+                         deps_script_file.c_str());
+            return install_deps_phase_one_deps_script(
+                binary_dir, deps_script_file, global_cmake_args, configs, wsp, cmakex_cache);
+        }
+    }
+    return install_deps_phase_one_request_deps(binary_dir, request_deps, global_cmake_args, configs,
+                                               wsp, cmakex_cache);
+}
+
+// todo: is it still a problem when we're build Debug from all packages, then Release (separate
+// command) then Debug again and it will try to rebuild almost all the packages?
+
 idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir_sp,
                                                            string_par deps_script_file,
                                                            const vector<string>& global_cmake_args,
@@ -243,13 +233,6 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
     HelperCmakeProject hcp(binary_dir_sp);
-    hcp.configure(global_cmake_args);
-
-    // after successful configuration the cmake generator setting has been validated and fixed so
-    // we're writing out the cmakex cache
-    string binary_dir = fs::absolute(binary_dir_sp.c_str()).string();
-    write_cmakex_cache_if_dirty(binary_dir, cmakex_cache);
-
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file);
 
     idpo_recursion_result_t rr;
@@ -257,16 +240,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
         auto args = split(addpkg_line, '\t');
-        auto pkg_request = pkg_request_from_args(args);
-        auto it = wsp.pkg_map.find(pkg_request.name);
-        if (it == wsp.pkg_map.end()) {
-            // first time we encounter this package
-            CHECK(wsp.pkgs_to_process.count(pkg_request.name) == 0);
-            wsp.pkgs_to_process.insert(pkg_request.name);
-            wsp.pkg_map[pkg_request.name].request = move(pkg_request);
-        } else {
-            verify_if_requests_are_compatible(it->second.request, pkg_request, configs);
-        }
+        insert_new_request_into_wsp(pkg_request_t(pkg_request_from_args(args, configs)), wsp);
     }
 
     while (!wsp.pkgs_to_process.empty()) {
@@ -276,8 +250,8 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
             pkg_name = *it_begin;
             wsp.pkgs_to_process.erase(it_begin);
         }
-        auto rr_below =
-            run_deps_add_pkg(pkg_name, binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+        auto rr_below = run_deps_add_pkg(pkg_name, binary_dir_sp, global_cmake_args, configs, wsp,
+                                         cmakex_cache);
         rr.add(rr_below);
     }
 
@@ -312,6 +286,7 @@ IDE-generator
 Also need to decide what to do if someone uploads a NoConfig package which is then downloaded for an
 ide generator build
 */
+
 idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                          string_par binary_dir,
                                          const vector<string>& global_cmake_args,
@@ -321,20 +296,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 {
     const cmakex_config_t cfg(binary_dir);
 
-    if (wsp.pkg_map.count(pkg_name.str()) == 0) {
-        // todo here we could access some package registry which may contain definition of this
-        // package
-        auto requester = wsp.requester_stack.empty() ? string("main project")
-                                                     : pkg_for_log(wsp.requester_stack.back());
-        throwf("No definition is available for the dependency %s (requested by %s)",
-               pkg_name.c_str(), requester.c_str());
-    }
-
+    CHECK(wsp.pkg_map.count(pkg_name.str()) > 0);
     auto& pkg = wsp.pkg_map.at(pkg_name.str());
-
-    // add global cmake args
-    pkg.final_cmake_args =
-        normalize_cmake_args(concat(global_cmake_args, pkg.request.b.cmake_args));
 
     if (linear_search(wsp.requester_stack, pkg_name)) {
         // report circular dependency error
@@ -349,28 +312,69 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         throwf("Circular dependency: %s", s.c_str());
     }
 
+    // todo: get data from optional package registry here
+
+    InstallDB installdb(binary_dir);
+
+    // verify if this package is installed on one of the available prefix paths (from
+    // CMAKE_PREFIX_PATH cmake and environment variables)
+    // - it's an error if it's installed on multiple paths
+    // - if it's installed on a prefix path we accept that installed package as it is
+    auto prefix_paths = stable_unique(
+        concat(cmakex_cache.cmakex_prefix_path_vector, cmakex_cache.env_cmakex_prefix_path_vector));
+    if (!prefix_paths.empty()) {
+        vector<config_name_t> configs_on_prefix_path;
+        tie(pkg.found_on_prefix_path, configs_on_prefix_path) =
+            installdb.quick_check_on_prefix_paths(pkg_name, prefix_paths);
+        vector<config_name_t> requested_configs = pkg.request.b.configs();
+        CHECK(!requested_configs
+                   .empty());  // even for name-only requests must contain the default configs
+
+        // overwrite requested configs with the installed ones
+        auto cr = requested_configs;
+        std::sort(BEGINEND(cr));
+        sx::unique_trunc(cr);
+        std::sort(BEGINEND(configs_on_prefix_path));
+
+        // in case the requested configs and the installed configs are different, we're accepting
+        // the installed configs
+        string cmsg;
+        if (cr != configs_on_prefix_path) {
+            cmsg = stringf(
+                ", accepting installed configuration%s (%s) instead of the requested one%s (%s)%s",
+                configs_on_prefix_path.size() > 1 ? "s" : "",
+                join(get_prefer_NoConfig(configs_on_prefix_path), ", ").c_str(),
+                cr.size() > 1 ? "s" : "", join(get_prefer_NoConfig(cr), ", ").c_str(),
+                pkg.request.b.using_default_configs() ? " (from the command line)" : "");
+            pkg.request.b.update_configs(configs, false);
+        } else
+            cmsg =
+                stringf(" (%s)", join(get_prefer_NoConfig(configs_on_prefix_path), ", ").c_str());
+
+        if (!pkg.found_on_prefix_path.empty())
+            log_info("Using %s from %s%s.", pkg_for_log(pkg_name).c_str(),
+                     path_for_log(pkg.found_on_prefix_path).c_str(), cmsg.c_str());
+        // in case the request is only a name, we're accepting the installed desc as request
+    }
+
+    // add global cmake args
+    pkg.final_cmake_args =
+        normalize_cmake_args(concat(global_cmake_args, pkg.request.b.cmake_args));
+
     // if it's already installed we still need to process this:
     // - to enumerate all dependencies
     // - to check if only compatible installations are requested
-
-    // todo: get data from optional package registry here
-
-    // fill configs from global par if not specified
-    if (pkg.request.b.configs.empty())
-        pkg.request.b.configs = configs;
-
-    pkg.request.b.configs = stable_unique(pkg.request.b.configs);
 
     clone_helper_t clone_helper(binary_dir, pkg_name);
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
 
-    auto clone_this_at_sha = [&pkg, &wsp, &clone_helper, &pkg_name](string sha) {
+    auto clone_this_at_sha = [&pkg, &clone_helper](string sha) {
         auto prc = pkg.request.c;
         if (!sha.empty())
             prc.git_tag = sha;
         clone_helper.clone(prc, pkg.request.git_shallow);
-        wsp.pkg_map.at(pkg_name.str()).just_cloned = true;
+        pkg.just_cloned = true;
     };
 
     auto clone_this = [&clone_this_at_sha]() { clone_this_at_sha({}); };
@@ -379,31 +383,119 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     if (!pkg.request.b.source_dir.empty())
         pkg_source_dir += "/" + pkg.request.b.source_dir;
 
-    // determine installed status
-    InstallDB installdb(binary_dir);
-    auto installed_result = installdb.evaluate_pkg_request_build_pars(
-        pkg_name, pkg.request.b.source_dir, pkg.final_cmake_args, pkg.request.b.configs);
-    CHECK(installed_result.size() == pkg.request.b.configs.size());
+    bool use_installed_desc_as_request = false;
+    if (pkg.request.name_only()) {
+        if (pkg.found_on_prefix_path.empty())
+            throwf("No definition found for package %s", pkg_for_log(pkg_name).c_str());
+        use_installed_desc_as_request = true;
+    }
 
-    // if any of the requested configs is not satisfied we know we need the clone right now
-    // this is partly only a shortcut on the other later (when traversing the dependencies) we
-    // exploit the fact that this package is either installed (say, from server) or cloned
-    bool one_config_is_not_satisfied = false;
-    for (auto& c : pkg.request.b.configs) {
-        if (installed_result.at(c).status != pkg_request_satisfied) {
-            one_config_is_not_satisfied = true;
-            break;
+    // determine installed status
+    auto installed_result = installdb.evaluate_pkg_request_build_pars(
+        pkg_name, pkg.request.b.source_dir, pkg.final_cmake_args, pkg.request.b.configs(),
+        pkg.found_on_prefix_path);
+    CHECK(installed_result.size() == pkg.request.b.configs().size());
+    // at this point, if we found it on prefix path, we've already overwritten the requested config
+    // with the installed one.
+    // verify this
+    if (!pkg.found_on_prefix_path.empty()) {
+        auto rcs = pkg.request.b.configs();
+        std::sort(BEGINEND(rcs));
+        CHECK(rcs == keys_of_map(installed_result));
+    }
+
+    // if it's not found on a prefix path
+    if (pkg.found_on_prefix_path.empty()) {
+        // if any of the requested configs is not satisfied we know we need the clone right now
+        // this is partly a shortcut, partly later (when traversing the dependencies) we
+        // exploit the fact that this package is either installed (say, from server) or cloned
+        bool one_config_is_not_satisfied = false;
+        for (auto& c : pkg.request.b.configs()) {
+            if (installed_result.at(c).status != pkg_request_satisfied) {
+                one_config_is_not_satisfied = true;
+                break;
+            }
+        }
+        if (one_config_is_not_satisfied && !cloned)
+            clone_this();
+    } else {
+        // if it's found on a prefix_path it must be good as it is, we can't change those
+        // also, it must not be cloned
+        if (cloned) {
+            throwf(
+                "%s found on the prefix path %s but and it's also checked out in %s. Remove either "
+                "from the prefix path or from the directory.",
+                pkg_for_log(pkg_name).c_str(), path_for_log(pkg.found_on_prefix_path).c_str(),
+                path_for_log(cfg.pkg_clone_dir(pkg_name)).c_str());
+        }
+        // if it's name-only then we accept it always
+        if (pkg.request.name_only()) {
+            // overwrite with actual installed descs
+            // the installed descs must be uniform, that is, same settings for each installed config
+            auto it = installed_result.begin();
+            auto& desc = it->second.installed_config_desc;
+
+            // copy first desc to request
+            CHECK(desc.pkg_name == pkg_name &&
+                  desc.config == it->first);  // the installdb should have verified this
+            pkg.request.b.source_dir = desc.source_dir;
+            pkg.request.b.cmake_args = desc.cmake_args;
+            pkg.final_cmake_args = desc.final_cmake_args;
+            CHECK(sort_copy(pkg.request.b.configs()) == keys_of_map(installed_result));
+            pkg.request.c.git_url = desc.git_url;
+            pkg.request.c.git_tag = desc.git_sha;
+            auto ds = keys_of_map(desc.deps_shas);
+            pkg.request.depends.insert(BEGINEND(ds));
+
+            // verify the other configs
+            for (auto it2 = it; it2 != installed_result.end(); ++it2) {
+                auto& desc2 = it2->second.installed_config_desc;
+                if (desc2.source_dir != desc.source_dir || desc2.cmake_args != desc.cmake_args ||
+                    desc2.final_cmake_args != desc.final_cmake_args ||
+                    desc2.git_url != desc.git_url || desc2.git_sha != desc.git_sha ||
+                    desc2.deps_shas != desc.deps_shas) {
+                    throwf(
+                        "Package %s found on the prefix path %s but its configurations (%s) have "
+                        "been built with different options.",
+                        pkg_for_log(pkg_name).c_str(),
+                        path_for_log(pkg.found_on_prefix_path).c_str(),
+                        join(get_prefer_NoConfig(keys_of_map(installed_result)), ", ").c_str());
+                }
+            }
+
+            // update installed_result
+            installed_result = installdb.evaluate_pkg_request_build_pars(
+                pkg_name, pkg.request.b.source_dir, pkg.final_cmake_args, pkg.request.b.configs(),
+                pkg.found_on_prefix_path);
+
+            for (auto& kv : installed_result)
+                CHECK(kv.second.status == pkg_request_satisfied);
+
+        } else {
+            for (auto& c : pkg.request.b.configs()) {
+                auto& itc = installed_result.at(c);
+                if (itc.status == pkg_request_not_compatible) {
+                    throwf(
+                        "Package %s found on the prefix path %s but the build options are not "
+                        "compatible with the current ones. Either remove from the prefix path or "
+                        "check build options. The offending CMAKE_ARGS: [%s]",
+                        pkg_for_log(pkg_name).c_str(),
+                        path_for_log(pkg.found_on_prefix_path).c_str(),
+                        itc.incompatible_cmake_args.c_str());
+                } else {
+                    // it can't be not installed
+                    CHECK(itc.status == pkg_request_satisfied);
+                }
+            }
         }
     }
-    if (one_config_is_not_satisfied && !cloned)
-        clone_this();
 
     std::map<config_name_t, vector<string>> build_reasons;
 
     idpo_recursion_result_t rr;
 
-    // if first attempt finds reason to build and this package is not cloned, a second attempt will
-    // follow after a clone
+    // if first attempt finds reason to build and this package is not cloned, a second attempt
+    // will follow after a clone
     for (int attempts = 1;; ++attempts) {
         CHECK(attempts <= 2);  // before second iteration there will be a cloning so the second
                                // iteration must finish
@@ -412,7 +504,9 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         bool for_clone_use_installed_sha = false;
         bool restore_wsp_before_second_attempt = false;
 
-        std::remove_reference<decltype(wsp)>::type saved_wsp;
+        using wsp_t = std::remove_reference<decltype(wsp)>::type;
+        wsp_t saved_wsp;
+
         // process_deps
         if (cloned) {
             wsp.requester_stack.emplace_back(pkg_name);
@@ -423,34 +517,40 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             CHECK(wsp.requester_stack.back() == pkg_name);
             wsp.requester_stack.pop_back();
         } else {
-            // enumerate dependencies from description of installed package
-            LOG_FATAL("This branch is not implemented");
+            if (!pkg.found_on_prefix_path.empty()) {
+                rr = install_deps_phase_one_request_deps(
+                    binary_dir, keys_of_set(pkg.request.depends), global_cmake_args, configs, wsp,
+                    cmakex_cache);
+            } else {
+                // enumerate dependencies from description of installed package
+                LOG_FATAL("This branch is not implemented");
 
-            // todo implement this branch:
-            // this package is installed but not cloned. So this has been remote built and
-            // installed as headers+binary
-            // the description that came with the binary should contain the detailed
-            // descriptions (requests) of its all dependencies. It's like a deps.cmake file
-            // 'materialized' that is, processed into a similar file we process the deps.cmake
-            // and also git_tags resolved to concrete SHAs.
-            // The dependencies will be either built locally or downloaded based on that
-            // description
-            saved_wsp = wsp;
-            restore_wsp_before_second_attempt = true;
-            for_clone_use_installed_sha = true;
+                // todo implement this branch:
+                // this package is installed but not cloned. So this has been remote built and
+                // installed as headers+binary
+                // the description that came with the binary should contain the detailed
+                // descriptions (requests) of its all dependencies. It's like a deps.cmake file
+                // 'materialized' that is, processed into a similar file we process the deps.cmake
+                // and also git_tags resolved to concrete SHAs.
+                // The dependencies will be either built locally or downloaded based on that
+                // description
+
+                saved_wsp = wsp;
+
+                restore_wsp_before_second_attempt = true;
+                for_clone_use_installed_sha = true;
 
 #if 0
             rr = install_deps_phase_one_remote_build(pkg_name, global_cmake_args, configs, wsp,
                                                      cmakex_cache);
 #endif
+            }
         }
 
         if (rr.building_some_pkg) {
-            for (auto& c : pkg.request.b.configs)
+            for (auto& c : pkg.request.b.configs())
                 build_reasons[c].assign(1, "a dependency has been rebuilt");
         }
-
-        // todo maybe pkg_desc_t should not include deps_shas
 
         for (auto& kv : installed_result) {
             const auto& config = kv.first;
@@ -527,11 +627,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         // check if it's installed now
                         auto dep_current_install = installdb.try_get_installed_pkg_all_configs(d);
                         if (dep_current_install.empty()) {
-                            // it's not installed now but it's requested. This should have triggered
+                            // it's not installed now but it's requested. This should have
+                            // triggered
                             // building that dependency and then building this package in turn.
-                            // Since we're here it did not happened so this is an internal error.
+                            // Since we're here it did not happened so this is an internal
+                            // error.
                             LOG_FATAL(
-                                "Package '%s', dependency '%s' is not installed but requested but "
+                                "Package '%s', dependency '%s' is not installed but requested "
+                                "but "
                                 "still it didn't trigger building this package.",
                                 pkg_name.c_str(), d.c_str());
                             break;
@@ -641,24 +744,17 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             clone_this();
     }  // for attempts
 
-    // todo deps_shas doesn't seem to be filled
-    // todo installed git sha must be current time if local changes
-
     string clone_dir = cfg.pkg_clone_dir(pkg_name);
 
-    // todo for now the first request will determine which commit to build
+    // for now the first request will determine which commit to build
     // and second, different request will be an error
     // If that's not good, relax and implement some heuristics
 
     if (!build_reasons.empty()) {
         CHECK(cloned);
-        auto& pm = wsp.pkg_map[pkg_name.str()];
-        auto& pd = pm.request;
-
         wsp.build_order.push_back(pkg_name.str());
-        pm.resolved_git_tag = cloned_sha;
-        pd = pkg.request;
-        pm.build_reasons = build_reasons;
+        pkg.resolved_git_tag = cloned_sha;
+        pkg.build_reasons = build_reasons;
         rr.building_some_pkg = true;
     }
     rr.add_pkg(pkg_name);

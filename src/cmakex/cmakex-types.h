@@ -68,6 +68,21 @@ vector<string> get_prefer_NoConfig(const vector<config_name_t>& x);
 
 struct pkg_build_pars_t
 {
+    pkg_build_pars_t() = delete;
+    // default_configs is only an indicator where the configs come from, from the command line
+    // (default) or from the request (non-default)
+    pkg_build_pars_t(const vector<config_name_t>& configs, bool using_default_configs)
+        : configs_(configs), using_default_configs_(using_default_configs)
+    {
+    }
+
+    const vector<config_name_t>& configs() const { return configs_; }  // Debug, Release, etc..
+    void update_configs(const vector<config_name_t>& configs, bool using_default_configs)
+    {
+        configs_ = configs;
+        using_default_configs_ = using_default_configs;
+    }
+    bool using_default_configs() const { return using_default_configs_; }
     string source_dir;  // (relative) directory containing CMakeLists.txt
     // cmake_args:
     // - never contains source and binary dir flags or paths
@@ -75,7 +90,10 @@ struct pkg_build_pars_t
     //   command line
     // - may contain global args depending on context
     vector<string> cmake_args;
-    vector<config_name_t> configs;  // Debug, Release, etc..
+
+private:
+    vector<config_name_t> configs_;  // Debug, Release, etc..
+    bool using_default_configs_;
 };
 
 // dependency_name -> (config -> dependency SHA)
@@ -83,6 +101,12 @@ using deps_shas_t = std::map<string, std::map<config_name_t, string>>;
 
 struct pkg_desc_t
 {
+    pkg_desc_t(string_par name) : name(name.c_str()), b(vector<config_name_t>{}, false) {}
+    pkg_desc_t(string_par name, const vector<config_name_t>& configs, bool default_configs)
+        : name(name.c_str()), b(configs, default_configs)
+    {
+    }
+    bool name_only() const { return c.git_url.empty(); }
     string name;
     pkg_clone_pars_t c;
     pkg_build_pars_t b;
@@ -104,7 +128,8 @@ struct installed_config_desc_t
     config_name_t config;
     string git_url;
     string git_sha;
-    string source_dir;                // (relative) directory containing CMakeLists.txt
+    string source_dir;  // (relative) directory containing CMakeLists.txt
+    vector<string> cmake_args;
     vector<string> final_cmake_args;  // all cmake args including global ones
     deps_shas_t deps_shas;            // sha's of dependencies at the time of the build
 private:
@@ -139,7 +164,14 @@ struct installed_pkg_configs_t
 
 struct pkg_request_t : pkg_desc_t
 {
+    pkg_request_t() = delete;
+    pkg_request_t(string_par name, const vector<config_name_t>& configs, bool using_default_configs)
+        : pkg_desc_t(name, configs, using_default_configs)
+    {
+    }
+
     bool git_shallow = true;  // if false, clone only the requested branch at depth=1
+private:
 };
 
 enum deps_mode_t
@@ -180,6 +212,11 @@ struct cmakex_cache_t
     bool per_config_bin_dirs = false;  // this is an effective value, not the user setting: if the
     // user setting is yes but it's a multiconfig-generator, then
     // this value will be false
+    vector<string> cmakex_prefix_path_vector;
+    vector<string> env_cmakex_prefix_path_vector;  // also cached, each time it will be overwritten
+                                                   // with the current value of the environment
+                                                   // variable, but left as is if the env var is not
+                                                   // set
 };
 
 bool operator==(const cmakex_cache_t& x, const cmakex_cache_t& y);

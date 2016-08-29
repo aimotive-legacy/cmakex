@@ -54,8 +54,6 @@ void badpars_exit(string_par msg);
 // source dir is a directory containing CMakeLists.txt
 bool evaluate_source_dir(string_par x, bool allow_invalid = false);
 
-string pkg_for_log(string_par pkg_name);
-
 // if cmake_generator is empty then uses platform-defaults
 bool is_generator_multiconfig(string_par cmake_generator);
 
@@ -72,8 +70,10 @@ struct parsed_cmake_arg_t
 // expects merges arguments: -DA=B instead of -D A=B
 parsed_cmake_arg_t parse_cmake_arg(string_par x);
 
-pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str);
-pkg_request_t pkg_request_from_args(const vector<string>& pkg_args);
+pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str,
+                                       const vector<config_name_t>& default_configs);
+pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
+                                    const vector<config_name_t>& default_configs);
 
 // merges arguments: -D A=B -> -DA=B
 // throws on invalid arguments
@@ -111,6 +111,11 @@ struct cmake_cache_tracker_t
 class CMakeCacheTracker
 {
 public:
+    struct report_t
+    {
+        maybe<string> cmake_prefix_path;
+    };
+
     // construct before calling a cmake-configure for a cmake project
     CMakeCacheTracker(string_par bin_dir);
     CMakeCacheTracker(string_par bin_dir, string_par filename);
@@ -131,7 +136,7 @@ public:
                                                    bool force_input_cmake_args,
                                                    string_par reference_target_path = "");
 
-    void cmake_config_ok();  // call after successful cmake-config
+    report_t cmake_config_ok();  // call after successful cmake-config
 
 private:
     string path;
@@ -141,6 +146,7 @@ void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
                                           const vector<string>& cmake_args);
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir);
+vector<string> cmakex_prefix_path_to_vector(string_par x);
 }
 
 #endif

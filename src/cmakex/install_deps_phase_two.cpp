@@ -31,7 +31,7 @@ void install_deps_phase_two(string_par binary_dir,
     log_info();
     InstallDB installdb(binary_dir);
     for (auto& p : wsp.build_order) {
-        auto& wp = wsp.pkg_map[p];
+        auto& wp = wsp.pkg_map.at(p);
         log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
         log_info("Checked out @ %s", wp.resolved_git_tag.c_str());
         CHECK(!wp.build_reasons.empty(),
@@ -82,6 +82,7 @@ void install_deps_phase_two(string_par binary_dir,
             }
 
             desc.source_dir = wp.request.b.source_dir;
+            desc.cmake_args = wp.request.b.cmake_args;
             desc.final_cmake_args = wp.final_cmake_args;
             for (auto& d : wp.request.depends) {
                 auto dep_installed = installdb.try_get_installed_pkg_all_configs(d);

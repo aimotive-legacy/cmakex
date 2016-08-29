@@ -10,7 +10,7 @@ class HelperCmakeProject
 {
 public:
     HelperCmakeProject(string_par binary_dir);
-    void configure(const vector<string>& global_cmake_args);
+    CMakeCacheTracker::report_t configure(const vector<string>& global_cmake_args);
     vector<string> run_deps_script(string_par deps_script_file);
 
 private:

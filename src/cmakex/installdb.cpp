@@ -37,13 +37,6 @@ void save(Archive& archive, const config_name_t& x)
 }
 
 template <class Archive>
-void serialize(Archive& archive, pkg_build_pars_t& m, uint32_t version)
-{
-    THROW_UNLESS(version == 1);
-    archive(A(source_dir), A(cmake_args), A(configs));
-}
-
-template <class Archive>
 void serialize(Archive& archive, pkg_clone_pars_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
@@ -75,8 +68,8 @@ template <class Archive>
 void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(final_cmake_args),
-            A(deps_shas));
+    archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(cmake_args),
+            A(final_cmake_args), A(deps_shas));
 }
 
 #undef A
@@ -89,9 +82,16 @@ string calc_sha(const installed_config_desc_t& x)
     return string_sha(oss.str());
 }
 
+namespace {
+string dbpath_from_prefix_path(string_par prefix_path)
+{
+    return prefix_path.str() + "/_cmakex/installdb";
+}
+}
+
 InstallDB::InstallDB(string_par binary_dir)
     : binary_dir(binary_dir.str()),
-      dbpath(cmakex_config_t(binary_dir).deps_install_dir() + "/_cmakex/installdb")
+      dbpath(dbpath_from_prefix_path(cmakex_config_t(binary_dir).deps_install_dir()))
 {
     if (!fs::exists(dbpath))
         fs::create_directories(dbpath);  // must be able to create the path
@@ -102,10 +102,11 @@ string config_from_installed_pkg_config_path(string_par s)
     return fs::path(s).stem().string();
 }
 
-installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par pkg_name) const
+installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par pkg_name,
+                                                                     string_par prefix_path) const
 {
     installed_pkg_configs_t r;
-    auto paths = glob_installed_pkg_config_descs(pkg_name);
+    auto paths = glob_installed_pkg_config_descs(pkg_name, prefix_path);
     for (auto& p : paths) {
         CHECK(fs::is_regular_file(p));  // just globbed
         installed_config_desc_t y = installed_config_desc_t::uninitialized_installed_config_desc();
@@ -147,8 +148,9 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 
 void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
+    p.cmake_args = normalize_cmake_args(p.cmake_args);
     p.final_cmake_args = normalize_cmake_args(p.final_cmake_args);
-    auto dir = installed_pkg_desc_dir(p.pkg_name);
+    auto dir = installed_pkg_desc_dir(p.pkg_name, "");
     fs::create_directories(dir);
     auto path = installed_pkg_config_desc_path(p.pkg_name, p.config);
     save_json_output_archive(path, p);
@@ -161,10 +163,11 @@ void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 }
 */
 
-vector<string> InstallDB::glob_installed_pkg_config_descs(string_par pkg_name) const
+vector<string> InstallDB::glob_installed_pkg_config_descs(string_par pkg_name,
+                                                          string_par prefix_path) const
 {
     vector<string> r;
-    auto dir = installed_pkg_desc_dir(pkg_name);
+    auto dir = installed_pkg_desc_dir(pkg_name, prefix_path);
     if (fs::is_directory(dir)) {
         for (Poco::DirectoryIterator it(dir); it != Poco::DirectoryIterator(); ++it) {
             if (it->isFile())
@@ -174,15 +177,17 @@ vector<string> InstallDB::glob_installed_pkg_config_descs(string_par pkg_name) c
     return r;
 }
 
-string InstallDB::installed_pkg_desc_dir(string_par pkg_name) const
+string InstallDB::installed_pkg_desc_dir(string_par pkg_name, string_par prefix_path) const
 {
-    return stringf("%s/%s", dbpath.c_str(), pkg_name.c_str());
+    return stringf("%s/%s", prefix_path.empty() ? dbpath.c_str()
+                                                : dbpath_from_prefix_path(prefix_path).c_str(),
+                   pkg_name.c_str());
 }
 
 string InstallDB::installed_pkg_config_desc_path(string_par pkg_name,
                                                  const config_name_t& config) const
 {
-    return stringf("%s/%s.json", installed_pkg_desc_dir(pkg_name).c_str(),
+    return stringf("%s/%s.json", installed_pkg_desc_dir(pkg_name, "").c_str(),
                    config.get_lowercase_prefer_noconfig().c_str());
 }
 
@@ -218,9 +223,10 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
     string_par pkg_name,
     string_par bp_source_dir,
     const vector<string>& bp_final_cmake_args,
-    const vector<config_name_t>& bp_configs)
+    const vector<config_name_t>& bp_configs,
+    string_par prefix_path)
 {
-    auto installed_configs = try_get_installed_pkg_all_configs(pkg_name);
+    auto installed_configs = try_get_installed_pkg_all_configs(pkg_name, prefix_path);
     pkg_request_details_against_installed_t r;
     for (const auto& req_config : bp_configs) {
         auto it_installed_config = installed_configs.config_descs.find(req_config);
@@ -290,5 +296,38 @@ void InstallDB::uninstall_config_if_installed(string_par pkg_name, const config_
     string path = installed_pkg_config_desc_path(pkg_name, config);
     if (fs::exists(path))
         remove_and_log_error(path);
+}
+tuple<string, vector<config_name_t>> InstallDB::quick_check_on_prefix_paths(
+    string_par pkg_name,
+    const vector<string>& prefix_paths)
+{
+    tuple<string, vector<config_name_t>> result;
+    vector<string> v;
+    v.reserve(prefix_paths.size() + 1);
+    if (!glob_installed_pkg_config_descs(pkg_name, "").empty())
+        v.emplace_back("");
+    for (auto& p : prefix_paths) {
+        if (!glob_installed_pkg_config_descs(pkg_name, p).empty())
+            v.emplace_back(p);
+    }
+    if (v.size() == 1) {
+        if (!v[0].empty()) {
+            get<0>(result) = v[0];
+            auto cs = try_get_installed_pkg_all_configs(pkg_name, v[0]);
+            for (auto& kv : cs.config_descs)
+                get<1>(result).emplace_back(kv.first);
+        }
+    } else if (v.size() > 1) {
+        for (auto& x : v) {
+            if (x.empty())
+                x = cmakex_config_t(binary_dir).deps_install_dir();
+            x = path_for_log(x);
+        }
+        throwf(
+            "The package %s is installed on multiple prefix paths: [%s]. Remove all but one "
+            "installation to resolve ambiguity",
+            pkg_for_log(pkg_name).c_str(), join(v, ", ").c_str());
+    }
+    return result;
 }
 }

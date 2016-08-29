@@ -11,7 +11,6 @@ add_executable(cmakex
     cmakex_utils.h cmakex_utils.cpp
     git.cpp git.h
     installdb.h installdb.cpp
-    circular_dependency_detector.cpp circular_dependency_detector.h
     clone.h clone.cpp
     cmakex-types.h cmakex-types.cpp
     build.h build.cpp

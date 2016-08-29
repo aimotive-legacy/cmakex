@@ -20,7 +20,8 @@ template <class Archive>
 void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(valid), A(home_directory), A(multiconfig_generator), A(per_config_bin_dirs));
+    archive(A(valid), A(home_directory), A(multiconfig_generator), A(per_config_bin_dirs),
+            A(cmakex_prefix_path_vector), A(env_cmakex_prefix_path_vector));
 }
 
 template <class Archive>
@@ -160,11 +161,6 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
     return false;
 }
 
-string pkg_for_log(string_par pkg_name)
-{
-    return stringf("[%s]", pkg_name.c_str());
-}
-
 parsed_cmake_arg_t parse_cmake_arg(string_par x)
 {
     auto throw_if_msg = [&x](bool cond, const char* reason) {
@@ -299,31 +295,74 @@ bool eval_cmake_boolean_or_fail(string_par x)
     throwf("Invalid boolean constant: %s", x.c_str());
 }
 
-pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str)
+pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str,
+                                       const vector<config_name_t>& default_configs)
 {
-    return pkg_request_from_args(separate_arguments(pkg_arg_str));
+    return pkg_request_from_args(separate_arguments(pkg_arg_str), default_configs);
 }
 
-pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
+// clang-format off
+/* todo add support for local repos (no GIT_URL case)
+SOURCE_DIR GIT_URL
+    abs     yes          ERROR
+    abs     no           OK, local project, no clone: SOURCE_DIR/CMakeLists.txt
+    rel     yes          OK, clone_dir/SOURCE_DIR/CMakeLists.txt
+    rel     no           OK, local project, no clone: parent_path(deps.cmake)/SOURCE_DIR/CMakeLists.txt
+    no      yes          OK, clone_dir/CMakeLists.txt
+    no      no           ERROR
+*/
+// clang-format on
+
+pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
+                                    const vector<config_name_t>& default_configs)
 {
+    CHECK(!default_configs.empty());
     if (pkg_args.empty())
         throwf("Empty package descriptor, package name is missing.");
-    pkg_request_t request;
-    request.name = pkg_args[0];
-    auto args = parse_arguments(
+    const string request_name = pkg_args[0];
+    const auto args = parse_arguments(
         {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
         {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
+
+    if (args.count("GIT_URL") == 0 && args.count("GIT_REPOSITORY") == 0) {
+        // this supposed to be a name-only request. No other fields should be specified
+        for (auto c :
+             {"GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW", "DEPENDS", "CMAKE_ARGS", "CONFIGS"}) {
+            if (args.count(c) != 0)
+                throwf(
+                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package name or "
+                    "the package name with GIT_URL/GIT_REPOSITORY and optional other arguments.");
+        }
+    }
+
+    vector<config_name_t> configs;
+    if (args.count("CONFIGS") > 0) {
+        for (auto& cc : args.at("CONFIGS")) {
+            auto c = trim(cc);
+            if (c.empty())
+                throwf("Empty configuration name is invalid.");
+            configs.emplace_back(c);
+        }
+    }
+    bool using_default_configs = false;
+    if (configs.empty()) {
+        configs = default_configs;
+        using_default_configs = true;
+    }
+
+    pkg_request_t request(pkg_args[0], stable_unique(configs), using_default_configs);
+
     for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
         auto count = args.count(c);
-        CHECK(count == 0 || args[c].size() == 1);
-        if (count > 0 && args[c].empty())
+        CHECK(count == 0 || args.at(c).size() == 1);
+        if (count > 0 && args.at(c).empty())
             throwf("Empty string after '%s'.", c);
     }
     string a, b;
     if (args.count("GIT_REPOSITORY") > 0)
-        a = args["GIT_REPOSITORY"][0];
+        a = args.at("GIT_REPOSITORY")[0];
     if (args.count("GIT_URL") > 0)
-        b = args["GIT_URL"][0];
+        b = args.at("GIT_URL")[0];
     if (!a.empty()) {
         request.c.git_url = a;
         if (!b.empty())
@@ -332,21 +371,21 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
         request.c.git_url = b;
 
     if (args.count("GIT_TAG") > 0)
-        request.c.git_tag = args["GIT_TAG"][0];
+        request.c.git_tag = args.at("GIT_TAG")[0];
     if (args.count("GIT_SHALLOW") > 0)
-        request.git_shallow = eval_cmake_boolean_or_fail(args["GIT_SHALLOW"][0]);
+        request.git_shallow = eval_cmake_boolean_or_fail(args.at("GIT_SHALLOW")[0]);
     if (args.count("SOURCE_DIR") > 0) {
-        request.b.source_dir = args["SOURCE_DIR"][0];
+        request.b.source_dir = args.at("SOURCE_DIR")[0];
         if (fs::path(request.b.source_dir).is_absolute())
             throwf("SOURCE_DIR must be a relative path: \"%s\"", request.b.source_dir.c_str());
     }
     if (args.count("DEPENDS") > 0) {
-        for (auto& d : args["DEPENDS"])
+        for (auto& d : args.at("DEPENDS"))
             request.depends.insert(d);  // insert empty string
     }
     if (args.count("CMAKE_ARGS") > 0) {
         // join some cmake options for easier search
-        request.b.cmake_args = normalize_cmake_args(args["CMAKE_ARGS"]);
+        request.b.cmake_args = normalize_cmake_args(args.at("CMAKE_ARGS"));
         for (auto& a : request.b.cmake_args) {
             auto pca = parse_cmake_arg(a);
             if (pca.switch_ == "-D" &&
@@ -356,16 +395,6 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args)
                        pca.name.c_str());
         }
     }
-
-    if (args.count("CONFIGS") > 0) {
-        for (auto& cc : args["CONFIGS"]) {
-            auto c = trim(cc);
-            if (c.empty())
-                throwf("Empty configuration name is invalid.");
-            request.b.configs.emplace_back(c);
-        }
-    }
-
     return request;
 }
 
@@ -662,23 +691,35 @@ tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
     return make_tuple(normalize_cmake_args(cmake_args_to_apply), cmake_build_type_changing);
 }
 
-void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
+CMakeCacheTracker::report_t CMakeCacheTracker::cmake_config_ok()
 {
     cmake_cache_tracker_t cct;
     load_json_input_archive(path, cct);
+    report_t r;
+
+    auto remember_cmake_prefix_path = [&r](decltype(cct.vars)::iterator it) {
+        if (it->first == "CMAKE_PREFIX_PATH") {
+            auto a = parse_cmake_arg(it->second.value);
+            if (a.switch_ == "-D" && a.name == "CMAKE_PREFIX_PATH") {
+                r.cmake_prefix_path = a.value;
+            }
+        }
+    };
+
     for (auto it = cct.vars.begin(); it != cct.vars.end(); /* no incr */) {
         auto& v = it->second;
 
         switch (v.status) {
-            case cmake_cache_tracker_t::vs_to_be_removed: {
-                auto this_it = it++;
-                cct.vars.erase(this_it);
-            } break;
+            case cmake_cache_tracker_t::vs_to_be_removed:
+                it = cct.vars.erase(it);
+                break;
             case cmake_cache_tracker_t::vs_in_cmakecache:
+                remember_cmake_prefix_path(it);
                 ++it;
                 break;
             case cmake_cache_tracker_t::vs_to_be_defined:
                 v.status = cmake_cache_tracker_t::vs_in_cmakecache;
+                remember_cmake_prefix_path(it);
                 ++it;
                 break;
             default:
@@ -687,6 +728,8 @@ void CMakeCacheTracker::cmake_config_ok()  // call after successful cmake-config
     }
 
     save_json_output_archive(path, cct);
+
+    return r;
 }
 
 vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir)
@@ -703,5 +746,21 @@ vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, s
     }
     cmake_args.emplace_back("-DCMAKE_PREFIX_PATH=" + dir.str());
     return normalize_cmake_args(cmake_args);
+}
+
+vector<string> cmakex_prefix_path_to_vector(string_par x)
+{
+    vector<string> r;
+#ifdef _WIN32
+    const char separator = ';';
+#else
+    const char separator = ':';
+#endif
+    auto v = split(x, separator);
+    for (auto& p : v) {
+        if (!p.empty())
+            r.emplace_back(p);
+    }
+    return r;
 }
 }

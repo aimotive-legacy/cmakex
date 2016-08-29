@@ -242,4 +242,18 @@ void save_log_from_oem(string_par /*prefix_msg*/,
 
     log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
 }
+
+string pkg_for_log(string_par pkg_name)
+{
+    return stringf("[%s]", pkg_name.c_str());
+}
+string path_for_log(string_par path)
+{
+    string r = path.str();
+    if (r.find(' ') != string::npos) {
+        r.insert(0, 1, '"');
+        r.push_back('"');
+    }
+    return r;
+}
 }

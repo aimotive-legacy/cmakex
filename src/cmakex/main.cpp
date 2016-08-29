@@ -2,12 +2,15 @@
 
 #include <cmath>
 
+#include <nowide/cstdlib.hpp>
+
 #include <adasworks/sx/check.h>
 #include <adasworks/sx/log.h>
 
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "git.h"
+#include "helper_cmake_project.h"
 #include "install_deps_phase_one.h"
 #include "install_deps_phase_two.h"
 #include "misc_utils.h"
@@ -39,6 +42,15 @@ int main(int argc, char* argv[])
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     int result = EXIT_SUCCESS;
     log_info("Current directory: \"%s\"", fs::current_path().c_str());
+
+    auto env_cmake_prefix_path = nowide::getenv("CMAKE_PREFIX_PATH");
+    maybe<vector<string>> maybe_env_cmake_prefix_path_vector;
+    if (env_cmake_prefix_path) {
+        // split along os-specific separator
+        vector<pair<string, bool>> msgs;
+        maybe_env_cmake_prefix_path_vector = cmakex_prefix_path_to_vector(env_cmake_prefix_path);
+    }
+
     try {
         auto cla = process_command_line_1(argc, argv);
         processed_command_line_args_cmake_mode_t pars;
@@ -65,6 +77,23 @@ int main(int argc, char* argv[])
             configs.reserve(pars.configs.size());
             for (auto& c : pars.configs)
                 configs.emplace_back(c);
+
+            log_info("Configuring helper CMake project");
+            HelperCmakeProject hcp(pars.binary_dir);
+            auto report = hcp.configure(global_cmake_args);
+            // after successful configuration the cmake generator setting has been validated and
+            // fixed so we're writing out the cmakex cache
+            if (report.cmake_prefix_path)
+                cmakex_cache.cmakex_prefix_path_vector =
+                    cmakex_prefix_path_to_vector(*report.cmake_prefix_path);
+            else
+                cmakex_cache.cmakex_prefix_path_vector.clear();
+            if (maybe_env_cmake_prefix_path_vector)
+                cmakex_cache.env_cmakex_prefix_path_vector = *maybe_env_cmake_prefix_path_vector;
+            else
+                cmakex_cache.env_cmakex_prefix_path_vector.clear();
+            write_cmakex_cache_if_dirty(pars.binary_dir, cmakex_cache);
+
             install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, global_cmake_args, configs,
                                    wsp, cmakex_cache);
             install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c,
