@@ -39,6 +39,42 @@ void build(string_par binary_dir,
         source_dir = pkg_source_dir;  // cwd-relative or absolute
         pkg_bin_dir_of_config =
             cfg.main_binary_dir_of_config(config, cmakex_cache.per_config_bin_dirs);
+        // prepend CMAKE_PREFIX_PATH with deps install dir
+        const string deps_install_dir = cfg.deps_install_dir();
+        bool b;
+        tie(cmake_args, b) = cmake_args_prepend_cmake_prefix_path(cmake_args, deps_install_dir);
+        string cmake_prefix_path_value;
+        string cmake_prefix_path_type;
+        do {  // scope for break
+            if (b)
+                break;  // current cmake_args contains CMAKE_PREFIX_PATH, and we prepended it
+            cmake_prefix_path_value = deps_install_dir;
+            auto cmake_cache_path = pkg_bin_dir_of_config + "/CMakeCache.txt";
+            if (!fs::is_regular_file(cmake_cache_path))
+                break;  // no CMakeCache.txt (initial build), add deps_install as only prefix
+            auto cmake_cache = read_cmake_cache(cmake_cache_path);
+            auto it = cmake_cache.vars.find("CMAKE_PREFIX_PATH");
+            auto itt = cmake_cache.types.find("CMAKE_PREFIX_PATH");
+            if (itt != cmake_cache.types.end())
+                cmake_prefix_path_type = itt->second;
+            if (it == cmake_cache.vars.end() || it->second.empty())
+                break;  // CMAKE_PREFIX_PATH not set in cache, add deps_install as only prefix
+            auto dirs = split(it->second, ';');
+            for (auto& d : dirs) {
+                if (fs::equivalent(d, deps_install_dir)) {
+                    cmake_prefix_path_value.clear();
+                    break;
+                }
+            }
+            if (cmake_prefix_path_value.empty())
+                break;                                    // already added
+            cmake_prefix_path_value += ";" + it->second;  // prepend existing
+        } while (false);
+        if (!cmake_prefix_path_value.empty())
+            cmake_args.emplace_back(stringf(
+                "-DCMAKE_PREFIX_PATH%s=%s",
+                cmake_prefix_path_type.empty() ? "" : (":" + cmake_prefix_path_type).c_str(),
+                cmake_prefix_path_value.c_str()));
     } else {
         source_dir = cfg.pkg_clone_dir(pkg_name);
         if (!pkg_source_dir.empty())

@@ -146,8 +146,12 @@ private:
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
                                           const vector<string>& cmake_args);
 
-vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir);
+// if there's a CMAKE_PREFIX_PATH, prepends, bool is true
+// if there's no, does nothing, bool is false
+tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
+                                                                 string_par dir);
 vector<string> cmakex_prefix_path_to_vector(string_par x);
+cmake_cache_t read_cmake_cache(string_par path);
 }
 
 #endif

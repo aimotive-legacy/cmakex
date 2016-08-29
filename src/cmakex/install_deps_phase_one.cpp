@@ -547,8 +547,11 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         }
 
         if (rr.building_some_pkg) {
-            for (auto& c : pkg.request.b.configs())
-                build_reasons[c].assign(1, "a dependency has been rebuilt");
+            for (auto& c : pkg.request.b.configs()) {
+                auto status = installed_result.at(c).status;
+                if (status != pkg_request_not_installed && status != pkg_request_not_compatible)
+                    build_reasons[c].assign(1, "a dependency has been rebuilt");
+            }
         }
 
         for (auto& kv : installed_result) {

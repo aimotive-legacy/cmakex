@@ -252,36 +252,6 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
     return pars;
 }
 
-struct cmake_cache_t
-{
-    std::map<string, string> vars;
-};
-
-cmake_cache_t read_cmake_cache(string_par path)
-{
-    const vector<string> words = {"CMAKE_HOME_DIRECTORY", "CMAKE_GENERATOR",
-                                  "CMAKE_GENERATOR_TOOLSET", "CMAKE_GENERATOR_PLATFORM",
-                                  "CMAKE_EXTRA_GENERATOR"};
-    cmake_cache_t cache;
-    auto f = must_fopen(path, "r");
-    while (!feof(f)) {
-        auto line = must_fgetline_if_not_eof(f);
-        for (auto s : words) {
-            if (starts_with(line, stringf("%s:", s.c_str())) ||
-                starts_with(line, stringf("%s=", s.c_str()))) {
-                auto equal_pos = line.find('=');
-                if (equal_pos != string::npos) {
-                    cache.vars[s] = line.substr(equal_pos + 1);
-                    break;
-                }
-            }
-        }
-        if (cache.vars.size() == words.size())
-            break;
-    }
-    return cache;
-}
-
 // todo multiple presets
 
 tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_line_2(

@@ -758,20 +758,18 @@ CMakeCacheTracker::report_t CMakeCacheTracker::cmake_config_ok()
     return r;
 }
 
-vector<string> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args, string_par dir)
+tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
+                                                                 string_par dir)
 {
     for (auto& c : cmake_args) {
         auto pca = parse_cmake_arg(c);
         if (pca.switch_ == "-D" && pca.name == "CMAKE_PREFIX_PATH") {
-            c = "-DCMAKE_PREFIX_PATH";
-            if (!pca.type.empty())
-                c += ":" + pca.type;
-            c += "=" + dir.str() + ";" + pca.value;
-            return cmake_args;
+            prepend_inplace(pca.value, dir.str() + ";");
+            c = format_cmake_arg(pca);
+            return make_tuple(move(cmake_args), true);
         }
     }
-    cmake_args.emplace_back("-DCMAKE_PREFIX_PATH=" + dir.str());
-    return normalize_cmake_args(cmake_args);
+    return make_tuple(move(cmake_args), false);
 }
 
 vector<string> cmakex_prefix_path_to_vector(string_par x)
@@ -783,5 +781,33 @@ vector<string> cmakex_prefix_path_to_vector(string_par x)
             r.emplace_back(p);
     }
     return r;
+}
+
+cmake_cache_t read_cmake_cache(string_par path)
+{
+    const vector<string> words = {"CMAKE_HOME_DIRECTORY",    "CMAKE_GENERATOR",
+                                  "CMAKE_GENERATOR_TOOLSET", "CMAKE_GENERATOR_PLATFORM",
+                                  "CMAKE_EXTRA_GENERATOR",   "CMAKE_PREFIX_PATH"};
+    cmake_cache_t cache;
+    auto f = must_fopen(path, "r");
+    while (!feof(f)) {
+        auto line = must_fgetline_if_not_eof(f);
+        for (auto s : words) {
+            if (starts_with(line, stringf("%s:", s.c_str())) ||
+                starts_with(line, stringf("%s=", s.c_str()))) {
+                auto colon_pos = line.find(':');
+                auto equal_pos = line.find('=');
+                if (equal_pos != string::npos) {
+                    if (colon_pos < equal_pos)
+                        cache.types[s] = line.substr(colon_pos + 1, equal_pos - colon_pos - 1);
+                    cache.vars[s] = line.substr(equal_pos + 1);
+                    break;
+                }
+            }
+        }
+        if (cache.vars.size() == words.size())
+            break;
+    }
+    return cache;
 }
 }

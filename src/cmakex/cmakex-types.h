@@ -262,6 +262,12 @@ struct pkg_request_details_against_installed_config_t
 // key is the config
 using pkg_request_details_against_installed_t =
     std::map<config_name_t, pkg_request_details_against_installed_config_t>;
+
+struct cmake_cache_t
+{
+    std::map<string, string> vars;
+    std::map<string, string> types;
+};
 }
 
 #endif
