@@ -25,3 +25,5 @@ target_link_libraries(cmakex PRIVATE
     process
     libgetpreset
 )
+
+install(TARGETS cmakex DESTINATION bin)
