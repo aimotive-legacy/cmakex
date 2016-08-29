@@ -41,11 +41,13 @@ void build(string_par binary_dir,
             cfg.main_binary_dir_of_config(config, cmakex_cache.per_config_bin_dirs);
         // prepend CMAKE_PREFIX_PATH with deps install dir
         const string deps_install_dir = cfg.deps_install_dir();
-        bool b;
-        tie(cmake_args, b) = cmake_args_prepend_cmake_prefix_path(cmake_args, deps_install_dir);
         string cmake_prefix_path_value;
         string cmake_prefix_path_type;
         do {  // scope for break
+            if (!fs::is_directory(deps_install_dir))
+                break;
+            bool b;
+            tie(cmake_args, b) = cmake_args_prepend_cmake_prefix_path(cmake_args, deps_install_dir);
             if (b)
                 break;  // current cmake_args contains CMAKE_PREFIX_PATH, and we prepended it
             cmake_prefix_path_value = deps_install_dir;
@@ -61,7 +63,7 @@ void build(string_par binary_dir,
                 break;  // CMAKE_PREFIX_PATH not set in cache, add deps_install as only prefix
             auto dirs = split(it->second, ';');
             for (auto& d : dirs) {
-                if (fs::equivalent(d, deps_install_dir)) {
+                if (fs::is_directory(d) && fs::equivalent(d, deps_install_dir)) {
                     cmake_prefix_path_value.clear();
                     break;
                 }
