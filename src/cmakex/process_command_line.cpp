@@ -142,113 +142,120 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
             display_version_and_exit(EXIT_SUCCESS);
     }
 
-    string command = argv[1];
-
-    for (auto c : command) {
-        switch (c) {
-            case 'c':
-                pars.flag_c = true;
-                break;
-            case 'b':
-                pars.flag_b = true;
-                break;
-            case 'i':
-                pars.build_targets.emplace_back("install");
-                break;
-            case 't':
-                pars.flag_t = true;
-                break;
-            case 'd':
-                pars.configs.emplace_back("Debug");
-                break;
-            case 'r':
-                pars.configs.emplace_back("Release");
-                break;
-            case 'w':
-                pars.configs.emplace_back("RelWithDebInfo");
-                break;
-            default:
-                badpars_exit(stringf("Invalid character in subcommand: %c", c));
-        }
-    }
     for (int argix = 2; argix < argc; ++argix) {
         string arg = argv[argix];
 
-        if (arg == "--") {
-            pars.native_tool_args.assign(argv + argix + 1, argv + argc);
-            break;
-        }
-        if (arg == "--target") {
-            if (++argix >= argc)
-                badpars_exit("Missing target name after '--target'");
-            pars.build_targets.emplace_back(argv[argix]);
-        } else if (arg == "--config") {
-            if (++argix >= argc)
-                badpars_exit("Missing config name after '--config'");
-            string c = trim(argv[argix]);
-            if (c.empty())
-                badpars_exit("Invalid empty argument for '--config'");
-            pars.configs.emplace_back(c);
-        } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
-            pars.build_args.emplace_back(arg);
-        else if (arg == "--deps" || starts_with(arg, "--deps=")) {
-            if (pars.deps_mode != dm_main_only)
-                badpars_exit("'--deps' or '--deps-only' specified multiple times");
-            pars.deps_mode = dm_deps_and_main;
-            if (starts_with(arg, "--deps=")) {
-                pars.deps_script = make_string(butleft(arg, strlen("--deps=")));
-                if (pars.deps_script.empty())
-                    badpars_exit("Missing path after '--deps='");
+        // subcommand
+        if (argix == 1 && !arg.empty() && arg[0] != '-') {
+            for (auto c : arg) {
+                switch (c) {
+                    case 'c':
+                        pars.flag_c = true;
+                        break;
+                    case 'b':
+                        pars.flag_b = true;
+                        break;
+                    case 'i':
+                        pars.build_targets.emplace_back("install");
+                        break;
+                    case 't':
+                        pars.flag_t = true;
+                        break;
+                    case 'd':
+                        pars.configs.emplace_back("Debug");
+                        break;
+                    case 'r':
+                        pars.configs.emplace_back("Release");
+                        break;
+                    case 'w':
+                        pars.configs.emplace_back("RelWithDebInfo");
+                        break;
+                    default:
+                        badpars_exit(stringf("Invalid character in subcommand: %c", c));
+                }
             }
-        } else if (arg == "--deps-only" || starts_with(arg, "--deps-only=")) {
-            if (pars.deps_mode != dm_main_only)
-                badpars_exit("'--deps' or '--deps-only' specified multiple times");
-            pars.deps_mode = dm_deps_only;
-            if (starts_with(arg, "--deps-only=")) {
-                pars.deps_script = make_string(butleft(arg, strlen("--deps-only=")));
-                if (pars.deps_script.empty())
-                    badpars_exit("Missing path after '--deps-only='");
-            }
-        } else if (starts_with(arg, "-H")) {
-            if (arg == "-H") {
-                // unlike cmake, here we support the '-H <path>' style, too
-                if (++argix >= argc)
-                    badpars_exit("Missing path after '-H'");
-                pars.arg_H = argv[argix];
-            } else
-                pars.arg_H = make_string(butleft(arg, 2));
-        } else if (starts_with(arg, "-B")) {
-            if (arg == "-B") {
-                // unlike cmake, here we support the '-B <path>' style, too
-                if (++argix >= argc)
-                    badpars_exit("Missing path after '-B'");
-                pars.arg_B = argv[argix];
-            } else
-                pars.arg_B = make_string(butleft(arg, 2));
-        } else if (arg == "-p") {
-            if (++argix >= argc)
-                badpars_exit("Missing argument after '-p'");
-            if (!pars.arg_p.empty())
-                badpars_exit("Multiple '-p' options.");
-            pars.arg_p = argv[argix];
-        } else if (!starts_with(arg, '-')) {
-            pars.free_args.emplace_back(arg);
+            pars.subcommand = arg;
         } else {
-            if (arg.size() == 2 && is_one_of(arg, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+            if (arg == "-V")
+                continue;  // verbose flag processed earlier
+            if (pars.subcommand.empty())
+                badpars_exit("Invalid arguments: the first argument must be the subcommand.");
+            if (arg == "--") {
+                pars.native_tool_args.assign(argv + argix + 1, argv + argc);
+                break;
+            }
+            if (arg == "--target") {
                 if (++argix >= argc)
-                    badpars_exit(stringf("Missing argument after '%s'", arg.c_str()));
-                arg += argv[argix];
-            }
+                    badpars_exit("Missing target name after '--target'");
+                pars.build_targets.emplace_back(argv[argix]);
+            } else if (arg == "--config") {
+                if (++argix >= argc)
+                    badpars_exit("Missing config name after '--config'");
+                string c = trim(argv[argix]);
+                if (c.empty())
+                    badpars_exit("Invalid empty argument for '--config'");
+                pars.configs.emplace_back(c);
+            } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
+                pars.build_args.emplace_back(arg);
+            else if (arg == "--deps" || starts_with(arg, "--deps=")) {
+                if (pars.deps_mode != dm_main_only)
+                    badpars_exit("'--deps' or '--deps-only' specified multiple times");
+                pars.deps_mode = dm_deps_and_main;
+                if (starts_with(arg, "--deps=")) {
+                    pars.deps_script = make_string(butleft(arg, strlen("--deps=")));
+                    if (pars.deps_script.empty())
+                        badpars_exit("Missing path after '--deps='");
+                }
+            } else if (arg == "--deps-only" || starts_with(arg, "--deps-only=")) {
+                if (pars.deps_mode != dm_main_only)
+                    badpars_exit("'--deps' or '--deps-only' specified multiple times");
+                pars.deps_mode = dm_deps_only;
+                if (starts_with(arg, "--deps-only=")) {
+                    pars.deps_script = make_string(butleft(arg, strlen("--deps-only=")));
+                    if (pars.deps_script.empty())
+                        badpars_exit("Missing path after '--deps-only='");
+                }
+            } else if (starts_with(arg, "-H")) {
+                if (arg == "-H") {
+                    // unlike cmake, here we support the '-H <path>' style, too
+                    if (++argix >= argc)
+                        badpars_exit("Missing path after '-H'");
+                    pars.arg_H = argv[argix];
+                } else
+                    pars.arg_H = make_string(butleft(arg, 2));
+            } else if (starts_with(arg, "-B")) {
+                if (arg == "-B") {
+                    // unlike cmake, here we support the '-B <path>' style, too
+                    if (++argix >= argc)
+                        badpars_exit("Missing path after '-B'");
+                    pars.arg_B = argv[argix];
+                } else
+                    pars.arg_B = make_string(butleft(arg, 2));
+            } else if (arg == "-p") {
+                if (++argix >= argc)
+                    badpars_exit("Missing argument after '-p'");
+                if (!pars.arg_p.empty())
+                    badpars_exit("Multiple '-p' options.");
+                pars.arg_p = argv[argix];
+            } else if (!starts_with(arg, '-')) {
+                pars.free_args.emplace_back(arg);
+            } else {
+                if (arg.size() == 2 && is_one_of(arg, {"-C", "-D", "-U", "-G", "-T", "-A"})) {
+                    if (++argix >= argc)
+                        badpars_exit(stringf("Missing argument after '%s'", arg.c_str()));
+                    arg += argv[argix];
+                }
 
-            try {
-                auto pca = parse_cmake_arg(arg);
-            } catch (...) {
-                badpars_exit(stringf("Invalid option: '%s'", arg.c_str()));
-            }
+                try {
+                    auto pca = parse_cmake_arg(arg);
+                } catch (...) {
+                    badpars_exit(stringf("Invalid option: '%s'", arg.c_str()));
+                }
 
-            pars.cmake_args.emplace_back(arg);
-        }  // last else
-    }      // foreach arg
+                pars.cmake_args.emplace_back(arg);
+            }  // last else
+        }
+    }  // foreach arg
     return pars;
 }
 

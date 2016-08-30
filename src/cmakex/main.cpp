@@ -41,7 +41,19 @@ int main(int argc, char* argv[])
 #endif
     adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
     int result = EXIT_SUCCESS;
-    log_info("Current directory: \"%s\"", fs::current_path().c_str());
+
+    for (int argix = 1; argix < argc; ++argix) {
+        string arg = argv[argix];
+        if (arg == "-V")
+            g_verbose = true;
+    }
+
+    if (g_verbose) {
+        log_info("Current directory: \"%s\"", fs::current_path().c_str());
+        for (int i = 0; i < argc; ++i) {
+            log_info("arg#%d: `%s`", i, argv[i]);
+        }
+    }
 
     auto env_cmake_prefix_path = nowide::getenv("CMAKE_PREFIX_PATH");
     maybe<vector<string>> maybe_env_cmake_prefix_path_vector;
@@ -53,6 +65,8 @@ int main(int argc, char* argv[])
 
     try {
         auto cla = process_command_line_1(argc, argv);
+        if (cla.subcommand.empty())
+            exit(EXIT_SUCCESS);
         processed_command_line_args_cmake_mode_t pars;
         cmakex_cache_t cmakex_cache;
 

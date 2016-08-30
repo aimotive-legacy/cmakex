@@ -36,6 +36,8 @@ string current_datetime_string_for_log();
 
 string pkg_for_log(string_par pkg_name);
 string path_for_log(string_par path);
+
+extern bool g_verbose;
 }
 
 #endif

@@ -203,6 +203,7 @@ struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
     string arg_H;
     string arg_B;
     string arg_p;  // preset: [path/]preset-name
+    string subcommand;
 };
 
 struct cmakex_cache_t

@@ -14,6 +14,8 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
+bool g_verbose = false;
+
 void log_info()
 {
     printf("--\n");
