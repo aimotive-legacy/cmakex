@@ -26,3 +26,5 @@ target_link_libraries(cmakex PRIVATE
 )
 
 install(TARGETS cmakex DESTINATION bin)
+
+set_target_properties(cmakex PROPERTIES DEBUG_POSTFIX _d)
