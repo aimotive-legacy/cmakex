@@ -17,6 +17,7 @@ namespace fs = filesystem;
 void log_info()
 {
     printf("--\n");
+    fflush(stdout);
 }
 
 void log_info(const char* s, ...)
@@ -27,6 +28,7 @@ void log_info(const char* s, ...)
     vprintf(s, ap);
     va_end(ap);
     printf("\n");
+    fflush(stdout);
 }
 void log_info_framed_message(string_par msg)
 {
@@ -44,7 +46,9 @@ void log_warn(const char* s, ...)
     vprintf(s, ap);
     va_end(ap);
     printf("\n");
+    fflush(stdout);
 }
+
 void log_error(const char* s, ...)
 {
     fprintf(stderr, "cmakex: ERROR: ");
