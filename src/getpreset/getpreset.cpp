@@ -364,9 +364,7 @@ std::tuple<std::vector<std::string>, std::string, std::string> getpreset(string_
             }
             map<string, string> vars;
             using pair_ss = std::pair<string, string>;
-            string input_dir = file;
-            while (!input_dir.empty() && input_dir.back() != '/' && input_dir.back() != '\\')
-                input_dir.pop_back();
+            string input_dir = fs::path(file).parent_path();
             vars.insert(pair_ss("CMAKE_CURRENT_LIST_DIR", input_dir));
             for (auto& n : variables) {
                 if (!n.first.IsScalar()) {
@@ -383,9 +381,17 @@ std::tuple<std::vector<std::string>, std::string, std::string> getpreset(string_
             }
             // substitute variables
             for (auto& s : vv) {
-                for (auto& kv_var : vars) {
-                    s = subs(s, kv_var.first, kv_var.second);
-                }
+                bool changed = false;
+                do {
+                    changed = false;
+                    for (auto& kv_var : vars) {
+                        auto t = subs(s, kv_var.first, kv_var.second);
+                        if (t != s) {
+                            s = t;
+                            changed = true;
+                        }
+                    }
+                } while (changed);
             }
         }
     } else if (field == "arch") {

@@ -516,7 +516,10 @@ bool path::is_relative() const
 
 path path::parent_path() const
 {
-    return Poco::Path(s).parent().toString();
+    auto p = Poco::Path(s).parent().toString();
+    while (p.size() > 1 && (p.back() == '/' || p.back() == '\\'))
+        p.pop_back();
+    return p;
 }
 
 path path::stem() const
