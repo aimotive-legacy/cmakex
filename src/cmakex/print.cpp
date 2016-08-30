@@ -87,7 +87,6 @@ string escape_arg(string_par arg)
 {
     string t;
     bool quoted = false;
-    ;
     for (const char* cs = arg.c_str(); *cs; ++cs) {
         auto c = *cs;
         switch (c) {
@@ -99,9 +98,11 @@ string escape_arg(string_par arg)
                 }
                 t.push_back(c);
                 break;
+#ifndef _WIN32
             case '\\':
                 t.append("\\\\");
                 break;
+#endif
             case '"':
                 t.append("\\\"");
                 break;
@@ -164,6 +165,10 @@ void save_log_from_oem(string_par /*prefix_msg*/,
                        string_par log_dir,
                        string_par log_filename)
 {
+#ifdef _MSC_VER
+	_set_printf_count_output(1);
+#endif
+
     if (!fs::is_directory(log_dir.c_str())) {
         string msg;
         try {
