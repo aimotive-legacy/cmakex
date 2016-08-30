@@ -14,9 +14,10 @@ using adasworks::sx::string_par;
 // Returns
 //- single-item vector or vector-of-args (for cmake field)
 //- resolved file path
-//- resolved preset-name
-std::tuple<std::vector<std::string>, std::string, std::string> getpreset(string_par path_name,
-                                                                         string_par field);
+//- resolved preset-names (from query)
+std::tuple<std::vector<std::string>, std::string, std::vector<std::string>> getpreset(
+    string_par path_name,
+    string_par field);
 }
 
 #endif

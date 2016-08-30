@@ -284,11 +284,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     // resolve preset
     if (!cla.arg_p.empty()) {
         string msg;
-        string file, alias;
-        vector<string> preset_args, name;
+        string file;
+        vector<string> preset_args, names, aliases;
         try {
-            tie(name, file, alias) = libgetpreset::getpreset(cla.arg_p, "name");
-            tie(preset_args, file, alias) = libgetpreset::getpreset(cla.arg_p, "args");
+            tie(names, file, aliases) = libgetpreset::getpreset(cla.arg_p, "name");
+            tie(preset_args, file, aliases) = libgetpreset::getpreset(cla.arg_p, "args");
         } catch (const exception& e) {
             msg = e.what();
         } catch (...) {
@@ -296,10 +296,12 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         }
         if (!msg.empty())
             throwf("Invalid '-p' argument, reason: %s", msg.c_str());
-        CHECK(name.size() == 1);
-        log_info("Using preset '%s'%s from \"%s\"", name.front().c_str(),
-                 alias == name[0] ? "" : stringf(" (alias: %s)", alias.c_str()).c_str(),
-                 file.c_str());
+        CHECK(!names.empty());
+        if (names.size() == 1)
+            log_info("Using preset `%s` from %s", names[0].c_str(), path_for_log(file).c_str());
+        else
+            log_info("Using presets [%s] from %s", join(names, ", ").c_str(),
+                     path_for_log(file).c_str());
         prepend_inplace(pcla.cmake_args, preset_args);
     }
 

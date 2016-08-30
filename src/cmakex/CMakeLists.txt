@@ -1,7 +1,5 @@
 add_executable(cmakex
     run_cmake_steps.h run_cmake_steps.cpp
-    using-decls.h
-    misc_utils.h misc_utils.cpp
     print.h print.cpp
     main.cpp
     process_command_line.h process_command_line.cpp
@@ -24,6 +22,7 @@ target_link_libraries(cmakex PRIVATE
     cereal
     process
     libgetpreset
+    common
 )
 
 install(TARGETS cmakex DESTINATION bin)

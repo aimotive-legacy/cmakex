@@ -18,6 +18,7 @@
 #include <adasworks/sx/stringf.h>
 
 #include "filesystem.h"
+#include "misc_utils.h"
 
 using namespace adasworks;
 namespace fs = filesystem;
@@ -27,6 +28,7 @@ using sx::string_par;
 using std::vector;
 using std::map;
 using sx::stringf;
+using namespace cmakex;
 
 #ifndef LIBGETPRESET
 void print_usage()
@@ -231,8 +233,9 @@ int main_core(int argc, char* argv[])
 
     vector<string> vv;
     try {
-        string file, name;
-        std::tie(vv, file, name) = libgetpreset::getpreset(argv[1], argv[2]);
+        string file;
+        vector<string> names;
+        std::tie(vv, file, names) = libgetpreset::getpreset(argv[1], argv[2]);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return EXIT_FAILURE;
@@ -257,22 +260,18 @@ int main_core(int argc, char* argv[])
 }
 #endif
 
-std::tuple<string, string> find_file_and_name(string_par path_name)
+std::tuple<string, vector<string>> find_file_and_names(string_par path_name)
 {
-    // find out if it's a preset-name or path + preset-name
-    // find the longest sequence ending with: .yaml/
-    string name = path_name.str();
+    // split along hashmarks and find out if the first one is a file
+    auto names = split(path_name, '#');
     string file;
-    const int dot_yaml_len = 5;
-    for (int i = (int)name.size(); i >= dot_yaml_len; --i) {
-        if ((i == name.size() || name[i] == '/') &&
-            name.substr(i - dot_yaml_len, dot_yaml_len) == ".yaml" &&
-            fs::is_regular_file(name.substr(0, i))) {
-            file = name.substr(0, i);
-            name = name.substr(std::min<int>(name.size(), i + 1));
-            break;
-        }
+    if (names.empty())
+        throwf("Empty path/preset argument");
+    if (fs::is_regular_file(names[0])) {
+        file = names[0];
+        names.erase(names.begin());
     }
+
     if (file.empty()) {
         // check environment var
         auto x = nowide::getenv("CMAKEX_PRESET_FILE");
@@ -289,22 +288,21 @@ std::tuple<string, string> find_file_and_name(string_par path_name)
         file = x;
     }
 
-    if (name.empty()) {
+    if (names.empty()) {
         throw std::runtime_error(stringf(
-            "The preset specifier (%s) is a valid YAML file but the preset name is missing at the "
-            "end.",
+            "The preset specifier (%s) is a valid YAML file but no preset names found after it.",
             path_name.c_str()));
     }
 
-    return std::make_tuple(std::move(file), std::move(name));
+    return std::make_tuple(std::move(file), std::move(names));
 }
 
 namespace libgetpreset {
-std::tuple<std::vector<std::string>, std::string, std::string> getpreset(string_par path_name,
-                                                                         string_par field)
+tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, string_par field)
 {
-    string file, lookup_name;
-    std::tie(file, lookup_name) = find_file_and_name(path_name);
+    string file;
+    vector<string> lookup_names;
+    std::tie(file, lookup_names) = find_file_and_names(path_name);
 
     YAML::Node config;
     try {
@@ -325,83 +323,85 @@ std::tuple<std::vector<std::string>, std::string, std::string> getpreset(string_
             stringf("The value of the `presets` key is not a map in \"%s\".\n", file.c_str()));
     }
 
-    string preset_name;
+    vector<string> result;
 
-    for (auto& n : presets) {
-        string key = n.first.as<string>();
-        if (key == lookup_name) {
-            preset_name = key;
-            break;
-        }
-        auto aliases = flatten(n.second["alias"]);
-        for (auto& a : aliases) {
-            if (a == lookup_name) {
+    for (auto& lookup_name : lookup_names) {
+        string preset_name;
+
+        for (auto& n : presets) {
+            string key = n.first.as<string>();
+            if (key == lookup_name) {
                 preset_name = key;
                 break;
             }
-        }
-        if (!preset_name.empty())
-            break;
-    }
-
-    if (preset_name.empty())
-        throw std::runtime_error(stringf("The preset name or alias \"%s\" not found in \"%s\".\n",
-                                         lookup_name.c_str(), file.c_str()));
-
-    auto preset = presets[preset_name];
-    vector<string> vv;
-
-    if (field == "name") {
-        vv.assign(1, preset_name);
-    } else if (field == "args") {
-        auto args = preset["args"];
-        if (args) {
-            auto v = flatten(args);
-            for (auto& s : v) {
-                auto ss = split(s);
-                if (!ss.empty())
-                    vv.insert(vv.end(), ss.begin(), ss.end());
-            }
-            map<string, string> vars;
-            using pair_ss = std::pair<string, string>;
-            string input_dir = fs::path(file).parent_path();
-            vars.insert(pair_ss("CMAKE_CURRENT_LIST_DIR", input_dir));
-            for (auto& n : variables) {
-                if (!n.first.IsScalar()) {
-                    throw std::runtime_error(
-                        stringf("Non-scalar variable name found in \"%s\".\n", file.c_str()));
-                } else if (!n.second.IsScalar()) {
-                    throw std::runtime_error(
-                        stringf("The value of the variable \"%s\" is must be scalar in \"%s\".\n",
-                                n.first.as<string>().c_str(), file.c_str()));
+            auto aliases = flatten(n.second["alias"]);
+            for (auto& a : aliases) {
+                if (a == lookup_name) {
+                    preset_name = key;
+                    break;
                 }
-                string k = n.first.as<string>();
-                string v = n.second.as<string>();
-                vars.insert(pair_ss(k, v));
             }
-            // substitute variables
-            for (auto& s : vv) {
-                bool changed = false;
-                do {
-                    changed = false;
-                    for (auto& kv_var : vars) {
-                        auto t = subs(s, kv_var.first, kv_var.second);
-                        if (t != s) {
-                            s = t;
-                            changed = true;
-                        }
-                    }
-                } while (changed);
-            }
+            if (!preset_name.empty())
+                break;
         }
-    } else if (field == "arch") {
-        auto arch = preset["arch"];
-        vv.assign(1, arch ? arch.as<string>().c_str() : preset_name.c_str());
-    } else {
-        throw std::runtime_error(stringf("Invalid field name: %s.\n", field.c_str()));
+
+        if (preset_name.empty())
+            throw std::runtime_error(
+                stringf("The preset name or alias \"%s\" not found in \"%s\".\n",
+                        lookup_name.c_str(), file.c_str()));
+
+        auto preset = presets[preset_name];
+
+        if (field == "name") {
+            result.emplace_back(preset_name);
+        } else if (field == "args") {
+            auto args = preset["args"];
+            vector<string> vv;
+            if (args) {
+                auto v = flatten(args);
+                append_inplace(vv, v);
+                map<string, string> vars;
+                using pair_ss = std::pair<string, string>;
+                string input_dir = fs::path(file).parent_path();
+                vars.insert(pair_ss("CMAKE_CURRENT_LIST_DIR", input_dir));
+                for (auto& n : variables) {
+                    if (!n.first.IsScalar()) {
+                        throw std::runtime_error(
+                            stringf("Non-scalar variable name found in \"%s\".\n", file.c_str()));
+                    } else if (!n.second.IsScalar()) {
+                        throw std::runtime_error(stringf(
+                            "The value of the variable \"%s\" is must be scalar in \"%s\".\n",
+                            n.first.as<string>().c_str(), file.c_str()));
+                    }
+                    string k = n.first.as<string>();
+                    string v = n.second.as<string>();
+                    vars.insert(pair_ss(k, v));
+                }
+                // substitute variables
+                for (auto& s : vv) {
+                    bool changed = false;
+                    do {
+                        changed = false;
+                        for (auto& kv_var : vars) {
+                            auto t = subs(s, kv_var.first, kv_var.second);
+                            if (t != s) {
+                                s = t;
+                                changed = true;
+                            }
+                        }
+                    } while (changed);
+                }
+            }
+            append_inplace(result, vv);
+        } else if (field == "arch") {
+            auto arch = preset["arch"];
+            result.emplace_back(arch ? arch.as<string>().c_str() : preset_name.c_str());
+        } else {
+            throw std::runtime_error(stringf("Invalid field name: %s.\n", field.c_str()));
+        }
     }
 
-    return std::make_tuple(std::move(vv), std::move(file), std::move(lookup_name));
+    return std::make_tuple(std::move(result), std::move(file), std::move(lookup_names));
 }
 }
 

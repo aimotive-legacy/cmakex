@@ -14,7 +14,7 @@ foreach(t getpreset test_getpreset libgetpreset)
 
         target_link_libraries(${t}
             PUBLIC ::aw-sx
-            PRIVATE yaml-cpp filesystem nowide::nowide-static)
+            PRIVATE yaml-cpp filesystem nowide::nowide-static common)
     endif()
 endforeach()
 
