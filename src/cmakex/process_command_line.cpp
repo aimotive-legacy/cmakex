@@ -300,7 +300,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         else
             log_info("Using presets [%s] from %s", join(names, ", ").c_str(),
                      path_for_log(file).c_str());
-        prepend_inplace(pcla.cmake_args, preset_args);
+        prepend_inplace(pcla.cmake_args, normalize_cmake_args(preset_args));
     }
 
     if (cla.free_args.empty()) {
