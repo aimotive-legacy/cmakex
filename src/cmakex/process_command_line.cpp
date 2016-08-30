@@ -142,7 +142,7 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
             display_version_and_exit(EXIT_SUCCESS);
     }
 
-    for (int argix = 2; argix < argc; ++argix) {
+    for (int argix = 1; argix < argc; ++argix) {
         string arg = argv[argix];
 
         // subcommand
@@ -258,8 +258,6 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
     }  // foreach arg
     return pars;
 }
-
-// todo multiple presets
 
 tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_line_2(
     const command_line_args_cmake_mode_t& cla)
