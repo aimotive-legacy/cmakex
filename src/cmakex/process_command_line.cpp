@@ -195,9 +195,9 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 if (c.empty())
                     badpars_exit("Invalid empty argument for '--config'");
                 pars.configs.emplace_back(c);
-            } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
+            } else if (is_one_of(arg, {"--clean-first", "--use-stderr"})) {
                 pars.build_args.emplace_back(arg);
-            else if (arg == "--deps" || starts_with(arg, "--deps=")) {
+            } else if (arg == "--deps" || starts_with(arg, "--deps=")) {
                 if (pars.deps_mode != dm_main_only)
                     badpars_exit("'--deps' or '--deps-only' specified multiple times");
                 pars.deps_mode = dm_deps_and_main;
@@ -237,6 +237,8 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 if (!pars.arg_p.empty())
                     badpars_exit("Multiple '-p' options.");
                 pars.arg_p = argv[argix];
+            } else if (arg == "--force-build") {
+                pars.force_build = true;
             } else if (!starts_with(arg, '-')) {
                 pars.free_args.emplace_back(arg);
             } else {
@@ -406,29 +408,31 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     cmakex_cache_t cmakex_cache = cfg.cmakex_cache();
 
-    if (cmakex_cache.valid) {
-        string source_dir = cmakex_cache.home_directory;
+    if (pcla.deps_mode != dm_deps_only) {
+        if (cmakex_cache.valid) {
+            string source_dir = cmakex_cache.home_directory;
 
-        if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
-            badpars_exit(
-                stringf("The source dir specified \"%s\" is different from the one stored in the "
-                        "%s: \"%s\"",
-                        pcla.source_dir.c_str(), k_cmakex_cache_filename, source_dir.c_str()));
-        }
-        if (pcla.source_dir.empty())
-            pcla.source_dir = source_dir;
-    } else {
-        check_cmake_cache();
-        if (binary_dir_has_cmake_cache) {
-            string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
             if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
                 badpars_exit(stringf(
                     "The source dir specified \"%s\" is different from the one stored in the "
-                    "CMakeCache.txt: \"%s\"",
-                    pcla.source_dir.c_str(), source_dir.c_str()));
+                    "%s: \"%s\"",
+                    pcla.source_dir.c_str(), k_cmakex_cache_filename, source_dir.c_str()));
             }
             if (pcla.source_dir.empty())
                 pcla.source_dir = source_dir;
+        } else {
+            check_cmake_cache();
+            if (binary_dir_has_cmake_cache) {
+                string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
+                if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
+                    badpars_exit(stringf(
+                        "The source dir specified \"%s\" is different from the one stored in the "
+                        "CMakeCache.txt: \"%s\"",
+                        pcla.source_dir.c_str(), source_dir.c_str()));
+                }
+                if (pcla.source_dir.empty())
+                    pcla.source_dir = source_dir;
+            }
         }
     }
 

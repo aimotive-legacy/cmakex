@@ -13,7 +13,6 @@ static const char* const k_deps_script_filename = "deps.cmake";
 static const char* const k_log_extension = ".log";
 static const char* const k_cmakex_cache_filename = "cmakex_cache.json";
 static const char* const k_cmake_cache_tracker_filename = "cmakex_cache_tracker.json";
-static const char* const k_cmake_cache_tracker_ref_filename = "cmakex_cache_tracker_ref.json";
 
 enum git_tag_kind_t
 {
@@ -128,8 +127,7 @@ struct installed_config_desc_t
     config_name_t config;
     string git_url;
     string git_sha;
-    string source_dir;  // (relative) directory containing CMakeLists.txt
-    vector<string> cmake_args;
+    string source_dir;                // (relative) directory containing CMakeLists.txt
     vector<string> final_cmake_args;  // all cmake args including global ones
     deps_shas_t deps_shas;            // sha's of dependencies at the time of the build
 private:
@@ -195,6 +193,7 @@ struct base_command_line_args_cmake_mode_t
     vector<string> cmake_args;  // two-word args like -D X will be joined into one: -DX
     deps_mode_t deps_mode = dm_main_only;
     string deps_script;
+    bool force_build = false;
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
@@ -216,9 +215,10 @@ struct cmakex_cache_t
     // this value will be false
     vector<string> cmakex_prefix_path_vector;
     vector<string> env_cmakex_prefix_path_vector;  // also cached, each time it will be overwritten
-                                                   // with the current value of the environment
-                                                   // variable, but left as is if the env var is not
-                                                   // set
+    // with the current value of the environment
+    // variable, but left as is if the env var is not
+    // set
+    string cmake_root;
 };
 
 bool operator==(const cmakex_cache_t& x, const cmakex_cache_t& y);

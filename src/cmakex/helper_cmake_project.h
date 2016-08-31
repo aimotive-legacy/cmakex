@@ -10,8 +10,12 @@ class HelperCmakeProject
 {
 public:
     HelperCmakeProject(string_par binary_dir);
-    CMakeCacheTracker::report_t configure(const vector<string>& global_cmake_args);
+    // applies deps_accum_cmake_args if initial config, otherwise the applies the (incremental)
+    // command_line_cmake_args
+    void configure(const vector<string>& command_line_cmake_args);
     vector<string> run_deps_script(string_par deps_script_file);
+
+    cmake_cache_t cmake_cache;  // read after configuration
 
 private:
     const string binary_dir;

@@ -166,7 +166,7 @@ void save_log_from_oem(string_par /*prefix_msg*/,
                        string_par log_filename)
 {
 #ifdef _MSC_VER
-	_set_printf_count_output(1);
+    _set_printf_count_output(1);
 #endif
 
     if (!fs::is_directory(log_dir.c_str())) {
@@ -252,19 +252,5 @@ void save_log_from_oem(string_par /*prefix_msg*/,
                stringf("Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str()));
 
     log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
-}
-
-string pkg_for_log(string_par pkg_name)
-{
-    return stringf("[%s]", pkg_name.c_str());
-}
-string path_for_log(string_par path)
-{
-    string r = path.str();
-    if (r.find(' ') != string::npos) {
-        r.insert(0, 1, '"');
-        r.push_back('"');
-    }
-    return r;
 }
 }

@@ -257,6 +257,20 @@ Container sort_copy(const Container& x)
     return y;
 }
 char system_path_separator();
+void must_write_text(string_par path, string_par content);
+string pkg_for_log(string_par pkg_name);
+string path_for_log(string_par path);
+
+// returns map[key] or default_value if not found
+template <class Map>
+typename Map::mapped_type map_at_or_default(
+    const Map& map,
+    const typename Map::key_type& key,
+    const typename Map::mapped_type& default_value = typename Map::mapped_type())
+{
+    auto it = map.find(key);
+    return it == map.end() ? default_value : it->second;
+}
 }
 
 #endif

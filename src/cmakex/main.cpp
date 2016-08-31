@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
         exit(0);
     }
 #endif
-    adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
+    adasworks::log::Logger global_logger(adasworks::log::global_tag, AW_TRACE);
     int result = EXIT_SUCCESS;
 
     for (int argix = 1; argix < argc; ++argix) {
@@ -81,12 +81,18 @@ int main(int argc, char* argv[])
         CHECK(pars.deps_mode == dm_deps_only || !pars.source_dir.empty());
         if (pars.deps_mode != dm_main_only) {
             deps_recursion_wsp_t wsp;
-            vector<string> global_cmake_args;
+            wsp.force_build = pars.force_build;
+            // command_line_cmake_args contains the cmake args specified in the original cmakex call
+            // except any arg dealing with CMAKE_INSTALL_PREFIX
+            vector<string> command_line_cmake_args;
             for (auto& c : pars.cmake_args) {
                 auto pca = parse_cmake_arg(c);
-                if (pca.name != "CMAKE_INSTALL_PREFIX")
-                    global_cmake_args.emplace_back(c);
+                if (pca.name != "CMAKE_INSTALL_PREFIX") {
+                    command_line_cmake_args.emplace_back(c);
+                }
             }
+            command_line_cmake_args = normalize_cmake_args(command_line_cmake_args);
+
             vector<config_name_t> configs;
             configs.reserve(pars.configs.size());
             for (auto& c : pars.configs)
@@ -94,22 +100,33 @@ int main(int argc, char* argv[])
 
             log_info("Configuring helper CMake project");
             HelperCmakeProject hcp(pars.binary_dir);
-            auto report = hcp.configure(global_cmake_args);
-            // after successful configuration the cmake generator setting has been validated and
-            // fixed so we're writing out the cmakex cache
-            if (report.cmake_prefix_path)
+            hcp.configure(command_line_cmake_args);
+
+            // get some variables from helper project cmake cache
+            auto& cc = hcp.cmake_cache;
+
+            // remember CMAKE_ROOT
+            if (cc.vars.count("CMAKE_ROOT") > 0)
+                cmakex_cache.cmake_root = cc.vars.at("CMAKE_ROOT");
+
+            // remember CMAKE_PREFIX_PATH
+            if (cc.vars.count("CMAKE_PREFIX_PATH") > 0) {
                 cmakex_cache.cmakex_prefix_path_vector =
-                    cmakex_prefix_path_to_vector(*report.cmake_prefix_path);
-            else
+                    cmakex_prefix_path_to_vector(cc.vars.at("CMAKE_PREFIX_PATH"));
+            } else
                 cmakex_cache.cmakex_prefix_path_vector.clear();
+
+            // remember ENV{CMAKE_PREFIX_PATH}
             if (maybe_env_cmake_prefix_path_vector)
                 cmakex_cache.env_cmakex_prefix_path_vector = *maybe_env_cmake_prefix_path_vector;
-            else
-                cmakex_cache.env_cmakex_prefix_path_vector.clear();
+
+            // after successful configuration of the helper project the cmake generator setting has
+            // been validated and fixed so we're writing out the cmakex cache
             write_cmakex_cache_if_dirty(pars.binary_dir, cmakex_cache);
 
             install_deps_phase_one(
-                pars.binary_dir, pars.source_dir, {}, global_cmake_args, configs, wsp, cmakex_cache,
+                pars.binary_dir, pars.source_dir, {}, command_line_cmake_args, configs, wsp,
+                cmakex_cache,
                 pars.deps_script.empty() ? "" : fs::absolute(pars.deps_script).c_str());
             install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c,
                                    pars.build_args, pars.native_tool_args);

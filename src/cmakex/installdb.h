@@ -25,8 +25,7 @@ public:
     pkg_request_details_against_installed_t evaluate_pkg_request_build_pars(
         string_par pkg_name,
         string_par bp_source_dir,
-        const vector<string>& bp_final_cmake_args,
-        const vector<config_name_t>& bp_configs,
+        const std::map<config_name_t, vector<string>>& final_cmake_args,
         string_par prefix_path = "");
     installed_pkg_configs_t try_get_installed_pkg_all_configs(string_par pkg_name,
                                                               string_par prefix_path = "") const;
