@@ -57,9 +57,9 @@ void install_deps_phase_two(string_par binary_dir,
                 auto& br = wp.pcd.at(config).build_reasons;
                 auto it = br.begin();
                 CHECK(it != br.end());
-                string s1 =
-                    stringf("Building '%s', reason: ", config.get_prefer_NoConfig().c_str());
+                string s1 = stringf("Reason: ");
                 log_info();
+                log_info("Building '%s'", config.get_prefer_NoConfig().c_str());
                 log_info("%s%s", s1.c_str(), it->c_str());
                 s1.assign(s1.size(), ' ');
                 for (++it; it != br.end(); ++it)

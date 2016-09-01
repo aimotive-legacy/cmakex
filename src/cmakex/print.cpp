@@ -251,6 +251,7 @@ void save_log_from_oem(string_par /*prefix_msg*/,
     slf_printf(h,
                stringf("Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str()));
 
-    log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
+    if (result)
+        log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
 }
 }

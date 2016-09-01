@@ -147,6 +147,11 @@ void build(string_par binary_dir,
             build_args.end());
     }
 
+    log_info("Writing logs to %s.",
+             path_for_log(stringf("%s/%s-<config>-<step>%s", cfg.cmakex_log_dir().c_str(),
+                                  pkg_name.c_str(), k_log_extension))
+                 .c_str());
+
     {  // scope only
         auto cct = load_cmake_cache_tracker(pkg_bin_dir_of_config);
         cct.add_pending(cmake_args);
