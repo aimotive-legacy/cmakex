@@ -158,12 +158,14 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
 
     append_inplace(args, cct.pending_cmake_args);
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
-    log_exec("cmake", args);
+    auto cl_config = string_exec("cmake", args);
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
 
-    save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
+    if (r)
+        printf("%s\n", cl_config.c_str());
+    save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
     string cmake_cache_path = build_script_executor_binary_dir + "/CMakeCache.txt";
@@ -192,11 +194,13 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
                       deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
 
-    log_exec("cmake", args);
+    auto cl_deps = string_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     auto oem2 = oeb2.move_result();
-    save_log_from_oem("Dependency script", r, oem2, cfg.cmakex_log_dir(),
+    if (r)
+        printf("%s\n", cl_deps.c_str());
+    save_log_from_oem(cl_deps, r, oem2, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-run" + k_log_extension);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing dependency script wrapper, result: %d.", r);

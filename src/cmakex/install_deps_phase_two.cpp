@@ -29,8 +29,10 @@ void install_deps_phase_two(string_par binary_dir,
                             const vector<string>& native_tool_args)
 {
     log_info();
+
     InstallDB installdb(binary_dir);
     for (auto& p : wsp.build_order) {
+        log_datetime();
         auto& wp = wsp.pkg_map.at(p);
         log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
         log_info("Checked out @ %s", wp.resolved_git_tag.c_str());

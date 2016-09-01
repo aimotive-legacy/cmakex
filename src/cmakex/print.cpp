@@ -115,7 +115,7 @@ string escape_arg(string_par arg)
     return t;
 }
 
-void log_exec(string_par command, const vector<string>& args, string_par working_directory)
+string string_exec(string_par command, const vector<string>& args, string_par working_directory)
 {
     string cd_prefix;
     if (!working_directory.empty())
@@ -125,7 +125,13 @@ void log_exec(string_par command, const vector<string>& args, string_par working
         u.push_back(' ');
         u.append(escape_arg(s));
     }
-    printf("$ %s%s\n", cd_prefix.c_str(), u.c_str());
+    return stringf("$ %s%s", cd_prefix.c_str(), u.c_str());
+}
+string log_exec(string_par command, const vector<string>& args, string_par working_directory)
+{
+    auto r = string_exec(command, args, working_directory);
+    printf("%s\n", r.c_str());
+    return r;
 }
 string datetime_string_for_log(Poco::DateTime dt)
 {
@@ -159,7 +165,7 @@ void slf_printf(slf_helper_t& h, string_par s)
         printf("%s", s.c_str());
 }
 
-void save_log_from_oem(string_par /*prefix_msg*/,
+void save_log_from_oem(string_par command_line,
                        int result,
                        const OutErrMessages& oem,
                        string_par log_dir,
@@ -195,7 +201,8 @@ void save_log_from_oem(string_par /*prefix_msg*/,
     slf_helper_t h(result, f.stream());
 
     slf_printf(
-        h, stringf("Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str()));
+        h, stringf("Started at %s\n%s\n", datetime_string_for_log(oem.start_system_time()).c_str(),
+                   command_line.c_str()));
     const char c_line_feed = 10;
     const char c_carriage_return = 13;
     const int c_stderr_marker_length = 4;
@@ -253,5 +260,10 @@ void save_log_from_oem(string_par /*prefix_msg*/,
 
     if (result)
         log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
+}
+
+void log_datetime()
+{
+    log_info("%s", current_datetime_string_for_log().c_str());
 }
 }

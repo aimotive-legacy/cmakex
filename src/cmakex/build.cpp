@@ -148,8 +148,9 @@ void build(string_par binary_dir,
     }
 
     log_info("Writing logs to %s.",
-             path_for_log(stringf("%s/%s-<config>-<step>%s", cfg.cmakex_log_dir().c_str(),
-                                  pkg_name.c_str(), k_log_extension))
+             path_for_log(stringf("%s/%s-%s-<step>%s", cfg.cmakex_log_dir().c_str(),
+                                  config.get_prefer_NoConfig().c_str(), pkg_name.c_str(),
+                                  k_log_extension))
                  .c_str());
 
     {  // scope only
@@ -170,7 +171,7 @@ void build(string_par binary_dir,
                 cmake_args_to_apply.begin(),
                 {string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config});
 
-            log_exec("cmake", cmake_args_to_apply);
+            auto cl_config = log_exec("cmake", cmake_args_to_apply);
 
             int r;
             if (pkg_name.empty()) {
@@ -181,7 +182,7 @@ void build(string_par binary_dir,
                                  oeb.stderr_callback());
                 auto oem = oeb.move_result();
 
-                save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
+                save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
                                   stringf("%s-%s-configure%s", pkg_name.c_str(),
                                           config.get_prefer_NoConfig().c_str(), k_log_extension));
             }
@@ -236,7 +237,7 @@ void build(string_par binary_dir,
             append_inplace(args, native_tool_args);
         }
 
-        log_exec("cmake", args);
+        string cl_build = log_exec("cmake", args);
         {  // scope only
             int r;
             if (pkg_name.empty()) {
@@ -247,7 +248,7 @@ void build(string_par binary_dir,
                 auto oem = oeb.move_result();
 
                 save_log_from_oem(
-                    "Build", r, oem, cfg.cmakex_log_dir(),
+                    cl_build, r, oem, cfg.cmakex_log_dir(),
                     stringf("%s-%s-build-%s%s", pkg_name.c_str(),
                             config.get_prefer_NoConfig().c_str(),
                             target.empty() ? "all" : target.c_str(), k_log_extension));
