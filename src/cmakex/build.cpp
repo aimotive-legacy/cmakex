@@ -150,6 +150,7 @@ void build(string_par binary_dir,
     {  // scope only
         auto cct = load_cmake_cache_tracker(pkg_bin_dir_of_config);
         cct.add_pending(cmake_args);
+        fs::create_directories(pkg_bin_dir_of_config);
         save_cmake_cache_tracker(pkg_bin_dir_of_config, cct);
 
         // do config step only if needed
