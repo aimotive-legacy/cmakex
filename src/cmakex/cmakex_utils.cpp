@@ -9,7 +9,7 @@
 #include "resource.h"
 
 CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 1)
-CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 1)
+CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 2)
 
 namespace cmakex {
 
