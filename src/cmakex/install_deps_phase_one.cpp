@@ -378,7 +378,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 auto pkg_bin_dir_of_config =
                     cfg.pkg_binary_dir_of_config(pkg_name, c, cmakex_cache.per_config_bin_dirs);
                 pcd_c.initial_build =
-                    fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
+                    !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
 
                 auto& cmake_args_to_apply = pkg_c.cmake_args_to_apply;
                 if (pcd_c.initial_build)
