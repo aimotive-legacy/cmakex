@@ -68,8 +68,8 @@ template <class Archive>
 void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
-    archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(cmake_args),
-            A(final_cmake_args), A(deps_shas));
+    archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(final_cmake_args),
+            A(deps_shas));
 }
 
 #undef A
@@ -148,7 +148,6 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 
 void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
-    p.cmake_args = normalize_cmake_args(p.cmake_args);
     p.final_cmake_args = normalize_cmake_args(p.final_cmake_args);
     auto dir = installed_pkg_desc_dir(p.pkg_name, "");
     fs::create_directories(dir);
@@ -222,13 +221,13 @@ vector<string> incompatible_cmake_args(const vector<string>& x, const vector<str
 pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pars(
     string_par pkg_name,
     string_par bp_source_dir,
-    const vector<string>& bp_final_cmake_args,
-    const vector<config_name_t>& bp_configs,
+    const std::map<config_name_t, vector<string>>& bp_final_cmake_args,
     string_par prefix_path)
 {
     auto installed_configs = try_get_installed_pkg_all_configs(pkg_name, prefix_path);
     pkg_request_details_against_installed_t r;
-    for (const auto& req_config : bp_configs) {
+    for (auto& kv : bp_final_cmake_args) {
+        auto& req_config = kv.first;
         auto it_installed_config = installed_configs.config_descs.find(req_config);
         if (it_installed_config == installed_configs.config_descs.end()) {
             r.emplace(req_config, installed_config_desc_t(pkg_name, req_config));
@@ -236,7 +235,7 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
         } else {
             auto& cd = it_installed_config->second;
             r.emplace(req_config, cd);
-            auto ica = incompatible_cmake_args(cd.final_cmake_args, bp_final_cmake_args);
+            auto ica = incompatible_cmake_args(cd.final_cmake_args, kv.second);
             if (bp_source_dir != cd.source_dir) {
                 ica.emplace_back(stringf("(different source dirs: '%s' and '%s')",
                                          cd.source_dir.c_str(), bp_source_dir.c_str()));

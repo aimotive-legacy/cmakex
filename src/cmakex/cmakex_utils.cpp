@@ -6,9 +6,10 @@
 #include "filesystem.h"
 #include "misc_utils.h"
 #include "print.h"
+#include "resource.h"
 
 CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 1)
-CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 1)
+CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 2)
 
 namespace cmakex {
 
@@ -21,9 +22,10 @@ void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
 {
     THROW_UNLESS(version == 1);
     archive(A(valid), A(home_directory), A(multiconfig_generator), A(per_config_bin_dirs),
-            A(cmakex_prefix_path_vector), A(env_cmakex_prefix_path_vector));
+            A(cmakex_prefix_path_vector), A(env_cmakex_prefix_path_vector), A(cmake_root));
 }
 
+#if 0
 template <class Archive>
 void serialize(Archive& archive, cmake_cache_tracker_t::var_t& m)
 {
@@ -36,8 +38,69 @@ void serialize(Archive& archive, cmake_cache_tracker_t& m, uint32_t version)
     THROW_UNLESS(version == 1);
     archive(A(vars), A(c_sha), A(cmake_toolchain_file_sha));
 }
+#endif
+
+template <class Archive>
+void serialize(Archive& archive, cmake_cache_tracker_t& m, uint32_t version)
+{
+    THROW_UNLESS(version == 2);
+    archive(A(pending_cmake_args), A(cached_cmake_args), A(c_sha), A(cmake_toolchain_file_sha));
+}
 
 #undef A
+
+string cmake_cache_tracker_path(string_par bin_dir)
+{
+    return bin_dir.str() + "/" + k_cmake_cache_tracker_filename;
+}
+
+void remove_cmake_cache_tracker(string_par bin_dir)
+{
+    auto p = cmake_cache_tracker_path(bin_dir);
+    if (fs::is_regular_file(p))
+        fs::remove(p);
+}
+
+cmake_cache_tracker_t load_cmake_cache_tracker(string_par bin_dir)
+{
+    cmake_cache_tracker_t x;
+    auto p = cmake_cache_tracker_path(bin_dir);
+    if (!fs::is_regular_file(p))
+        return x;
+    load_json_input_archive(p, x);
+    return x;
+}
+
+void cmake_cache_tracker_t::add_pending(const vector<string>& cmake_args)
+{
+    pending_cmake_args = normalize_cmake_args(concat(pending_cmake_args, cmake_args));
+}
+
+void cmake_cache_tracker_t::confirm_pending()
+{
+    for (auto& a : pending_cmake_args) {
+        auto pca = parse_cmake_arg(a);
+
+        if (pca.switch_ == "-C") {
+            c_sha = file_sha(pca.value);
+        } else if (pca.name == "CMAKE_TOOLCHAIN_FILE") {
+            if (pca.switch_ == "-D") {
+                cmake_toolchain_file_sha = file_sha(pca.value);
+            } else if (pca.switch_ == "-U") {
+                cmake_toolchain_file_sha.clear();
+            } else {
+                LOG_FATAL("Internal error: invalid arg in cmake cache tracker: %s", a.c_str());
+            }
+        }
+    }
+    cached_cmake_args = normalize_cmake_args(concat(cached_cmake_args, pending_cmake_args));
+    pending_cmake_args.clear();
+}
+
+void save_cmake_cache_tracker(string_par bin_dir, const cmake_cache_tracker_t& x)
+{
+    save_json_output_archive(cmake_cache_tracker_path(bin_dir), x);
+}
 
 cmakex_config_t::cmakex_config_t(string_par cmake_binary_dir)
     : cmake_binary_dir(fs::absolute(cmake_binary_dir.c_str()).string())
@@ -64,12 +127,11 @@ string cmakex_config_t::main_binary_dir_common() const
 {
     return cmake_binary_dir;
 }
-
 string cmakex_config_t::main_binary_dir_of_config(const config_name_t& config,
                                                   bool per_config_bin_dirs) const
 {
     string r = cmake_binary_dir;
-    if (!config.is_noconfig() && per_config_bin_dirs)
+    if (per_config_bin_dirs)
         r += "/" + config.get_prefer_NoConfig();
     return r;
 }
@@ -78,7 +140,6 @@ string cmakex_config_t::cmakex_dir() const
 {
     return cmake_binary_dir + "/_cmakex";
 }
-
 string cmakex_config_t::cmakex_executor_dir() const
 {
     return cmakex_dir() + "/deps_script_executor_project";
@@ -88,12 +149,10 @@ string cmakex_config_t::cmakex_tmp_dir() const
 {
     return cmakex_dir() + "/tmp";
 }
-
 string cmakex_config_t::cmakex_log_dir() const
 {
     return cmakex_dir() + "/log";
 }
-
 string cmakex_config_t::pkg_clone_dir(string_par pkg_name) const
 {
     return cmake_binary_dir + "/_deps/" + pkg_name.c_str();
@@ -109,7 +168,7 @@ string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
                                                  bool per_config_bin_dirs) const
 {
     auto r = pkg_binary_dir_common(pkg_name);
-    if (!config.is_noconfig() && per_config_bin_dirs)
+    if (per_config_bin_dirs)
         r += "/" + config.get_prefer_NoConfig();
     return r;
 }
@@ -135,7 +194,6 @@ string cmakex_config_t::deps_install_dir() const
 {
     return cmake_binary_dir + "/_deps-install";
 }
-
 void badpars_exit(string_par msg)
 {
     fprintf(stderr, "Error, bad parameters: %s.\n", msg.c_str());
@@ -356,8 +414,11 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
              {"GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW", "DEPENDS", "CMAKE_ARGS", "CONFIGS"}) {
             if (args.count(c) != 0)
                 throwf(
-                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package name or "
-                    "the package name with GIT_URL/GIT_REPOSITORY and optional other arguments.");
+                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package "
+                    "name "
+                    "or "
+                    "the package name with GIT_URL/GIT_REPOSITORY and optional other "
+                    "arguments.");
         }
     }
 
@@ -424,6 +485,21 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
     return request;
 }
 
+#if 0
+vector<string> filter_cmake_args_for_final(const vector<string>& x)
+{
+    vector<string> result;
+    result.reserve(x.size());
+    for (auto& a : x) {
+        auto pca = parse_cmake_arg(a);
+        if (pca.switch_ == "-G" ||
+            is_one_of(pca.name, {"CMAKE_INSTALL_PREFIX", "CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH"}))
+            continue;
+        result.emplace_back(a);
+    }
+}
+#endif
+
 vector<string> normalize_cmake_args(const vector<string>& x)
 {
     vector<string> y;
@@ -439,8 +515,8 @@ vector<string> normalize_cmake_args(const vector<string>& x)
     }
 
     std::unordered_map<string, string> prev_options;
-    std::map<string, string>
-        varname_to_last_arg;  // maps variable name to the last option that deals with that variable
+    std::map<string, string> varname_to_last_arg;  // maps variable name to the last option that
+                                                   // deals with that variable
     vector<string> z;
     z.reserve(y.size());
     const char* GTA_vars[] = {"CMAKE_GENERATOR", "CMAKE_GENERATOR_TOOLSET",
@@ -452,7 +528,8 @@ vector<string> normalize_cmake_args(const vector<string>& x)
         if (pca.switch_ == "-U") {
             if (pca.name.find('*') != string::npos || pca.name.find('?') != string::npos)
                 throwf(
-                    "Invalid CMAKE_ARG: '%s', globbing characters '*' and '?' are not supported "
+                    "Invalid CMAKE_ARG: '%s', globbing characters '*' and '?' are not "
+                    "supported "
                     "for now.",
                     a.c_str());
         }
@@ -496,7 +573,8 @@ vector<string> normalize_cmake_args(const vector<string>& x)
                     } else {
                         if (prev_option != a) {
                             throwf(
-                                "Two, different '%s' options has been specified: \"%s\" and "
+                                "Two, different '%s' options has been specified: \"%s\" "
+                                "and "
                                 "\"%s\". "
                                 "There should be only a single '%s' option for a build.",
                                 o, prev_option.c_str(), a.c_str(), o);
@@ -532,28 +610,36 @@ void write_cmakex_cache_if_dirty(string_par binary_dir, const cmakex_cache_t& cm
         save_json_output_archive(cfg.cmakex_cache_path(), cmakex_cache);
 }
 
+#if 0
+void CMakeCacheTracker::remove(string_par bin_dir)
+{
+    auto p = bin_dir.str() + "/" + k_cmake_cache_tracker_filename;
+    if (fs::exists(p))
+        fs::remove(p);
+}
+
 CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir)
     : path(bin_dir.str() + "/" + k_cmake_cache_tracker_filename)
 {
 }
 
+/*
 CMakeCacheTracker::CMakeCacheTracker(string_par bin_dir, string_par filename)
     : path(bin_dir.str() + "/" + filename.c_str())
 {
 }
-
+*/
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
                                           const vector<string>& cmake_args)
 {
-    CMakeCacheTracker ccc(pkg_bin_dir_common, k_cmake_cache_tracker_ref_filename);
+    CMakeCacheTracker ccc(pkg_bin_dir_common);
     ccc.about_to_configure(cmake_args, false);
     ccc.cmake_config_ok();
 }
 
-tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
-    const vector<string>& cmake_args_in,
-    bool force_input_cmake_args,
-    string_par ref_path)
+vector<string> CMakeCacheTracker::about_to_configure(const vector<string>& cmake_args_in,
+                                                     bool force_input_cmake_args,
+                                                     string_par ref_path)
 {
     using var_t = cmake_cache_tracker_t::var_t;
     using var_status_t = cmake_cache_tracker_t::var_status_t;
@@ -676,16 +762,6 @@ tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
             cct.cmake_toolchain_file_sha = file_sha(pca.value);
     }
 
-    // remember CMAKE_BUILD_TYPE state
-    bool cmake_build_type_changing = false;
-    it = cct.vars.find("CMAKE_BUILD_TYPE");
-    if (it != cct.vars.end()) {
-        auto pca = parse_cmake_arg(it->second.value);
-        if (pca.switch_ == "-D")
-            cmake_build_type_changing =
-                it->second.status != cmake_cache_tracker_t::vs_in_cmakecache;
-    }
-
     fs::create_directories(fs::path(path).parent_path());
     save_json_output_archive(path, cct);
 
@@ -714,7 +790,7 @@ tuple<vector<string>, bool> CMakeCacheTracker::about_to_configure(
     else
         append_inplace(cmake_args_to_apply, current_request_nonvar_args);
 
-    return make_tuple(normalize_cmake_args(cmake_args_to_apply), cmake_build_type_changing);
+    return normalize_cmake_args(cmake_args_to_apply);
 }
 
 CMakeCacheTracker::report_t CMakeCacheTracker::cmake_config_ok()
@@ -758,6 +834,8 @@ CMakeCacheTracker::report_t CMakeCacheTracker::cmake_config_ok()
     return r;
 }
 
+#endif
+
 tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
                                                                  string_par dir)
 {
@@ -785,9 +863,13 @@ vector<string> cmakex_prefix_path_to_vector(string_par x)
 
 cmake_cache_t read_cmake_cache(string_par path)
 {
-    const vector<string> words = {"CMAKE_HOME_DIRECTORY",    "CMAKE_GENERATOR",
-                                  "CMAKE_GENERATOR_TOOLSET", "CMAKE_GENERATOR_PLATFORM",
-                                  "CMAKE_EXTRA_GENERATOR",   "CMAKE_PREFIX_PATH"};
+    const vector<string> words = {"CMAKE_HOME_DIRECTORY",
+                                  "CMAKE_GENERATOR",
+                                  "CMAKE_GENERATOR_TOOLSET",
+                                  "CMAKE_GENERATOR_PLATFORM",
+                                  "CMAKE_EXTRA_GENERATOR",
+                                  "CMAKE_PREFIX_PATH",
+                                  "CMAKE_ROOT"};
     cmake_cache_t cache;
     auto f = must_fopen(path, "r");
     while (!feof(f)) {
@@ -809,5 +891,20 @@ cmake_cache_t read_cmake_cache(string_par path)
             break;
     }
     return cache;
+}
+void write_hijack_module(string_par pkg_name, string_par binary_dir)
+{
+    cmakex_config_t cfg(binary_dir);
+    string dir = cfg.deps_install_dir() + "/_cmakex/hijack";
+    if (!fs::is_directory(dir))
+        fs::create_directories(dir);
+    static const char* const c_fptcf_filename = "FindPackageTryConfigFirst.cmake";
+    string file = dir + "/" + c_fptcf_filename;
+    if (!fs::is_regular_file(file))
+        must_write_text(file, find_package_try_config_first_module_content);
+    file = dir + "/" + tolower(pkg_name) + "-config.cmake";
+    if (!fs::is_regular_file(file))
+        must_write_text(file,
+                        "include(FindPackageTryConfigFirst)\nfind_package_try_config_first()\n");
 }
 }

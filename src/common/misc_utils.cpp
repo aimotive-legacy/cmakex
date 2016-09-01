@@ -349,4 +349,31 @@ char system_path_separator()
     return ':';
 #endif
 }
+
+void must_write_text(string_par path, string_par content)
+{
+    FILE* f = fopen(path, "w");
+    if (!f)
+        throwf("Can't open file for writing: %s", path_for_log(path).c_str());
+    int r = fprintf(f, "%s", content.c_str());
+    if (r <= 0) {
+        int e = errno;
+        throwf("Failed to write file: %s, errno: %d, reason: %s", path_for_log(path).c_str(), e,
+               strerror(e));
+    }
+    fclose(f);
+}
+string pkg_for_log(string_par pkg_name)
+{
+    return stringf("[%s]", pkg_name.c_str());
+}
+string path_for_log(string_par path)
+{
+    string r = path.str();
+    if (r.find(' ') != string::npos) {
+        r.insert(0, 1, '"');
+        r.push_back('"');
+    }
+    return r;
+}
 }

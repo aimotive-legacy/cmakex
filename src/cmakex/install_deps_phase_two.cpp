@@ -34,12 +34,17 @@ void install_deps_phase_two(string_par binary_dir,
         auto& wp = wsp.pkg_map.at(p);
         log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
         log_info("Checked out @ %s", wp.resolved_git_tag.c_str());
-        CHECK(!wp.build_reasons.empty(),
+        std::vector<config_name_t> configs_to_build;
+        for (auto& kv : wp.pcd) {
+            if (!kv.second.build_reasons.empty())
+                configs_to_build.emplace_back(kv.first);
+        }
+        CHECK(!configs_to_build.empty(),
               "Internal error: at this point there must be at least one explicit configuration "
               "specified to build.");
-        if (wp.build_reasons.size() > 1)
+        if (configs_to_build.size() > 1)
             log_info("Configurations: [%s]",
-                     join(get_prefer_NoConfig(keys_of_map(wp.build_reasons)), ", ").c_str());
+                     join(get_prefer_NoConfig(configs_to_build), ", ").c_str());
 
         cmakex_config_t cfg(binary_dir);
         CHECK(cfg.cmakex_cache().valid);
@@ -47,20 +52,21 @@ void install_deps_phase_two(string_par binary_dir,
         clone_helper_t clone_helper(binary_dir, p);
 
         bool force_config_step_now = force_config_step;
-        for (auto& kv : wp.build_reasons) {
-            auto& config = kv.first;
+        for (auto& config : configs_to_build) {
             {
-                auto it = kv.second.begin();
-                CHECK(it != kv.second.end());
-                string s1 =
-                    stringf("Building '%s', reason: ", config.get_prefer_NoConfig().c_str());
+                auto& br = wp.pcd.at(config).build_reasons;
+                auto it = br.begin();
+                CHECK(it != br.end());
+                string s1 = stringf("Reason: ");
+                log_info();
+                log_info("Building '%s'", config.get_prefer_NoConfig().c_str());
                 log_info("%s%s", s1.c_str(), it->c_str());
                 s1.assign(s1.size(), ' ');
-                for (++it; it != kv.second.end(); ++it)
+                for (++it; it != br.end(); ++it)
                     log_info("%s%s", s1.c_str(), it->c_str());
             }
-            build(binary_dir, p, wp.request.b.source_dir, wp.final_cmake_args, config,
-                  {"", "install"}, force_config_step_now, cfg.cmakex_cache(), build_args,
+            build(binary_dir, p, wp.request.b.source_dir, wp.pcd.at(config).cmake_args_to_apply,
+                  config, {"", "install"}, force_config_step_now, cfg.cmakex_cache(), build_args,
                   native_tool_args);
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
@@ -82,8 +88,7 @@ void install_deps_phase_two(string_par binary_dir,
             }
 
             desc.source_dir = wp.request.b.source_dir;
-            desc.cmake_args = wp.request.b.cmake_args;
-            desc.final_cmake_args = wp.final_cmake_args;
+            desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
             for (auto& d : wp.request.depends) {
                 auto dep_installed = installdb.try_get_installed_pkg_all_configs(d);
                 for (auto& kv : dep_installed.config_descs)

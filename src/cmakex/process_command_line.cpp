@@ -195,9 +195,9 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 if (c.empty())
                     badpars_exit("Invalid empty argument for '--config'");
                 pars.configs.emplace_back(c);
-            } else if (is_one_of(arg, {"--clean-first", "--use-stderr"}))
+            } else if (is_one_of(arg, {"--clean-first", "--use-stderr"})) {
                 pars.build_args.emplace_back(arg);
-            else if (arg == "--deps" || starts_with(arg, "--deps=")) {
+            } else if (arg == "--deps" || starts_with(arg, "--deps=")) {
                 if (pars.deps_mode != dm_main_only)
                     badpars_exit("'--deps' or '--deps-only' specified multiple times");
                 pars.deps_mode = dm_deps_and_main;
@@ -237,6 +237,8 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 if (!pars.arg_p.empty())
                     badpars_exit("Multiple '-p' options.");
                 pars.arg_p = argv[argix];
+            } else if (arg == "--force-build") {
+                pars.force_build = true;
             } else if (!starts_with(arg, '-')) {
                 pars.free_args.emplace_back(arg);
             } else {
@@ -309,24 +311,45 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     if (g_verbose)
         log_info("Global CMAKE_ARGS: [%s]", join(pcla.cmake_args, ", ").c_str());
 
+    // -B, valid binary
+    // -B, any binary --deps-only
+    // -H and -B
+    // <path-to-existing-binary>
+    // <path-to-source>, binary=pwd
+
     if (cla.free_args.empty()) {
         if (cla.arg_H.empty()) {
             if (cla.arg_B.empty()) {
+                // no -H, -B, free-arg
                 badpars_exit(
                     "No source or binary directories specified. CMake would set both to the "
                     "current directory but cmakex requires the source and binary directories to be "
                     "different.");
-            } else
+            } else {
+                // only -B
                 pcla.binary_dir = cla.arg_B;
+                if (cla.deps_mode != dm_deps_only && !is_valid_binary_dir(cla.arg_B))
+                    badpars_exit(
+                        "Only a binary directory is specified: it must be an existing binary-dir.");
+            }
         } else {
-            if (cla.arg_B.empty())
-                pcla.source_dir = cla.arg_H;
-            else {
+            if (cla.arg_B.empty()) {
+                // only H specified
+                badpars_exit("Missing '-B' option for the '-H' option.");
+            } else {
+                // -H and -B, -H must be exisiting source dir
                 pcla.source_dir = cla.arg_H;
                 pcla.binary_dir = cla.arg_B;
+                if (!is_valid_source_dir(cla.arg_H))
+                    badpars_exit(stringf("Invalid source dir (no CMakeLists.txt): %s",
+                                         path_for_log(cla.arg_H).c_str()));
             }
         }
     } else if (cla.free_args.size() == 1) {
+        if (!cla.arg_H.empty() || !cla.arg_B.empty())
+            badpars_exit(
+                "Specify either '-H' and '-B' options or a standalone path (path-to-existing-build "
+                "or path-to-source).");
         string d = cla.free_args[0];
         bool b = is_valid_binary_dir(d);
         bool s = is_valid_source_dir(d);
@@ -338,24 +361,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                             d.c_str()));
             } else {
                 pcla.binary_dir = d;
-                if (!cla.arg_B.empty() && !fs::equivalent(d, cla.arg_B))
-                    badpars_exit(
-                        stringf("The binary directory specified by the free argument \"%s\" is "
-                                "different from '-B' option: \"%s\"",
-                                d.c_str(), cla.arg_B.c_str()));
-                if (!cla.arg_H.empty())
-                    pcla.source_dir = cla.arg_H;
             }
         } else {
             if (s) {
                 pcla.source_dir = d;
-                if (!cla.arg_H.empty() && !fs::equivalent(d, cla.arg_H))
-                    badpars_exit(
-                        stringf("The source directory specified by the free argument \"%s\" is "
-                                "different from '-H' option: \"%s\"",
-                                d.c_str(), cla.arg_H.c_str()));
-                if (!cla.arg_B.empty())
-                    pcla.binary_dir = cla.arg_H;
+                pcla.binary_dir = fs::current_path().string();
             } else {
                 badpars_exit(
                     stringf("The directory \"%s\" is neither a valid source (no CMakeLists.txt), "
@@ -367,11 +377,12 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         badpars_exit(
             stringf("More than one free arguments: %s", join(cla.free_args, ", ").c_str()));
     }
-    if (pcla.binary_dir.empty())
-        pcla.binary_dir = fs::current_path().string();
 
     // at this point we have a new or an existing binary dir
     CHECK(!pcla.binary_dir.empty());
+    CHECK(pcla.source_dir.empty() || fs::is_directory(pcla.source_dir));
+
+    fs::create_directories(pcla.binary_dir);
 
     if (!pcla.source_dir.empty()) {
         if (fs::equivalent(pcla.source_dir, pcla.binary_dir))
@@ -406,29 +417,31 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     cmakex_cache_t cmakex_cache = cfg.cmakex_cache();
 
-    if (cmakex_cache.valid) {
-        string source_dir = cmakex_cache.home_directory;
+    if (pcla.deps_mode != dm_deps_only) {
+        if (cmakex_cache.valid) {
+            string source_dir = cmakex_cache.home_directory;
 
-        if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
-            badpars_exit(
-                stringf("The source dir specified \"%s\" is different from the one stored in the "
-                        "%s: \"%s\"",
-                        pcla.source_dir.c_str(), k_cmakex_cache_filename, source_dir.c_str()));
-        }
-        if (pcla.source_dir.empty())
-            pcla.source_dir = source_dir;
-    } else {
-        check_cmake_cache();
-        if (binary_dir_has_cmake_cache) {
-            string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
             if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
                 badpars_exit(stringf(
                     "The source dir specified \"%s\" is different from the one stored in the "
-                    "CMakeCache.txt: \"%s\"",
-                    pcla.source_dir.c_str(), source_dir.c_str()));
+                    "%s: \"%s\"",
+                    pcla.source_dir.c_str(), k_cmakex_cache_filename, source_dir.c_str()));
             }
             if (pcla.source_dir.empty())
                 pcla.source_dir = source_dir;
+        } else {
+            check_cmake_cache();
+            if (binary_dir_has_cmake_cache) {
+                string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
+                if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
+                    badpars_exit(stringf(
+                        "The source dir specified \"%s\" is different from the one stored in the "
+                        "CMakeCache.txt: \"%s\"",
+                        pcla.source_dir.c_str(), source_dir.c_str()));
+                }
+                if (pcla.source_dir.empty())
+                    pcla.source_dir = source_dir;
+            }
         }
     }
 

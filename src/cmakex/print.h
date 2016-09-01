@@ -34,9 +34,6 @@ void save_log_from_oem(string_par prefix_msg,
 string current_datetime_string_for_log();
 // string datetime_string_for_log(std::chrono::system_clock::time_point x);
 
-string pkg_for_log(string_par pkg_name);
-string path_for_log(string_par path);
-
 extern bool g_verbose;
 }
 

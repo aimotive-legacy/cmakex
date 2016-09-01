@@ -94,7 +94,7 @@ HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
 {
 }
 
-CMakeCacheTracker::report_t HelperCmakeProject::configure(const vector<string>& global_cmake_args)
+void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args)
 {
     for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
         if (!fs::is_directory(d)) {
@@ -143,14 +143,20 @@ CMakeCacheTracker::report_t HelperCmakeProject::configure(const vector<string>& 
     args.emplace_back(string("-B") + build_script_executor_binary_dir);
 
     fs::create_directories(build_script_executor_binary_dir);
-    CMakeCacheTracker cvt(build_script_executor_binary_dir);
 
-    {
-        auto t = cvt.about_to_configure(global_cmake_args, true);
-        auto& diff_global_cmake_args = get<0>(t);
-        args.insert(args.end(), BEGINEND(diff_global_cmake_args));
-    }
+    bool initial_config =
+        !fs::is_regular_file(build_script_executor_binary_dir + "/CMakeCache.txt");
 
+    if (initial_config)
+        remove_cmake_cache_tracker(build_script_executor_binary_dir);
+
+    //    CMakeCacheTracker cvt(build_script_executor_binary_dir);
+
+    auto cct = load_cmake_cache_tracker(build_script_executor_binary_dir);
+    cct.add_pending(command_line_cmake_args);
+    save_cmake_cache_tracker(build_script_executor_binary_dir, cct);
+
+    append_inplace(args, cct.pending_cmake_args);
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
     log_exec("cmake", args);
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
@@ -160,10 +166,17 @@ CMakeCacheTracker::report_t HelperCmakeProject::configure(const vector<string>& 
     save_log_from_oem("CMake-configure", r, oem, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
-    if (r != EXIT_SUCCESS)
+    string cmake_cache_path = build_script_executor_binary_dir + "/CMakeCache.txt";
+    if (r != EXIT_SUCCESS) {
+        if (initial_config && fs::is_regular_file(cmake_cache_path))
+            fs::remove(cmake_cache_path);
         throwf("Failed configuring dependency script wrapper project, result: %d.", r);
+    }
 
-    return cvt.cmake_config_ok();
+    cct.confirm_pending();
+    save_cmake_cache_tracker(build_script_executor_binary_dir, cct);
+
+    cmake_cache = read_cmake_cache(cmake_cache_path);
 }
 
 // todo detect if there's cmake and git and provide better error message

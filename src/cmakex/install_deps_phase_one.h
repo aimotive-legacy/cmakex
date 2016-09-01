@@ -9,15 +9,20 @@ namespace cmakex {
 
 struct deps_recursion_wsp_t
 {
+    struct per_config_data
+    {
+        vector<string> build_reasons;
+        vector<string> cmake_args_to_apply;
+        vector<string> tentative_final_cmake_args;
+    };
     struct pkg_t
     {
         pkg_t(const pkg_request_t& req) : request(req) {}
         pkg_request_t request;
         bool just_cloned = false;  // cloned in this run of install_deps_phase_one
         string resolved_git_tag;
-        vector<string> final_cmake_args;
-        std::map<config_name_t, vector<string>> build_reasons;
         string found_on_prefix_path;  // if non-empty this package has been found on a prefix path
+        std::map<config_name_t, per_config_data> pcd;
     };
 
     vector<string> requester_stack;
@@ -25,6 +30,7 @@ struct deps_recursion_wsp_t
     std::map<string, pkg_t> pkg_map;
     std::set<string>
         pkgs_to_process;  // not unordered set because we prefer cross-platform determinism
+    bool force_build = false;
 };
 
 // install_deps_phase_one recursion result: aggregates certain data below a node in the recursion

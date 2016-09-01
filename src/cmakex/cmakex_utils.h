@@ -84,6 +84,7 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
 vector<string> normalize_cmake_args(const vector<string>& x);
 void write_cmakex_cache_if_dirty(string_par bin_dir, const cmakex_cache_t& cmakex_cache);
 
+#if 0
 // json file used by CMakeCacheTracker
 struct cmake_cache_tracker_t
 {
@@ -107,7 +108,19 @@ struct cmake_cache_tracker_t
     string c_sha;                     // SHA of the file specified with -C
     string cmake_toolchain_file_sha;  // SHA of the file specified with -DCMAKE_TOOLCHAIN_FILE
 };
+#endif
 
+struct cmake_cache_tracker_t
+{
+    void add_pending(const vector<string>& cmake_args);
+    void confirm_pending();
+
+    vector<string> pending_cmake_args, cached_cmake_args;
+    string c_sha;                     // SHA of the file specified with -C
+    string cmake_toolchain_file_sha;  // SHA of the file specified with -DCMAKE_TOOLCHAIN_FILE
+};
+
+#if 0
 // Tracks the interesting variables of the cmake-cache of a cmake project in a separate file
 class CMakeCacheTracker
 {
@@ -117,9 +130,11 @@ public:
         maybe<string> cmake_prefix_path;
     };
 
+    static void remove(string_par x);
+
     // construct before calling a cmake-configure for a cmake project
     CMakeCacheTracker(string_par bin_dir);
-    CMakeCacheTracker(string_par bin_dir, string_par filename);
+    //    CMakeCacheTracker(string_par bin_dir, string_par filename);
 
     // Call before cmake-configure
     // returns cmake_args and possibly additional settings to bring the cache into the desired state
@@ -131,27 +146,32 @@ public:
     // uncertain.
     // If reference target is given, then other cmake args will be added in order to
     // take this tracker into the reference state.
-    // The second element of the tuple is the cmake_build_type_changing flag. Can be used to
-    // automatically add --clean-first if the current CMAKE_BUILD_TYPE differs from the previous one
-    tuple<vector<string>, bool> about_to_configure(const vector<string>& cmake_args,
-                                                   bool force_input_cmake_args,
-                                                   string_par reference_target_path = "");
+    vector<string> about_to_configure(const vector<string>& cmake_args,
+                                      bool force_input_cmake_args,
+                                      string_par reference_target_path = "");
 
     report_t cmake_config_ok();  // call after successful cmake-config
 
 private:
     string path;
 };
+#endif
 
+void remove_cmake_cache_tracker(string_par bin_dir);
+cmake_cache_tracker_t load_cmake_cache_tracker(string_par bin_dir);
+void save_cmake_cache_tracker(string_par bin_dir, const cmake_cache_tracker_t& x);
+
+#if 0
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
                                           const vector<string>& cmake_args);
-
+#endif
 // if there's a CMAKE_PREFIX_PATH, prepends, bool is true
 // if there's no, does nothing, bool is false
 tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
                                                                  string_par dir);
 vector<string> cmakex_prefix_path_to_vector(string_par x);
 cmake_cache_t read_cmake_cache(string_par path);
+void write_hijack_module(string_par pkg_name, string_par binary_dir);
 }
 
 #endif
