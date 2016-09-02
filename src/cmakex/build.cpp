@@ -9,11 +9,6 @@
 #include "out_err_messages.h"
 #include "print.h"
 
-// todo for a zlibpng project do an initial build then interrupt zlib and rebuild
-/*Error, bad parameters: The source dir specified "." is different from the one stored in the
-cmakex_cache.json: "".
-Program ended with exit code: 1
-*/
 namespace cmakex {
 
 namespace fs = filesystem;
@@ -279,7 +274,6 @@ void build(string_par binary_dir,
         }
     }  // for targets
 
-// todo
 #if 0
         // test step
         if (pars.flag_t) {

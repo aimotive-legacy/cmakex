@@ -15,9 +15,6 @@
 #include "print.h"
 #include "run_add_pkgs.h"
 
-// todo print directories with a single function, maybe quoted only if containing space, escape
-// quote, too
-
 namespace cmakex {
 
 namespace fs = filesystem;
@@ -197,10 +194,6 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(
     return process_pkgs_to_process(binary_dir, command_line_cmake_args, configs, wsp, cmakex_cache);
 }
 
-// todo dependencies can be specified for a package on the add_pkg command. Now if it turns out that
-// the package has a deps.cmake which defines an other set of dependencies we need to overwrite the
-// list of deps coming from the add_pkg. Where is the part where we overwriting the previous depends
-// field of the request?
 idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
                                                string_par source_dir,
                                                const vector<string>& request_deps,
@@ -228,9 +221,6 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
     return install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
                                                configs, wsp, cmakex_cache);
 }
-
-// todo: is it still a problem when we're build Debug from all packages, then Release (separate
-// command) then Debug again and it will try to rebuild almost all the packages?
 
 idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir,
                                                            string_par deps_script_file,
@@ -262,35 +252,6 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
 }
-
-/*
-todo
-need to choose a way how to interpret config specification for config and build-steps
-and for make and IDE generators.
-
-What will be built if build-step specification takes precedence:
-For IDE generator no specifying the config results in Debug build (tested with vs and xcode)
-
-commands  | make-generator | ide-generator
-
-c  then b | noconfig       | debug
-cd then b | noconfig       | debug
-cr then b | noconfig       | debug
-
-What will be built if config-step specification is remembered:
-
-commands  | make-generator | ide-generator
-
-c  then b | noconfig       | debug
-cd then b | debug          | debug
-cr then b | release        | debug*
-
-*: The last option is currently not possible because the configuration is not remembered with
-IDE-generator
-
-Also need to decide what to do if someone uploads a NoConfig package which is then downloaded for an
-ide generator build
-*/
 
 idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                          string_par binary_dir,
@@ -419,8 +380,6 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             }
         }
     }
-
-    // todo final_cmake_args should include toolchain and -C sha, too
 
     // if it's already installed we still need to process this:
     // - to enumerate all dependencies

@@ -8,8 +8,6 @@
 #include "print.h"
 #include "process_command_line.h"
 
-// todo -G option lost
-
 namespace cmakex {
 
 namespace fs = filesystem;

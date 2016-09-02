@@ -181,7 +181,6 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     cmake_cache = read_cmake_cache(cmake_cache_path);
 }
 
-// todo detect if there's cmake and git and provide better error message
 vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
 {
     vector<string> args;

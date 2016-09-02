@@ -144,8 +144,6 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 }
 */
 
-// todo may look for all CMAKE_PREFIX_PATH env and cmake var dirs for installdbs (read only)
-
 void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
     p.final_cmake_args = normalize_cmake_args(p.final_cmake_args);

@@ -385,18 +385,6 @@ pkg_request_t pkg_request_from_arg_str(const string& pkg_arg_str,
     return pkg_request_from_args(separate_arguments(pkg_arg_str), default_configs);
 }
 
-// clang-format off
-/* todo add support for local repos (no GIT_URL case)
-SOURCE_DIR GIT_URL
-    abs     yes          ERROR
-    abs     no           OK, local project, no clone: SOURCE_DIR/CMakeLists.txt
-    rel     yes          OK, clone_dir/SOURCE_DIR/CMakeLists.txt
-    rel     no           OK, local project, no clone: parent_path(deps.cmake)/SOURCE_DIR/CMakeLists.txt
-    no      yes          OK, clone_dir/CMakeLists.txt
-    no      no           ERROR
-*/
-// clang-format on
-
 pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
                                     const vector<config_name_t>& default_configs)
 {
