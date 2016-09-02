@@ -537,53 +537,55 @@ vector<string> normalize_cmake_args(const vector<string>& x)
                 switch (gta_idx) {
                     case 0:
                         a = "-G" + pca.value;
+                        pca.switch_ = "-G";
                         break;
                     case 1:
                         a = "-T" + pca.value;
+                        pca.switch_ = "-T";
                         break;
                     case 2:
                         a = "-A" + pca.value;
+                        pca.switch_ = "-A";
                         break;
                     default:
                         CHECK(gta_idx == 3);
                 }
             }
+        }  // if -U or -D
 
-            // pca is not updated above, only 'a'
-            bool found = false;
-            for (auto o : {"-C", "-G", "-T", "-A"}) {
-                if (starts_with(a, o)) {
-                    found = true;
-                    auto& prev_option = prev_options[o];
-                    if (prev_option.empty()) {
-                        prev_option = a;
-                        z.emplace_back(a);
-                    } else {
-                        if (prev_option != a) {
-                            throwf(
-                                "Two, different '%s' options has been specified: \"%s\" "
-                                "and "
-                                "\"%s\". "
-                                "There should be only a single '%s' option for a build.",
-                                o, prev_option.c_str(), a.c_str(), o);
-                        }
+        bool found = false;
+        for (auto o : {"-C", "-G", "-T", "-A"}) {
+            if (starts_with(a, o)) {
+                found = true;
+                auto& prev_option = prev_options[o];
+                if (prev_option.empty()) {
+                    prev_option = a;
+                    z.emplace_back(a);
+                } else {
+                    if (prev_option != a) {
+                        throwf(
+                            "Two, different '%s' options has been specified: \"%s\" "
+                            "and "
+                            "\"%s\". "
+                            "There should be only a single '%s' option for a build.",
+                            o, prev_option.c_str(), a.c_str(), o);
                     }
-                    break;
                 }
-            }
-            if (found)
-                continue;
-
-            if (starts_with(a, "-D")) {
-                varname_to_last_arg[pca.name] = a;
-            } else if (starts_with(a, "-U")) {
-                varname_to_last_arg[pca.name] = a;
-            } else {
-                // non C, D, U, G, T, A option
-                z.emplace_back(a);
+                break;
             }
         }
-    }
+        if (found)
+            continue;
+
+        if (starts_with(a, "-D")) {
+            varname_to_last_arg[pca.name] = a;
+        } else if (starts_with(a, "-U")) {
+            varname_to_last_arg[pca.name] = a;
+        } else {
+            // non C, D, U, G, T, A option
+            z.emplace_back(a);
+        }
+    }  // for all args
     for (auto& kv : varname_to_last_arg)
         z.emplace_back(kv.second);
     std::sort(BEGINEND(z));
