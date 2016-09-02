@@ -172,6 +172,8 @@ tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> 
 vector<string> cmakex_prefix_path_to_vector(string_par x);
 cmake_cache_t read_cmake_cache(string_par path);
 void write_hijack_module(string_par pkg_name, string_par binary_dir);
+const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,
+                                              const vector<string>& cmake_args);
 }
 
 #endif

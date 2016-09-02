@@ -8,6 +8,8 @@
 #include "print.h"
 #include "process_command_line.h"
 
+// todo -G option lost
+
 namespace cmakex {
 
 namespace fs = filesystem;
@@ -419,6 +421,9 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     if (pcla.deps_mode != dm_deps_only) {
         if (cmakex_cache.valid) {
+            if (cmakex_cache.home_directory.empty())
+                cmakex_cache.home_directory = pcla.source_dir;
+
             string source_dir = cmakex_cache.home_directory;
 
             if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {

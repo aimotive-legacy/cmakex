@@ -381,8 +381,28 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     !fs::is_regular_file(pkg_bin_dir_of_config + "/CMakeCache.txt");
 
                 auto& cmake_args_to_apply = pkg_c.cmake_args_to_apply;
-                if (pcd_c.initial_build)
-                    cmake_args_to_apply = pkg.request.b.cmake_args;
+
+                if (pcd_c.initial_build) {
+                    auto pkg_cmake_args = normalize_cmake_args(pkg.request.b.cmake_args);
+                    auto* cpp =
+                        find_specific_cmake_arg_or_null("CMAKE_INSTALL_PREFIX", pkg_cmake_args);
+                    CHECK(!cpp,
+                          "Internal error: package CMAKE_ARGS's should not change "
+                          "CMAKE_INSTALL_PREFIX: '%s'",
+                          cpp->c_str());
+                    cmake_args_to_apply = pkg_cmake_args;
+                    cmake_args_to_apply.emplace_back("-DCMAKE_INSTALL_PREFIX=" +
+                                                     cfg.deps_install_dir());
+                }
+
+                {
+                    auto* cpp = find_specific_cmake_arg_or_null("CMAKE_INSTALL_PREFIX",
+                                                                command_line_cmake_args);
+                    CHECK(!cpp,
+                          "Internal error: command-line CMAKE_ARGS's forwarded to a dependency "
+                          "should not change CMAKE_INSTALL_PREFIX: '%s'",
+                          cpp->c_str());
+                }
 
                 append_inplace(cmake_args_to_apply, command_line_cmake_args);
 

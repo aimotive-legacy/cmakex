@@ -907,4 +907,15 @@ void write_hijack_module(string_par pkg_name, string_par binary_dir)
         must_write_text(file,
                         "include(FindPackageTryConfigFirst)\nfind_package_try_config_first()\n");
 }
+
+const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,
+                                              const vector<string>& cmake_args)
+{
+    for (auto& arg : cmake_args) {
+        auto pca = parse_cmake_arg(arg);
+        if (pca.name == cmake_var_name)
+            return &arg;
+    }
+    return nullptr;
+}
 }

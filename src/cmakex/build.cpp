@@ -90,21 +90,6 @@ void build(string_par binary_dir,
             source_dir += "/" + pkg_source_dir.str();
         pkg_bin_dir_of_config =
             cfg.pkg_binary_dir_of_config(pkg_name, config, cmakex_cache.per_config_bin_dirs);
-
-        // check if there's no install_prefix
-        for (auto& c : cmake_args) {
-            if (!starts_with(c, "-DCMAKE_INSTALL_PREFIX"))
-                continue;
-            auto pca = parse_cmake_arg(c);
-            if (pca.name == "CMAKE_INSTALL_PREFIX") {
-                throwf(
-                    "Internal error: global and package cmake_args should not change "
-                    "CMAKE_INSTALL_PREFIX: '%s'",
-                    c.c_str());
-            }
-        }
-        cmake_args.emplace_back(
-            stringf("-DCMAKE_INSTALL_PREFIX=%s", cfg.deps_install_dir().c_str()));
     }
 
     const auto cmake_cache_path = pkg_bin_dir_of_config + "/CMakeCache.txt";
@@ -117,18 +102,19 @@ void build(string_par binary_dir,
         cmake_cache = read_cmake_cache(cmake_cache_path);
 
     bool cmake_build_type_changing = false;
+    string cmake_build_type_option;
     if (!cmakex_cache.multiconfig_generator) {
         string current_cmake_build_type = map_at_or_default(cmake_cache.vars, "CMAKE_BUILD_TYPE");
 
         if (config.is_noconfig()) {
             if (!current_cmake_build_type.empty()) {
-                cmake_args.emplace_back(stringf("-UCMAKE_BUILD_TYPE"));
+                cmake_build_type_option = "-UCMAKE_BUILD_TYPE";
                 cmake_build_type_changing = true;
             }
         } else {
             auto target_cmake_build_type = config.get_prefer_empty();
             if (current_cmake_build_type != target_cmake_build_type) {
-                cmake_args.emplace_back("-DCMAKE_BUILD_TYPE=" + target_cmake_build_type);
+                cmake_build_type_option = "-DCMAKE_BUILD_TYPE=" + target_cmake_build_type;
                 cmake_build_type_changing = true;
             }
         }
@@ -167,9 +153,11 @@ void build(string_par binary_dir,
             }
 
             auto cmake_args_to_apply = cct.pending_cmake_args;
-            cmake_args_to_apply.insert(
-                cmake_args_to_apply.begin(),
-                {string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config});
+            prepend_inplace(
+                cmake_args_to_apply,
+                vector<string>({string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config}));
+            if (!cmake_build_type_option.empty())
+                cmake_args_to_apply.emplace_back(cmake_build_type_option);
 
             auto cl_config = log_exec("cmake", cmake_args_to_apply);
 
