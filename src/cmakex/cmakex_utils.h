@@ -32,6 +32,7 @@ struct cmakex_config_t
     string pkg_install_dir(string_par pkg_name) const;
     // common install dir for dependencies
     string deps_install_dir() const;
+    string find_module_hijack_dir() const;
 
     string cmakex_dir() const;  // cmakex internal directory, within main cmake_binary_dir
     string cmakex_executor_dir() const;
@@ -165,15 +166,26 @@ void save_cmake_cache_tracker(string_par bin_dir, const cmake_cache_tracker_t& x
 void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
                                           const vector<string>& cmake_args);
 #endif
-// if there's a CMAKE_PREFIX_PATH, prepends, bool is true
-// if there's no, does nothing, bool is false
-tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
-                                                                 string_par dir);
+// if cmake_args sets 'var_name' (like -D<var-name>=) then the path will be prepended with 'dir' and
+// <new-path>, true returned
+// otherwise <unchanged-cmake_args, false> is returned
+tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string> cmake_args,
+                                                                   string_par var_name,
+                                                                   string_par dir);
 vector<string> cmakex_prefix_path_to_vector(string_par x);
 cmake_cache_t read_cmake_cache(string_par path);
 void write_hijack_module(string_par pkg_name, string_par binary_dir);
 const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,
                                               const vector<string>& cmake_args);
+// checks the CMakeCache.txt of bin_dir and also the input cmake_args
+// returns the modified cmake_args which makes sure that by applying it on the cmake config-step
+// command line the cmake cache will contain the variable with the requested path
+// returns the unchanged cmake_args if no changes are neccessary
+vector<string> make_sure_cmake_path_var_contains_path(
+    string_par bin_dir,
+    string_par var_name,     // like "CMAKE_PREFIX_PATH"
+    string_par path_to_add,  // like install dir of the dependencies
+    vector<string> cmake_args);
 }
 
 #endif

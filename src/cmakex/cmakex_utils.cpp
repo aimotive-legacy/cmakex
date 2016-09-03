@@ -194,6 +194,10 @@ string cmakex_config_t::deps_install_dir() const
 {
     return cmake_binary_dir + "/_deps-install";
 }
+string cmakex_config_t::find_module_hijack_dir() const
+{
+    return deps_install_dir() + "/_cmakex/hijack";
+}
 void badpars_exit(string_par msg)
 {
     fprintf(stderr, "Error, bad parameters: %s.\n", msg.c_str());
@@ -826,12 +830,13 @@ CMakeCacheTracker::report_t CMakeCacheTracker::cmake_config_ok()
 
 #endif
 
-tuple<vector<string>, bool> cmake_args_prepend_cmake_prefix_path(vector<string> cmake_args,
-                                                                 string_par dir)
+tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string> cmake_args,
+                                                                   string_par var_name,
+                                                                   string_par dir)
 {
     for (auto& c : cmake_args) {
         auto pca = parse_cmake_arg(c);
-        if (pca.switch_ == "-D" && pca.name == "CMAKE_PREFIX_PATH") {
+        if (pca.switch_ == "-D" && pca.name == var_name) {
             prepend_inplace(pca.value, dir.str() + ";");
             c = format_cmake_arg(pca);
             return make_tuple(move(cmake_args), true);
@@ -885,7 +890,7 @@ cmake_cache_t read_cmake_cache(string_par path)
 void write_hijack_module(string_par pkg_name, string_par binary_dir)
 {
     cmakex_config_t cfg(binary_dir);
-    string dir = cfg.deps_install_dir() + "/_cmakex/hijack";
+    string dir = cfg.find_module_hijack_dir();
     if (!fs::is_directory(dir))
         fs::create_directories(dir);
     static const char* const c_fptcf_filename = "FindPackageTryConfigFirst.cmake";
@@ -907,5 +912,59 @@ const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,
             return &arg;
     }
     return nullptr;
+}
+
+vector<string> make_sure_cmake_path_var_contains_path(
+    string_par bin_dir,
+    string_par var_name,     // like "CMAKE_PREFIX_PATH"
+    string_par path_to_add,  // like install dir of the dependencies
+    vector<string> cmake_args)
+{
+    string cmake_path_var_value;
+    string cmake_path_var_type;
+
+    // make sure CMAKE_PREFIX_PATH and CMAKE_MODULE_PATH variables contains our special paths
+    do {  // scope for break
+        if (!fs::is_directory(path_to_add.c_str()))
+            break;
+        bool b;
+        // try to prepend the the cmake path arg (if it exists) with path_to_add
+        tie(cmake_args, b) =
+            cmake_args_prepend_cmake_path_variable(cmake_args, var_name, path_to_add);
+        if (b)
+            break;  // current cmake_args contains the variable in question and we prepended
+                    // it
+        cmake_path_var_value = path_to_add.str();
+        auto cmake_cache_path = bin_dir.str() + "/CMakeCache.txt";
+        if (!fs::is_regular_file(cmake_cache_path))
+            break;  // no CMakeCache.txt (initial build), add dir as the only value of this
+                    // path
+                    // variable
+        auto cmake_cache = read_cmake_cache(cmake_cache_path);
+        auto it = cmake_cache.vars.find(var_name.c_str());
+        auto itt = cmake_cache.types.find(var_name.c_str());
+        if (itt != cmake_cache.types.end())
+            cmake_path_var_type = itt->second;
+        if (it == cmake_cache.vars.end() || it->second.empty())
+            break;  // the cmake path variable was set in cache, add dir as the only value
+                    // of
+                    // this path variable
+        auto dirs = split(it->second, ';');
+        for (auto& d : dirs) {
+            if (fs::is_directory(d) && fs::equivalent(d, path_to_add.str())) {
+                cmake_path_var_value.clear();  // don't add if it already contains it
+                break;
+            }
+        }
+        cmake_path_var_value += ";" + it->second;  // prepend existing
+    } while (false);
+
+    if (!cmake_path_var_value.empty()) {
+        cmake_args.emplace_back(
+            stringf("-D%s%s=%s", var_name.c_str(),
+                    cmake_path_var_type.empty() ? "" : (":" + cmake_path_var_type).c_str(),
+                    cmake_path_var_value.c_str()));
+    }
+    return cmake_args;
 }
 }

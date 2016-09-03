@@ -124,6 +124,8 @@ int main(int argc, char* argv[])
             // been validated and fixed so we're writing out the cmakex cache
             write_cmakex_cache_if_dirty(pars.binary_dir, cmakex_cache);
 
+            fs::create_directories(cmakex_config_t(pars.binary_dir).find_module_hijack_dir());
+
             install_deps_phase_one(
                 pars.binary_dir, pars.source_dir, {}, command_line_cmake_args, configs, wsp,
                 cmakex_cache,
