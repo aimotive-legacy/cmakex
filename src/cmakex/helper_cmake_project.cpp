@@ -8,6 +8,7 @@
 #include "misc_utils.h"
 #include "out_err_messages.h"
 #include "print.h"
+#include "resource.h"
 
 namespace cmakex {
 
@@ -29,54 +30,7 @@ string deps_script_wrapper_cmakelists()
                "endif()\n\n",
                k_executor_project_command_cache_var, k_executor_project_command_cache_var,
                k_executor_project_command_cache_var) +
-
-           "function(add_pkg NAME)\n"
-           "  # test list compatibility\n"
-           "  set(s ${NAME})\n"
-           "  list(LENGTH s l)\n"
-           "  if (NOT l EQUAL 1)\n"
-           "    message(FATAL_ERROR \"\\\"${NAME}\\\" is an invalid name for a package\")\n"
-           "  endif()\n"
-           //"  message(STATUS \"file(APPEND \\\"${__CMAKEX_ADD_PKG_OUT}\\\" "
-           //"\\\"${NAME};${ARGN}\\\\n\\\")\")\n"
-           "  set(line \"${NAME}\")\n"
-           "  foreach(x IN LISTS ARGN)\n"
-           "    set(line \"${line}\\t${x}\")\n"
-           "  endforeach()\n"
-           "  file(APPEND \"${__CMAKEX_ADD_PKG_OUT}\" \"${line}\\n\")\n"
-           "endfunction()\n\n"
-
-           "# include deps script within a function to protect local variables\n"
-           "function(include_deps_script path)\n"
-           "  if(NOT IS_ABSOLUTE \"${path}\")\n"
-           "    set(path \"${CMAKE_CURRENT_LIST_DIR}/${path}\")\n"
-           "  endif()\n"
-           "  if(NOT EXISTS \"${path}\")\n"
-           "    message(FATAL_ERROR \"Dependency script not found: \\\"${path}\\\".\")\n"
-           "  endif()\n"
-           "  include(\"${path}\")\n"
-           "endfunction()\n\n"
-
-           "if(DEFINED command)\n"
-           "  message(STATUS \"Dependency script wrapper command: ${command}\")\n"
-           "  list(GET command 0 verb)\n\n"
-           "  if(verb STREQUAL \"run\")\n"
-           "    list(LENGTH command l)\n"
-           "    if(NOT l EQUAL 3)\n"
-           "      message(FATAL_ERROR \"Internal error, invalid command\")\n"
-           "    endif()\n"
-           "    list(GET command 1 path)\n"
-           "    list(GET command 2 out)\n"
-           "    if(NOT EXISTS \"${out}\" OR IS_DIRECTORY \"${out}\")\n"
-           "      message(FATAL_ERROR \"Internal error, the output file "
-           "\\\"${out}\\\" is not an existing file.\")\n"
-           "    endif()\n"
-           "    set(__CMAKEX_ADD_PKG_OUT \"${out}\")\n"
-           "    include_deps_script(\"${path}\")\n"
-           "  endif()\n"
-           "else()\n"
-           "    message(STATUS \"No command specified.\")\n"
-           "endif()\n\n";
+           k_deps_script_wrapper_cmakelists_body;
 }
 string deps_script_wrapper_cmakelists_checksum(const std::string& x)
 {

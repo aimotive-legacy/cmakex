@@ -896,7 +896,7 @@ void write_hijack_module(string_par pkg_name, string_par binary_dir)
     static const char* const c_fptcf_filename = "FindPackageTryConfigFirst.cmake";
     string file = dir + "/" + c_fptcf_filename;
     if (!fs::is_regular_file(file))
-        must_write_text(file, find_package_try_config_first_module_content);
+        must_write_text(file, k_find_package_try_config_first_module_content);
     file = dir + "/" + tolower(pkg_name) + "-config.cmake";
     if (!fs::is_regular_file(file))
         must_write_text(file,

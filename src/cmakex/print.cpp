@@ -165,6 +165,11 @@ void slf_printf(slf_helper_t& h, string_par s)
         printf("%s", s.c_str());
 }
 
+void slf_printf_file_only(slf_helper_t& h, string_par s)
+{
+    fprintf(h.f, "%s", s.c_str());
+}
+
 void save_log_from_oem(string_par command_line,
                        int result,
                        const OutErrMessages& oem,
@@ -200,9 +205,9 @@ void save_log_from_oem(string_par command_line,
 
     slf_helper_t h(result, f.stream());
 
+    slf_printf_file_only(h, stringf("%s\n", command_line.c_str()));
     slf_printf(
-        h, stringf("Started at %s\n%s\n", datetime_string_for_log(oem.start_system_time()).c_str(),
-                   command_line.c_str()));
+        h, stringf("Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str()));
     const char c_line_feed = 10;
     const char c_carriage_return = 13;
     const int c_stderr_marker_length = 4;
