@@ -233,6 +233,20 @@ function(add_pkg NAME)
   file(APPEND "${__CMAKEX_ADD_PKG_OUT}" "${line}\n")
 endfunction()
 
+function(def_pkg NAME)
+  # test list compatibility
+  set(s ${NAME})
+  list(LENGTH s l)
+  if (NOT l EQUAL 1)
+    message(FATAL_ERROR "\"${NAME}\" is an invalid name for a package")
+  endif()
+  set(line "${NAME}\tDEFINE_ONLY")
+  foreach(x IN LISTS ARGN)
+    set(line "${line}\t${x}")
+  endforeach()
+  file(APPEND "${__CMAKEX_ADD_PKG_OUT}" "${line}\n")
+endfunction()
+
 # include deps script within a function to protect local variables
 function(include_deps_script path)
   if(NOT IS_ABSOLUTE "${path}")

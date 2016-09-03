@@ -397,20 +397,19 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
         throwf("Empty package descriptor, package name is missing.");
     const string request_name = pkg_args[0];
     const auto args = parse_arguments(
-        {}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
+        {"DEFINE_ONLY"}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
         {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
 
-    if (args.count("GIT_URL") == 0 && args.count("GIT_REPOSITORY") == 0) {
+    bool define_only = args.count("DEFINE_ONLY");
+
+    if (!define_only && args.count("GIT_URL") == 0 && args.count("GIT_REPOSITORY") == 0) {
         // this supposed to be a name-only request. No other fields should be specified
         for (auto c :
              {"GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW", "DEPENDS", "CMAKE_ARGS", "CONFIGS"}) {
             if (args.count(c) != 0)
                 throwf(
-                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package "
-                    "name "
-                    "or "
-                    "the package name with GIT_URL/GIT_REPOSITORY and optional other "
-                    "arguments.");
+                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package name or "
+                    "the package name with GIT_URL/GIT_REPOSITORY and optional other arguments.");
         }
     }
 
@@ -424,12 +423,14 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
         }
     }
     bool using_default_configs = false;
-    if (configs.empty()) {
+    if (!define_only && configs.empty()) {
         configs = default_configs;
         using_default_configs = true;
     }
 
     pkg_request_t request(pkg_args[0], stable_unique(configs), using_default_configs);
+
+    request.define_only = define_only;
 
     for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
         auto count = args.count(c);
@@ -864,7 +865,8 @@ cmake_cache_t read_cmake_cache(string_par path)
                                   "CMAKE_GENERATOR_PLATFORM",
                                   "CMAKE_EXTRA_GENERATOR",
                                   "CMAKE_PREFIX_PATH",
-                                  "CMAKE_ROOT"};
+                                  "CMAKE_ROOT",
+                                  "CMAKE_MODULE_PATH"};
     cmake_cache_t cache;
     auto f = must_fopen(path, "r");
     while (!feof(f)) {
@@ -956,7 +958,8 @@ vector<string> make_sure_cmake_path_var_contains_path(
                 break;
             }
         }
-        cmake_path_var_value += ";" + it->second;  // prepend existing
+        if (!cmake_path_var_value.empty())
+            cmake_path_var_value += ";" + it->second;  // prepend existing
     } while (false);
 
     if (!cmake_path_var_value.empty()) {

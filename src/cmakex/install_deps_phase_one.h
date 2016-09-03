@@ -28,6 +28,7 @@ struct deps_recursion_wsp_t
     vector<string> requester_stack;
     vector<string> build_order;
     std::map<string, pkg_t> pkg_map;
+    std::map<string, pkg_request_t> pkg_def_map;
     std::set<string>
         pkgs_to_process;  // not unordered set because we prefer cross-platform determinism
     bool force_build = false;

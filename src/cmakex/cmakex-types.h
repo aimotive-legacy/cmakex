@@ -168,7 +168,9 @@ struct pkg_request_t : pkg_desc_t
     {
     }
 
-    bool git_shallow = true;  // if false, clone only the requested branch at depth=1
+    bool git_shallow = false;  // if false, clone only the requested branch at depth=1
+    bool define_only = false;
+
 private:
 };
 

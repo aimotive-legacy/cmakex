@@ -128,30 +128,78 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
             pkg_name.c_str(), join(d1, ", ").c_str(), join(d2, ", ").c_str());
 }
 
+void update_request(pkg_request_t& x, const pkg_request_t& y)
+{
+    // merge into exisiting definition
+    x.git_shallow |= y.git_shallow;
+    if (!y.c.git_url.empty())
+        x.c.git_url = y.c.git_url;
+    if (!y.c.git_tag.empty())
+        x.c.git_tag = y.c.git_tag;
+    if (!y.b.source_dir.empty())
+        x.b.source_dir = y.b.source_dir;
+    x.b.cmake_args = normalize_cmake_args(concat(x.b.cmake_args, y.b.cmake_args));
+    if (!y.depends.empty())
+        x.depends = y.depends;
+    if (!y.b.configs().empty())
+        x.b.update_configs(y.b.configs(), y.b.using_default_configs());
+}
+
+void insert_new_definition_into_wsp(const pkg_request_t& req, deps_recursion_wsp_t& wsp)
+{
+    CHECK(req.define_only);
+
+    auto it = wsp.pkg_def_map.find(req.name);
+    if (it == wsp.pkg_def_map.end()) {
+        // first time we encounter this package
+        auto it = wsp.pkg_def_map.emplace(std::piecewise_construct, std::forward_as_tuple(req.name),
+                                          std::forward_as_tuple(req));
+        it.first->second.b.cmake_args = normalize_cmake_args(it.first->second.b.cmake_args);
+    } else {
+        update_request(it->second, req);
+    }
+}
+
 // if it's not there, insert
 // if it's there:
 // - if it's compatible (identical), do nothing
 // - if it's not compatible:
 //   - if the existing is name-only: check if it's not yet processed and overwrite
 //   - throw otherwise
-void insert_new_request_into_wsp(pkg_request_t&& req, deps_recursion_wsp_t& wsp)
+void insert_new_request_into_wsp(const pkg_request_t& req_in, deps_recursion_wsp_t& wsp)
 {
-    auto it = wsp.pkg_map.find(req.name);
-    const bool to_be_processed = wsp.pkgs_to_process.count(req.name) > 0;
+    if (req_in.define_only) {
+        insert_new_definition_into_wsp(req_in, wsp);
+        return;
+    }
+    auto it = wsp.pkg_map.find(req_in.name);
+    auto itdef = wsp.pkg_def_map.find(req_in.name);
+    maybe<pkg_request_t> maybe_defreq;
+    const pkg_request_t* req = nullptr;
+    if (itdef == wsp.pkg_def_map.end())
+        req = &req_in;
+    else {
+        maybe_defreq = itdef->second;
+        update_request(*maybe_defreq, req_in);
+        req = &*maybe_defreq;
+    }
+    const bool to_be_processed = wsp.pkgs_to_process.count(req_in.name) > 0;
     if (it == wsp.pkg_map.end()) {
         // first time we encounter this package
         CHECK(!to_be_processed);
-        wsp.pkgs_to_process.insert(req.name);
-        wsp.pkg_map.emplace(std::piecewise_construct, std::forward_as_tuple(req.name),
-                            std::forward_as_tuple(move(req)));
+        wsp.pkgs_to_process.insert(req_in.name);
+        wsp.pkg_map.emplace(std::piecewise_construct, std::forward_as_tuple(req_in.name),
+                            std::forward_as_tuple(*req));
+
     } else {
         if (it->second.request.name_only()) {
             CHECK(to_be_processed);
-            if (!req.name_only())
-                it->second.request = move(req);
+            if (!req->name_only()) {
+                it->second.request = *req;
+            }
         } else {
-            if (!req.name_only())
-                verify_if_requests_are_compatible(it->second.request, req);
+            if (!req->name_only())
+                verify_if_requests_are_compatible(it->second.request, *req);
         }
     }
 }
@@ -247,7 +295,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
         auto args = split(addpkg_line, '\t');
-        insert_new_request_into_wsp(pkg_request_t(pkg_request_from_args(args, configs)), wsp);
+        insert_new_request_into_wsp(pkg_request_from_args(args, configs), wsp);
     }
 
     return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
