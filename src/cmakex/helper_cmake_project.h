@@ -13,7 +13,8 @@ public:
     // applies deps_accum_cmake_args if initial config, otherwise the applies the (incremental)
     // command_line_cmake_args
     void configure(const vector<string>& command_line_cmake_args);
-    vector<string> run_deps_script(string_par deps_script_file);
+    vector<string> run_deps_script(string_par deps_script_file,
+                                   bool clear_downloaded_include_files);
 
     cmake_cache_t cmake_cache;  // read after configuration
 

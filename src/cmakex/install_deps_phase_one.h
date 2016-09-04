@@ -32,6 +32,7 @@ struct deps_recursion_wsp_t
     std::set<string>
         pkgs_to_process;  // not unordered set because we prefer cross-platform determinism
     bool force_build = false;
+    bool clear_downloaded_include_files = false;
 };
 
 // install_deps_phase_one recursion result: aggregates certain data below a node in the recursion

@@ -196,6 +196,7 @@ struct base_command_line_args_cmake_mode_t
     deps_mode_t deps_mode = dm_main_only;
     string deps_script;
     bool force_build = false;
+    bool clear_downloaded_include_files = false;
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t

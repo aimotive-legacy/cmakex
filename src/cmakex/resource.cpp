@@ -120,6 +120,7 @@ endmacro()
 
 const char* k_deps_script_wrapper_cmakelists_body = R"~~~~(
 include(CMakeParseArguments)
+include(CMakePrintHelpers)
 
 # Extend the official include command URL support.
 # Also supports including relative paths in remote scripts, that is
@@ -169,6 +170,11 @@ macro(include __CMAKEX_INCL_ARG0)
     if(NOT "${__CMAKEX_INCL_PATH}" MATCHES "^https?://")
         _include("${__CMAKEX_INCL_PATH}" ${ARGN})
     else()
+        set(__CMAKEX_INCL_DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/downloaded_include_files")
+        if(__CMAKEX_INCL_CLEAR_DOWNLOAD_DIR)
+            file(REMOVE_RECURSE "${__CMAKEX_INCL_DOWNLOAD_DIR}")
+            set(__CMAKEX_INCL_CLEAR_DOWNLOAD_DIR 0 CACHE INTERNAL "" FORCE)
+        endif()
         # split input path to dir and name component
         # can't use get_filename_component because it contracts "://" to ":/"
         get_filename_component(__CMAKEX_INCL_NAME "${__CMAKEX_INCL_PATH}" NAME)
@@ -178,18 +184,29 @@ macro(include __CMAKEX_INCL_ARG0)
             "${__CMAKEX_INCL_PATH_LENGTH} - ${__CMAKEX_INCL_NAME_LENGTH}")
         string(SUBSTRING "${__CMAKEX_INCL_PATH}" 0 "${__CMAKEX_INCL_DIR_LENGTH}"
             __CMAKEX_INCL_DIR)
+        string(REGEX REPLACE "/$" "" __CMAKEX_INCL_DIR "${__CMAKEX_INCL_DIR}")
 
         # construct a descriptive temporary filename to download to
-        string(MAKE_C_IDENTIFIER "${__CMAKEX_INCL_DIR}" __CMAKEX_INCL_DIR_CID)
+        string(REPLACE "/" "\tslash\t" __CMAKEX_INCL_DIR_CID "${__CMAKEX_INCL_DIR}")
+        string(REPLACE ":" "\tcolon\t" __CMAKEX_INCL_DIR_CID "${__CMAKEX_INCL_DIR_CID}")
+        string(REPLACE "\t\t" "\t" __CMAKEX_INCL_DIR_CID "${__CMAKEX_INCL_DIR_CID}")
+        string(REPLACE "\t" "_" __CMAKEX_INCL_DIR_CID "${__CMAKEX_INCL_DIR_CID}")
         set(__CMAKEX_INCL_TEMP_FILE
-            "${CMAKE_CURRENT_BINARY_DIR}/tmp-download-${__CMAKEX_INCL_DIR_CID}_${__CMAKEX_INCL_NAME}")
+            "${__CMAKEX_INCL_DOWNLOAD_DIR}/${__CMAKEX_INCL_DIR_CID}_slash_${__CMAKEX_INCL_NAME}")
 
-        # download, handle error
         message(STATUS "include remote file: ${__CMAKEX_INCL_PATH}")
-        file(DOWNLOAD "${__CMAKEX_INCL_PATH}" "${__CMAKEX_INCL_TEMP_FILE}"
-            STATUS __CMAKEX_INCL_RESULT SHOW_PROGRESS)
-        list(GET __CMAKEX_INCL_RESULT 0 __CMAKEX_INCL_CODE)
+        if(EXISTS "${__CMAKEX_INCL_TEMP_FILE}")
+            set(__CMAKEX_INCL_CODE 0)
+            message(STATUS "using cached file: ${__CMAKEX_INCL_TEMP_FILE}")
+        else()
+            # download, handle error
+            message(STATUS "downloading to ${__CMAKEX_INCL_TEMP_FILE}")
+            file(DOWNLOAD "${__CMAKEX_INCL_PATH}" "${__CMAKEX_INCL_TEMP_FILE}"
+                STATUS __CMAKEX_INCL_RESULT SHOW_PROGRESS TIMEOUT 7)
+            list(GET __CMAKEX_INCL_RESULT 0 __CMAKEX_INCL_CODE)
+        endif()
         if(__CMAKEX_INCL_CODE)
+            file(REMOVE "${__CMAKEX_INCL_TEMP_FILE}")
             if(__CMAKEX_INCL_ARG_RESULT_VARIABLE)
                 set("${__CMAKEX_INCL_ARG_RESULT_VARIABLE}" "NOTFOUND")
             endif()
@@ -197,12 +214,9 @@ macro(include __CMAKEX_INCL_ARG0)
                 message(FATAL_ERROR "include could not download url: ${__CMAKEX_INCL_PATH}, reason: ${__CMAKEX_INCL_RESULT}.")
             endif()
         else()
-            # Maintain two stacks. They need to be stacks because the same variables
+            # Maintain a stack for parent urls. It needs to be a stack because the same variable
             # will be updated by recursively called include() commands.
-            # One stack for parent urls, other for temp files to be able to remove
-            # them after the include.
             list(APPEND __CMAKEX_INCL_PARENT_URL_STACK "${__CMAKEX_INCL_DIR}")
-            list(APPEND __CMAKEX_INCL_TEMP_FILE_STACK "${__CMAKEX_INCL_TEMP_FILE}")
             if(__CMAKEX_INCL_ARG_RESULT_VARIABLE)
                 set("${__CMAKEX_INCL_ARG_RESULT_VARIABLE}" "${__CMAKEX_INCL_PATH}")
             endif()
@@ -212,9 +226,6 @@ macro(include __CMAKEX_INCL_ARG0)
                 set("${__CMAKEX_INCL_ARG_RESULT_VARIABLE}" "NOTFOUND")
             endif()
             list(REMOVE_AT __CMAKEX_INCL_PARENT_URL_STACK -1)
-            list(GET __CMAKEX_INCL_TEMP_FILE_STACK -1 _d)
-            file(REMOVE "${_d}")
-            list(REMOVE_AT __CMAKEX_INCL_TEMP_FILE_STACK -1)
         endif()
     endif()
 endmacro()

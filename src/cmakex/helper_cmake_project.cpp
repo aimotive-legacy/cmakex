@@ -135,7 +135,8 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     cmake_cache = read_cmake_cache(cmake_cache_path);
 }
 
-vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
+vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
+                                                   bool clear_downloaded_include_files)
 {
     vector<string> args;
     args.emplace_back(build_script_executor_binary_dir);
@@ -146,6 +147,8 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file)
     }
     args.emplace_back(string("-D") + k_executor_project_command_cache_var + "=run;" +
                       deps_script_file.c_str() + ";" + build_script_add_pkg_out_file);
+    if (clear_downloaded_include_files)
+        args.emplace_back("-D__CMAKEX_INCL_CLEAR_DOWNLOAD_DIR=1");
 
     auto cl_deps = string_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);

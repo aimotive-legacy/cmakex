@@ -82,6 +82,7 @@ int main(int argc, char* argv[])
         if (pars.deps_mode != dm_main_only) {
             deps_recursion_wsp_t wsp;
             wsp.force_build = pars.force_build;
+            wsp.clear_downloaded_include_files = pars.clear_downloaded_include_files;
             // command_line_cmake_args contains the cmake args specified in the original cmakex call
             // except any arg dealing with CMAKE_INSTALL_PREFIX
             vector<string> command_line_cmake_args;

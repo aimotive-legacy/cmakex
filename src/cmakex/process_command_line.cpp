@@ -239,6 +239,8 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 pars.arg_p = argv[argix];
             } else if (arg == "--force-build") {
                 pars.force_build = true;
+            } else if (arg == "--update-includes") {
+                pars.clear_downloaded_include_files = true;
             } else if (!starts_with(arg, '-')) {
                 pars.free_args.emplace_back(arg);
             } else {

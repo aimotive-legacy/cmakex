@@ -290,7 +290,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
     HelperCmakeProject hcp(binary_dir);
-    auto addpkgs_lines = hcp.run_deps_script(deps_script_file);
+    auto addpkgs_lines = hcp.run_deps_script(deps_script_file, wsp.clear_downloaded_include_files);
 
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {

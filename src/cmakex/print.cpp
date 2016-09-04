@@ -210,7 +210,7 @@ void save_log_from_oem(string_par command_line,
         h, stringf("Started at %s\n", datetime_string_for_log(oem.start_system_time()).c_str()));
     const char c_line_feed = 10;
     const char c_carriage_return = 13;
-    const int c_stderr_marker_length = 4;
+    const int c_stderr_marker_length = 1;
     // longest timestamp must fit into c_spaces
     //                      [12345678901.23]
     const char* c_spaces = "                                ";
@@ -219,8 +219,7 @@ void save_log_from_oem(string_par command_line,
         int xs = msg.text.size();
         int x0 = 0;
         int indent = -1;
-        const char* stderr_marker =
-            msg.source == out_err_message_base_t::source_stdout ? "    " : "ERR ";
+        const char* stderr_marker = msg.source == out_err_message_base_t::source_stdout ? " " : "!";
         assert(c_stderr_marker_length == strlen(stderr_marker));
         for (; x0 < xs;) {
             int x1 = x0;
