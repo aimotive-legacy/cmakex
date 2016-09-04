@@ -14,95 +14,125 @@ namespace fs = filesystem;
 
 const char* cmakex_version_string = STRINGIZE(CMAKEX_VERSION_STRING);
 
-const char* usage_text =
-    "Execute multiple `cmake` commands with a single `cmakex` command.\n"
-    "For detailed help, see README.md\n"
-    "\n"
-    "Usage: cmakex <subcommand> [options...]\n"
-    "\n"
-    "The first (compulsory) parameter is the subcommand word which can be:\n"
-    "\n"
-    "- mix of the characters c, b, i, t, d, r, w to execute multiple `cmake` commands\n"
-    "- 'help' or '--help' to display this message\n"
-    "- 'version' or '--version' to display the version\n"
-    "\n"
-    "Execute Multiple `cmake` Commands\n"
-    "=================================\n"
-    "\n"
-    "    cmakex [c][b][i][t][d][r][w] [cmake-options] [--deps]\n"
-    "\n"
-    "Specify one or more of the characters c, b, i, t to execute one or more of\n"
-    "these steps:\n"
-    "\n"
-    "- `c`: CMake configure step (`cmake ...`)\n"
-    "- `b`: CMake build step (`cmake --build ...`)\n"
-    "- `i`: CMake install step (`cmake --build ... --target install`)\n"
-    "- `t`: CMake test step (`ctest ...`)\n"
-    "\n"
-    "The remaining characters control the configurations. You can specify zero, one,\n"
-    "or more of d, r, w for the configurations: Debug, Release, RelWithDebInfo.\n"
-    "\n"
-    "CMake Options\n"
-    "-------------\n"
-    "\n"
-    "After the command word you can specify:\n"
-    "\n"
-    "- `-H` and `-B` to specify source and build directories. Note that unlike cmake,\n"
-    "  cmakex accepts the `-H <path>` and `-B <path>` forms, too.\n"
-    "- <source-dir> or <existing-binary-dir>\n"
-    "- most of the cmake configuring options (see below)\n"
-    "- `--target <tgt>` (also multiple times)\n"
-    "- `--config <cfg>` (also multiple times)\n"
-    "- `--clean-first`\n"
-    "- double-dash \"--\" followed by options to the native build tool\n"
-    "\n"
-    "Allowed cmake options: \n"
-    "\n"
-    "  -C, -D, -U, -G, -T, -A, -N, all the -W* options\n"
-    "  --debug-trycompile, --debug-output, --trace, --trace-expand\n"
-    "  --warn-uninitialized, --warn-unused-vars, --no-warn-unused-cli,\n"
-    "  --check-system-vars, --graphwiz=\n"
-    "\n"
-    "\n"
-    "Additional Options\n"
-    "------------------\n"
-    "\n"
-    "- `--deps`  download or install dependencies first\n"
-    "            If the current source directory has a `deps.cmake` file it will\n"
-    "            be processed first.\n"
-    "\n"
-    "Examples:\n"
-    "=========\n"
-    "\n"
-    "Configure, install and test a project from scrach, for `Debug` and `Release`\n"
-    "configurations, clean build:\n"
-    "\n"
-    "    cd project_source_dir\n"
-    "    cmakex citdr -H. -Bb -DCMAKE_INSTALL_PREFIX=$PWD/out\n"
-    "\n"
-    "Install the 'Debug' and 'Release' configs:\n"
-    "\n"
-    "    cmakex cidr -H source_dir -B build_dir -DMY_OPTION=something\n"
-    "\n"
-    "To test a project which has not been configured yet:\n"
-    "\n"
-    "    cmakex cbtr -H source_dir -B build\n"
-    "\n"
-    "Test the 'Release' config (no configure and build):\n"
-    "\n"
-    "    cmakex tr -H source_dir -B build_dir\n"
-    "\n";
+const char* brief_usage_text = R"~~~~(- lightweight package manager + multiple repos for CMake
 
-void display_usage_and_exit(int exit_code)
+Usage: cmakex [--help] [--version]
+              [c][b][i][t][d][r][w] [<source/build-dir-spec]
+              [<cmake-args>...] [<additional-args>...]
+              [-- <native-build-tool-args>...]
+
+For brief help, use `--help`
+For detailed help, see README.md
+
+)~~~~";
+
+const char* usage_text = R"~~~~(- lightweight package manager + multiple repos for CMake
+
+Usage: cmakex [--help] [--version]
+              [c][b][i][t][d][r][w] [<source/build-dir-spec]
+              [<cmake-args>...] [<additional-args>...]
+              [-- <native-build-tool-args>...]
+
+For detailed help, see README.md
+Note: Invoke CTest is not yet implemented.
+
+General commands:
+=================
+
+    --help       display this message
+    --version    display version information
+    -V           verbose
+
+CMake-wrapper mode:
+===================
+
+Execute multiple `cmake` commands with concise syntax.
+
+    'c', 'b', 'i', 't': perform CMake configure/build/install/test steps
+    'd', 'r', 'w':      for Debug, Release, RelWithDebInfo configurations
+
+The letters can be mixed, order is not important.
+
+<source/build-dir-spec> is one of
+---------------------------------
+
+    1. `-H <path-to-source> -B <path-to-build>`
+    2. `<path-to-existing-build>`
+    3. `-B <path-to-existing-build>`
+    4. `<path-to-source>` (build directory is the current working directory)
+
+`-H` and `-B` options can be written with or without space.
+
+Accepted <cmake-args>:
+----------------------
+
+    --config <cfg>: For specifying configs other than Debug, Release, RelWithDebInfo.
+                    Can be specified multiple times.
+    --target <tgt>: For specifying targets other than ALL (default) and INSTALL (use 'i' in <command>)
+                    Can be specified multiple times.
+    --clean-first
+    -C, -D, -U, -G, -T, -A
+    -N, all the -W* options
+    --debug-trycompile, --debug-output, --trace, --trace-expand
+    --warn-uninitialized, --warn-unused-vars, --no-warn-unused-cli,
+    --check-system-vars, --graphwiz=
+
+Package-management
+==================
+
+    --deps
+    --deps=<path>      Before executing the cmake-steps on the main project, process the dependency-
+                       script at <source-dir>/deps.cmake or <path> and download/configure/build/
+                       install the packages defined in the script, if needed
+    --deps-only
+    --deps-only=<path> Same as `--deps` but does not processes the main project.
+                       Note: use `cmakex -B <path-to-new-or-existing-build> --deps-only=<path> ...`
+                       to build a list of packages without a main project
+    --force-build      Configure and build each dependency even if no options/dependencies have been
+                       changed for a package.
+    --update-includes  The CMake `include()` command used in the dependency scripts can include a
+                       URL. The file the URL refers to will be downloaded and included with the
+                       normal `include` command. Further runs will use the local copy. Use this
+                       option to purge the local copies and download the files again.
+
+Presets
+=======
+
+    -p <path>#preset[#preset]...
+                       Load the YAML file from <path> and add the args defined for the presets to
+                       the current command line.
+    -p preset[#preset]...
+                       Use the file specified in the CMAKEX_PRESET_FILE environment variable.
+
+Examples:
+=========
+
+Configure, install and test a project from scrach, for `Debug` and `Release`
+configurations, clean build:
+
+    cmakex itdr -H . -B b -DCMAKE_INSTALL_PREFIX=$PWD/out -DFOO=BAR
+
+Configure new project, `Debug` config, use a preset:
+
+    cmakex cd -H . -B b -p preset-dir/presets.yaml#android-toolchain
+
+Build `Release` config in existing build dir, with dependencies
+
+    cmakex br my-build-dir --deps
+    
+)~~~~";
+
+void display_usage_and_exit(int exit_code, bool brief)
 {
-    fprintf(stderr, "cmakex v%s\n\n", cmakex_version_string);
-    fprintf(stderr, "%s", usage_text);
+    auto s = stringf("cmakex v%s", cmakex_version_string);
+    fprintf(exit_code ? stderr : stdout, "%s ", s.c_str());
+    fprintf(exit_code ? stderr : stdout, "%s", brief ? brief_usage_text : usage_text);
     exit(exit_code);
 }
 
 void display_version_and_exit(int exit_code)
 {
-    fprintf(stderr, "cmakex v%s\n\n", cmakex_version_string);
+    fprintf(exit_code ? stderr : stdout, "%s\n", cmakex_version_string);
     exit(exit_code);
 }
 
@@ -132,12 +162,12 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
 {
     command_line_args_cmake_mode_t pars;
     if (argc <= 1)
-        display_usage_and_exit(EXIT_SUCCESS);
+        display_usage_and_exit(EXIT_FAILURE, true);
 
     for (int argix = 1; argix < argc; ++argix) {
         string arg = argv[argix];
         if ((argix == 1 && arg == "help") || arg == "--help")
-            display_usage_and_exit(EXIT_SUCCESS);
+            display_usage_and_exit(EXIT_SUCCESS, false);
         if ((argix == 1 && arg == "version") || arg == "--version")
             display_version_and_exit(EXIT_SUCCESS);
     }
