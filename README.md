@@ -13,13 +13,15 @@ Say, you have a CMake-enabled project which depends on
 yours. Simply create a cmake file `deps.cmake` next to your project's
 `CMakeLists.txt` with this content:
 
-    add_pkg(GTest GIT_URL https://github.com/google/googletest
-      CMAKE_ARGS -Dgtest_force_shared_crt=1)
-    add_pkg(jsoncpp
-      GIT_URL https://github.com/open-source-parsers/jsoncpp GIT_TAG 1.7.1
-      CMAKE_ARGS -DJSONCPP_WITH_TESTS=0 -DJSONCPP_WITH_POST_BUILD_UNITTEST=0
-        -DJSONCPP_WITH_CMAKE_PACKAGE=1)
-    add_pkg(mylibfoo GIT_URL https://github.com/thatsme/mylibfoo)
+```CMake
+add_pkg(GTest GIT_URL https://github.com/google/googletest
+  CMAKE_ARGS -Dgtest_force_shared_crt=1)
+add_pkg(jsoncpp
+  GIT_URL https://github.com/open-source-parsers/jsoncpp GIT_TAG 1.7.1
+  CMAKE_ARGS -DJSONCPP_WITH_TESTS=0 -DJSONCPP_WITH_POST_BUILD_UNITTEST=0
+    -DJSONCPP_WITH_CMAKE_PACKAGE=1)
+add_pkg(mylibfoo GIT_URL https://github.com/thatsme/mylibfoo)
+```
 
 Then build your project from scratch with this one-liner:
 
