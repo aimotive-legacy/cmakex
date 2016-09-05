@@ -14,11 +14,11 @@ public:
     using string_type = std::basic_string<value_type>;
 
     path() = default;
-    path(const char* s) : s(s) {}
-    path(const std::string& s) : s(s) {}
-    const value_type* c_str() const { return s.c_str(); }
-    const string_type& string() const { return s; }
-    operator string_type() const { return s; }
+    path(const char* s) : gs(s) { make_generic(); }
+    path(const std::string& s) : gs(s) { make_generic(); }
+    const value_type* c_str() const { return gs.c_str(); }
+    const string_type& string() const { return gs; }
+    operator string_type() const { return gs; }
     path extension() const;
     path filename() const;
     bool is_relative() const;
@@ -32,7 +32,16 @@ public:
     static const value_type preferred_separator = '/';
 #endif
 private:
-    string_type s;
+    string_type gs;
+
+    void make_generic()
+    {
+#ifdef _WIN32
+        for (auto& c : gs)
+            if (c == '\\')
+                c = '/';
+#endif
+    }
 };
 
 class filesystem_error

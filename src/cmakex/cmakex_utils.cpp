@@ -846,10 +846,10 @@ tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string
     return make_tuple(move(cmake_args), false);
 }
 
-vector<string> cmakex_prefix_path_to_vector(string_par x)
+vector<string> cmakex_prefix_path_to_vector(string_par x, bool env_var)
 {
     vector<string> r;
-    auto v = split(x, system_path_separator());
+    auto v = split(x, env_var ? system_path_separator() : ';');
     for (auto& p : v) {
         if (!p.empty())
             r.emplace_back(p);

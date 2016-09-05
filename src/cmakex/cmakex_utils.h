@@ -172,7 +172,7 @@ void update_reference_cmake_cache_tracker(string_par pkg_bin_dir_common,
 tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string> cmake_args,
                                                                    string_par var_name,
                                                                    string_par dir);
-vector<string> cmakex_prefix_path_to_vector(string_par x);
+vector<string> cmakex_prefix_path_to_vector(string_par x, bool env_var);
 cmake_cache_t read_cmake_cache(string_par path);
 void write_hijack_module(string_par pkg_name, string_par binary_dir);
 const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,

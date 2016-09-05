@@ -60,7 +60,8 @@ int main(int argc, char* argv[])
     if (env_cmake_prefix_path) {
         // split along os-specific separator
         vector<pair<string, bool>> msgs;
-        maybe_env_cmake_prefix_path_vector = cmakex_prefix_path_to_vector(env_cmake_prefix_path);
+        maybe_env_cmake_prefix_path_vector =
+            cmakex_prefix_path_to_vector(env_cmake_prefix_path, true);
     }
 
     try {
@@ -113,7 +114,7 @@ int main(int argc, char* argv[])
             // remember CMAKE_PREFIX_PATH
             if (cc.vars.count("CMAKE_PREFIX_PATH") > 0) {
                 cmakex_cache.cmakex_prefix_path_vector =
-                    cmakex_prefix_path_to_vector(cc.vars.at("CMAKE_PREFIX_PATH"));
+                    cmakex_prefix_path_to_vector(cc.vars.at("CMAKE_PREFIX_PATH"), false);
             } else
                 cmakex_cache.cmakex_prefix_path_vector.clear();
 

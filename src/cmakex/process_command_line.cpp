@@ -319,13 +319,27 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     // complete relative paths for CMAKE_INSTALL_PREFIX, CMAKE_PREFIX_PATH
     for (auto& a : pcla.cmake_args) {
         auto b = parse_cmake_arg(a);
-        if ((b.name == "CMAKE_PREFIX_PATH" || b.name == "CMAKE_INSTALL_PREFIX") &&
-            b.switch_ == "-D") {
-            auto v = cmakex_prefix_path_to_vector(b.value);
-            for (auto& p : v)
-                p = fs::absolute(p);
-            b.value = join(v, string{system_path_separator()});
-            a = format_cmake_arg(b);
+        bool changed = false;
+        if (b.switch_ == "-D" &&
+            is_one_of(b.name, {"CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH", "CMAKE_INSTALL_PREFIX",
+                               "CMAKE_TOOLCHAIN_FILE"})) {
+#ifdef _WIN32
+            for (auto& c : b.value)
+                if (c == '\\') {
+                    c = '/';
+                    changed = true;
+                }
+#endif
+            if ((b.name == "CMAKE_PREFIX_PATH" || b.name == "CMAKE_INSTALL_PREFIX") &&
+                b.switch_ == "-D") {
+                auto v = cmakex_prefix_path_to_vector(b.value, false);
+                for (auto& p : v)
+                    p = fs::absolute(p);
+                b.value = join(v, ";");
+                changed = true;
+            }
+            if (changed)
+                a = format_cmake_arg(b);
         }
     }
 
@@ -371,14 +385,16 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                 // no -H, -B, free-arg
                 badpars_exit(
                     "No source or binary directories specified. CMake would set both to the "
-                    "current directory but cmakex requires the source and binary directories to be "
+                    "current directory but cmakex requires the source and binary directories "
+                    "to be "
                     "different.");
             } else {
                 // only -B
                 pcla.binary_dir = cla.arg_B;
                 if (cla.deps_mode != dm_deps_only && !is_valid_binary_dir(cla.arg_B))
                     badpars_exit(
-                        "Only a binary directory is specified: it must be an existing binary-dir.");
+                        "Only a binary directory is specified: it must be an existing "
+                        "binary-dir.");
             }
         } else {
             if (cla.arg_B.empty()) {
@@ -396,7 +412,8 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     } else if (cla.free_args.size() == 1) {
         if (!cla.arg_H.empty() || !cla.arg_B.empty())
             badpars_exit(
-                "Specify either '-H' and '-B' options or a standalone path (path-to-existing-build "
+                "Specify either '-H' and '-B' options or a standalone path "
+                "(path-to-existing-build "
                 "or path-to-source).");
         string d = cla.free_args[0];
         bool b = is_valid_binary_dir(d);
@@ -485,10 +502,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             if (binary_dir_has_cmake_cache) {
                 string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
                 if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
-                    badpars_exit(stringf(
-                        "The source dir specified \"%s\" is different from the one stored in the "
-                        "CMakeCache.txt: \"%s\"",
-                        pcla.source_dir.c_str(), source_dir.c_str()));
+                    badpars_exit(
+                        stringf("The source dir specified \"%s\" is different from the one "
+                                "stored in the "
+                                "CMakeCache.txt: \"%s\"",
+                                pcla.source_dir.c_str(), source_dir.c_str()));
                 }
                 if (pcla.source_dir.empty())
                     pcla.source_dir = source_dir;

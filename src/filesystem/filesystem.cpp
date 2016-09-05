@@ -489,34 +489,34 @@ bool is_root_separator(const path::string_type& str, size_t pos)
 
 path path::filename() const
 {
-    auto pos = filename_pos(s, s.size());
-    return (s.size() && pos && is_separator(s[pos]) && !is_root_separator(s, pos))
+    auto pos = filename_pos(gs, gs.size());
+    return (gs.size() && pos && is_separator(gs[pos]) && !is_root_separator(gs, pos))
                ? path(".")
-               : path(s.c_str() + pos);
+               : path(gs.c_str() + pos);
 }
 
 path path::extension() const
 {
     path name(filename());
-    if (name.s == "." || name.s == "..")
+    if (name.gs == "." || name.gs == "..")
         return path();
-    auto pos = name.s.rfind('.');
-    return pos == string_type::npos ? path() : path(name.s.c_str() + pos);
+    auto pos = name.gs.rfind('.');
+    return pos == string_type::npos ? path() : path(name.gs.c_str() + pos);
 }
 
 bool path::is_absolute() const
 {
-    return Poco::Path(s).isAbsolute();
+    return Poco::Path(gs).isAbsolute();
 }
 
 bool path::is_relative() const
 {
-    return Poco::Path(s).isRelative();
+    return Poco::Path(gs).isRelative();
 }
 
 path path::parent_path() const
 {
-    auto p = Poco::Path(s).parent().toString();
+    auto p = Poco::Path(gs).parent().toString();
     while (p.size() > 1 && (p.back() == '/' || p.back() == '\\'))
         p.pop_back();
     return p;
@@ -524,7 +524,7 @@ path path::parent_path() const
 
 path path::stem() const
 {
-    return Poco::Path(s).getBaseName();
+    return Poco::Path(gs).getBaseName();
 }
 
 void remove(const path& p)
