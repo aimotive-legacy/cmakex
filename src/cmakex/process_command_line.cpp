@@ -48,30 +48,39 @@ General commands:
 CMake-wrapper mode:
 ===================
 
-Execute multiple `cmake` commands with concise syntax.
+Execute multiple CMake commands with concise syntax.
 
-    'c', 'b', 'i', 't': perform CMake configure/build/install/test steps
-    'd', 'r', 'w':      for Debug, Release, RelWithDebInfo configurations
+The command-word consisting of the letters c, b, i, t, d, r, w specifies the
+CMake steps to execute and the configurations.
 
-The letters can be mixed, order is not important.
+Use one or more of:
+
+    c, b, i, t: to perform CMake configure/build/install/test steps
+       d, r, w: for Debug, Release and RelWithDebInfo configurations
+
+The order of the letters is not important.
 
 <source/build-dir-spec> is one of
 ---------------------------------
 
-    1. `-H <path-to-source> -B <path-to-build>`
-    2. `<path-to-existing-build>`
-    3. `-B <path-to-existing-build>`
-    4. `<path-to-source>` (build directory is the current working directory)
+    1. -H <path-to-source> -B <path-to-build>
+    2. <path-to-existing-build>
+    3. -B <path-to-existing-build>
+    4. <path-to-source> (build directory is the current working directory)
 
-`-H` and `-B` options can be written with or without space.
+`-H` and `-B` options can be written with or without spaces.
 
 Accepted <cmake-args>:
 ----------------------
 
-    --config <cfg>: For specifying configs other than Debug, Release, RelWithDebInfo.
-                    Can be specified multiple times.
-    --target <tgt>: For specifying targets other than ALL (default) and INSTALL (use 'i' in <command>)
-                    Can be specified multiple times.
+For detailed help on these arguments see the documentation of the `cmake`
+command: https://cmake.org/cmake/help/latest/manual/cmake.1.html
+
+    --config <cfg>: For specifying configs other than Debug, Release
+                    RelWithDebInfo. Can be used multiple times.
+    --target <tgt>: For specifying targets other than ALL (default) and INSTALL
+                    (for that one, use 'i' in the command-word). Can be used
+                    multiple times.
     --clean-first
     -C, -D, -U, -G, -T, -A
     -N, all the -W* options
@@ -82,29 +91,34 @@ Accepted <cmake-args>:
 Package-management
 ==================
 
-    --deps
-    --deps=<path>      Before executing the cmake-steps on the main project, process the dependency-
-                       script at <source-dir>/deps.cmake or <path> and download/configure/build/
-                       install the packages defined in the script, if needed
-    --deps-only
-    --deps-only=<path> Same as `--deps` but does not processes the main project.
-                       Note: use `cmakex -B <path-to-new-or-existing-build> --deps-only=<path> ...`
-                       to build a list of packages without a main project
-    --force-build      Configure and build each dependency even if no options/dependencies have been
-                       changed for a package.
-    --update-includes  The CMake `include()` command used in the dependency scripts can include a
-                       URL. The file the URL refers to will be downloaded and included with the
-                       normal `include` command. Further runs will use the local copy. Use this
-                       option to purge the local copies and download the files again.
+    --deps[=<path>]
+                  Before executing the cmake-steps on the main project, process
+                  the dependency-script at <source-dir>/deps.cmake (default) or
+                  at <path> and download/configure/build/install the packages
+                  defined in the script (on demand)
+    --deps-only[=<path>]
+                  Same as `--deps` but does not process the main project.
+                  Tip: use `cmakex -B <path-to-new-or-existing-build>
+                  --deps-only=<path> ...` to build a list of packages without a
+                  main project
+    --force-build Configure and build each dependency even if no build options
+                  or dependencies have been changed for a package.
+    --update-includes
+                  The CMake `include()` command used in the dependency scripts
+                  can include a URL. The file the URL refers to will be
+                  downloaded and included with the normal `include` command.
+                  Further runs will use the local copy. Use this option to purge
+                  the local copies and download the files again.
 
 Presets
 =======
 
     -p <path>#preset[#preset]...
-                       Load the YAML file from <path> and add the args defined for the presets to
-                       the current command line.
+                  Load the YAML file from <path> and add the args defined for
+                  the presets to the current command line.
     -p preset[#preset]...
-                       Use the file specified in the CMAKEX_PRESET_FILE environment variable.
+                  Use the file specified in the CMAKEX_PRESET_FILE environment
+                  variable.
 
 Examples:
 =========
