@@ -14,7 +14,7 @@ CEREAL_CLASS_VERSION(cmakex::pkg_desc_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_build_pars_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_clone_pars_t, 1)
 // CEREAL_CLASS_VERSION(cmakex::pkg_files_t, 1)
-CEREAL_CLASS_VERSION(cmakex::installed_config_desc_t, 1)
+CEREAL_CLASS_VERSION(cmakex::installed_config_desc_t, 2)
 
 namespace cmakex {
 
@@ -64,10 +64,17 @@ void serialize(Archive& archive, pkg_files_t& m, uint32_t version)
     archive(A(files));
 }
 */
+
+template <class Archive>
+void serialize(Archive& archive, final_cmake_args_t& m)
+{
+    archive(A(args), A(c_sha), A(cmake_toolchain_file_sha));
+}
+
 template <class Archive>
 void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 {
-    THROW_UNLESS(version == 1);
+    THROW_UNLESS(version == 2);
     archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(final_cmake_args),
             A(deps_shas));
 }
@@ -146,7 +153,7 @@ maybe<pkg_files_t> InstallDB::try_get_installed_pkg_files(string_par pkg_name) c
 
 void InstallDB::put_installed_pkg_desc(installed_config_desc_t p)
 {
-    p.final_cmake_args = normalize_cmake_args(p.final_cmake_args);
+    p.final_cmake_args.args = normalize_cmake_args(p.final_cmake_args.args);
     auto dir = installed_pkg_desc_dir(p.pkg_name, "");
     fs::create_directories(dir);
     auto path = installed_pkg_config_desc_path(p.pkg_name, p.config);
@@ -193,33 +200,57 @@ string InstallDB::installed_pkg_config_desc_path(string_par pkg_name,
     return dbpath + "/" + pkg_name.c_str() + "-files.json";
 }
 */
-bool is_critical_cmake_arg(const string& s)
+bool is_critical_cmake_arg(const parsed_cmake_arg_t& pca)
 {
     for (auto p : {"-C", "-D", "-G", "-T", "-A"}) {
-        if (starts_with(s, p))
+        if (pca.switch_ == p)
             return true;
     }
     return false;
 }
 
-vector<string> incompatible_cmake_args(const vector<string>& x, const vector<string>& y)
+vector<string> incompatible_cmake_args(const final_cmake_args_t& x, const final_cmake_args_t& y)
+{
+    auto r = incompatible_cmake_args(x.args, y.args, false);
+    if (x.c_sha != y.c_sha)
+        r.emplace_back("(different files for the switch '-C')");
+    if (x.cmake_toolchain_file_sha != y.cmake_toolchain_file_sha)
+        r.emplace_back("(different CMake toolchain files)");
+
+    return r;
+}
+
+vector<string> incompatible_cmake_args(const vector<string>& x,
+                                       const vector<string>& y,
+                                       bool consider_c_and_toolchain)
 {
     vector<string> r;
     auto cx = normalize_cmake_args(x);
     auto cy = normalize_cmake_args(y);
-    for (auto& o : set_difference(cx, cy))
-        if (is_critical_cmake_arg(o))
-            r.emplace_back(o);
-    for (auto& o : set_difference(cy, cx))
-        if (is_critical_cmake_arg(o))
-            r.emplace_back(o);
+
+    auto handle_arg = [&r, consider_c_and_toolchain](string_par o) {
+        auto pca = parse_cmake_arg(o);
+        if (!consider_c_and_toolchain &&
+            ((pca.switch_ == "-D" && pca.name == "CMAKE_TOOLCHAIN_FILE") || pca.switch_ == "-C"))
+            return;  // handled separately
+        if (is_critical_cmake_arg(pca))
+            r.emplace_back(o.str());
+    };
+
+    for (auto& o : set_difference(cx, cy)) {
+        handle_arg(o);
+    }
+    for (auto& o : set_difference(cy, cx)) {
+        handle_arg(o);
+    }
+
     return r;
 }
 
 pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pars(
     string_par pkg_name,
     string_par bp_source_dir,
-    const std::map<config_name_t, vector<string>>& bp_final_cmake_args,
+    const std::map<config_name_t, final_cmake_args_t>& bp_final_cmake_args,
     string_par prefix_path)
 {
     auto installed_configs = try_get_installed_pkg_all_configs(pkg_name, prefix_path);

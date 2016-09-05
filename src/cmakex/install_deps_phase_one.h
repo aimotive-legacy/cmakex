@@ -13,7 +13,7 @@ struct deps_recursion_wsp_t
     {
         vector<string> build_reasons;
         vector<string> cmake_args_to_apply;
-        vector<string> tentative_final_cmake_args;
+        final_cmake_args_t tentative_final_cmake_args;
     };
     struct pkg_t
     {

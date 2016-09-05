@@ -74,7 +74,7 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
     }
 
     // compare CMAKE_ARGS
-    auto v = incompatible_cmake_args(b1.cmake_args, b2.cmake_args);
+    auto v = incompatible_cmake_args(b1.cmake_args, b2.cmake_args, true);
     if (!v.empty()) {
         throwf(
             "Different CMAKE_ARGS args for the same package. The package '%s' is being "
@@ -425,7 +425,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 auto cct = load_cmake_cache_tracker(pkg_bin_dir_of_config);
                 cct.add_pending(cmake_args_to_apply);
                 cct.confirm_pending();
-                pkg_c.tentative_final_cmake_args = cct.cached_cmake_args;
+                pkg_c.tentative_final_cmake_args.assign(cct.cached_cmake_args, cct.c_sha,
+                                                        cct.cmake_toolchain_file_sha);
             } else {
                 auto first_c = *pkg.request.b.configs().begin();
                 pcd_c.initial_build = pcd[first_c].initial_build;
@@ -460,7 +461,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         throwf("No definition found for package %s", pkg_for_log(pkg_name).c_str());
 
     auto per_config_final_cmake_args = [&pkg]() {
-        std::map<config_name_t, vector<string>> r;
+        std::map<config_name_t, final_cmake_args_t> r;
         for (auto& c : pkg.request.b.configs())
             r[c] = pkg.pcd.at(c).tentative_final_cmake_args;
         return r;
@@ -660,11 +661,11 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     br = {stringf("build options changed")};
                     br.emplace_back(stringf(
                         "CMAKE_ARGS of the currently installed build: %s",
-                        join(normalize_cmake_args(current_install_desc.final_cmake_args), " ")
+                        join(normalize_cmake_args(current_install_desc.final_cmake_args.args), " ")
                             .c_str()));
-                    br.emplace_back(
-                        stringf("Requested CMAKE_ARGS: %s",
-                                join(pkg.pcd.at(config).tentative_final_cmake_args, " ").c_str()));
+                    br.emplace_back(stringf(
+                        "Requested CMAKE_ARGS: %s",
+                        join(pkg.pcd.at(config).tentative_final_cmake_args.args, " ").c_str()));
                     br.emplace_back(
                         stringf("Incompatible CMAKE_ARGS: %s",
                                 current_install_details.incompatible_cmake_args.c_str()));

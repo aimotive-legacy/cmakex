@@ -26,4 +26,13 @@ vector<string> get_prefer_NoConfig(const vector<config_name_t>& x)
         y.emplace_back(c.get_prefer_NoConfig());
     return y;
 }
+
+void final_cmake_args_t::assign(const vector<string>& cmake_args,
+                                string_par c_sha,
+                                string_par cmake_toolchain_file_sha)
+{
+    args = cmake_args;
+    this->c_sha = c_sha.str();
+    this->cmake_toolchain_file_sha = cmake_toolchain_file_sha.str();
+}
 }

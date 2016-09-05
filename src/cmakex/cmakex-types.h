@@ -112,6 +112,17 @@ struct pkg_desc_t
     std::set<string> depends;  // all dependencies encountered recursively
 };
 
+struct final_cmake_args_t
+{
+    void assign(const vector<string>& cmake_args,
+                string_par c_sha,
+                string_par cmake_toolchain_file_sha);
+
+    vector<string> args;              // the actual cmake args
+    string c_sha;                     // sha of the file specied with -C
+    string cmake_toolchain_file_sha;  // sha of the cmake toolchain file
+};
+
 struct installed_config_desc_t
 {
     static installed_config_desc_t uninitialized_installed_config_desc()
@@ -127,9 +138,9 @@ struct installed_config_desc_t
     config_name_t config;
     string git_url;
     string git_sha;
-    string source_dir;                // (relative) directory containing CMakeLists.txt
-    vector<string> final_cmake_args;  // all cmake args including global ones
-    deps_shas_t deps_shas;            // sha's of dependencies at the time of the build
+    string source_dir;                    // (relative) directory containing CMakeLists.txt
+    final_cmake_args_t final_cmake_args;  // all cmake args including global ones
+    deps_shas_t deps_shas;                // sha's of dependencies at the time of the build
 private:
     installed_config_desc_t() = default;
 };

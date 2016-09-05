@@ -10,7 +10,11 @@ namespace cmakex {
 
 // returns a possibly empty list of incompatible cmake args. Only critical cmake args will be
 // considered: "-C", "-D", "-G", "-T", "-A"
-vector<string> incompatible_cmake_args(const vector<string>& x, const vector<string>& y);
+vector<string> incompatible_cmake_args(const vector<string>& x,
+                                       const vector<string>& y,
+                                       bool consider_c_and_toolchain);
+vector<string> incompatible_final_cmake_args(const final_cmake_args_t& x,
+                                             const final_cmake_args_t& y);
 
 // stores, adds and removes and queries the list of packages and corresponding files
 // installed into a directory
@@ -25,7 +29,7 @@ public:
     pkg_request_details_against_installed_t evaluate_pkg_request_build_pars(
         string_par pkg_name,
         string_par bp_source_dir,
-        const std::map<config_name_t, vector<string>>& final_cmake_args,
+        const std::map<config_name_t, final_cmake_args_t>& final_cmake_args,
         string_par prefix_path = "");
     installed_pkg_configs_t try_get_installed_pkg_all_configs(string_par pkg_name,
                                                               string_par prefix_path = "") const;
