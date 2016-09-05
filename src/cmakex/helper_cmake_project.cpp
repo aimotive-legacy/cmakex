@@ -19,6 +19,7 @@ const char* k_build_script_cmakex_out_filename = "cmakex_out.txt";
 const char* k_default_binary_dirname = "b";
 const char* k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
 const char* k_build_script_executor_log_name = "deps_script_wrapper";
+static const char* const cmakex_version_mmp = STRINGIZE(CMAKEX_VERSION_MMP);
 
 string deps_script_wrapper_cmakelists()
 {
@@ -112,6 +113,7 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
 
     append_inplace(args, cct.pending_cmake_args);
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
+    args.emplace_back(string{"-DCMAKEX_VERSION="} + cmakex_version_mmp);
     auto cl_config = string_exec("cmake", args);
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());

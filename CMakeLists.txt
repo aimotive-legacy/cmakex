@@ -42,9 +42,14 @@ if(GIT_FOUND)
     endif()
 endif()
 
+string(REGEX MATCH "^[0-9.]*" CMAKEX_VERSION_MMP "${version_string}")
+set(CMAKEX_VERSION_WITH_META "${version_string}+${t}.${sha}")
 add_definitions(
-    -DCMAKEX_VERSION_STRING=${version_string}+${t}.${sha}
+    -DCMAKEX_VERSION_MMP=${CMAKEX_VERSION_MMP}
+    -DCMAKEX_VERSION_WITH_META=${CMAKEX_VERSION_WITH_META}
 )
+
+cmake_print_variables(CMAKEX_VERSION_MMP CMAKEX_VERSION_WITH_META)
 
 find_package(aw-sx REQUIRED)
 find_package(yaml-cpp REQUIRED)

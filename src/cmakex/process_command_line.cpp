@@ -12,9 +12,10 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-const char* cmakex_version_string = STRINGIZE(CMAKEX_VERSION_STRING);
+static const char* const cmakex_version_with_meta = STRINGIZE(CMAKEX_VERSION_WITH_META);
 
-const char* brief_usage_text = R"~~~~(- lightweight package manager + multiple repos for CMake
+static const char* const brief_usage_text =
+    R"~~~~(- lightweight package manager + multiple repos for CMake
 
 Usage: cmakex [--help] [--version]
               [c][b][i][t][d][r][w] [<source/build-dir-spec]
@@ -26,7 +27,8 @@ For detailed help, see README.md
 
 )~~~~";
 
-const char* usage_text = R"~~~~(- lightweight package manager + multiple repos for CMake
+static const char* const usage_text =
+    R"~~~~(- lightweight package manager + multiple repos for CMake
 
 Usage: cmakex [--help] [--version]
               [c][b][i][t][d][r][w] [<source/build-dir-spec]
@@ -124,7 +126,7 @@ Build `Release` config in existing build dir, with dependencies
 
 void display_usage_and_exit(int exit_code, bool brief)
 {
-    auto s = stringf("cmakex v%s", cmakex_version_string);
+    auto s = stringf("cmakex v%s", cmakex_version_with_meta);
     fprintf(exit_code ? stderr : stdout, "%s ", s.c_str());
     fprintf(exit_code ? stderr : stdout, "%s", brief ? brief_usage_text : usage_text);
     exit(exit_code);
@@ -132,7 +134,7 @@ void display_usage_and_exit(int exit_code, bool brief)
 
 void display_version_and_exit(int exit_code)
 {
-    fprintf(exit_code ? stderr : stdout, "%s\n", cmakex_version_string);
+    fprintf(exit_code ? stderr : stdout, "%s\n", cmakex_version_with_meta);
     exit(exit_code);
 }
 
