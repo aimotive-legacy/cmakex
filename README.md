@@ -5,6 +5,34 @@ Extension for the `cmake` command
 Keywords: lightweight C/C++ package management, multiple repos tool,
 applying common cmake build/toolchain options, package server
 
+## Example
+
+Say, you have a CMake-enabled project which depends on
+[jsoncpp](https://github.com/open-source-parsers/jsoncpp) and
+[GTest](https://github.com/google/googletest) and another inhouse library of
+yours. Simply create a cmake file `deps.cmake` next your project's
+`CMakeLists.txt` with this content:
+
+    add_pkg(jsoncpp GIT_URL https://github.com/open-source-parsers/jsoncpp
+            GIT_TAG 1.7.1
+            CMAKE_ARGS
+                -DJSONCPP_WITH_TESTS=0 -DJSONCPP_WITH_POST_BUILD_UNITTEST=0
+                -DJSONCPP_WITH_CMAKE_PACKAGE=1)
+    add_pkg(GTest GIT_URL https://github.com/google/googletest
+            CMAKE_ARGS -DCMAKE_DEBUG_POSTFIX=d -Dgtest_force_shared_crt=1)
+    add_pkg(mylibfoo GIT_URL https://github.com/thatsme/mylibfoo)
+
+Then build your project from scratch with this one-liner:
+
+    cmakex br -H myproj -B myproj-build --deps
+
+That single line downloads and installs the dependencies and **b**uilds the
+**r**elease configuration of your project.
+
+Edit your main project or mylibfoo (or any other dependency) and rebuild:
+
+    cmakex br myproj-build
+
 ## Contents
 
 - Overview
