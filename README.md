@@ -5,7 +5,7 @@ Extension for the `cmake` command
 Keywords: lightweight C/C++ package management, multiple repos tool,
 applying common cmake build/toolchain options, package server
 
-## Example
+## Show me quickly what I can do with this
 
 Say, you have a CMake-enabled project which depends on
 [jsoncpp](https://github.com/open-source-parsers/jsoncpp) and
