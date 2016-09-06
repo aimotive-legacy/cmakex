@@ -208,16 +208,17 @@ idpo_recursion_result_t process_pkgs_to_process(string_par binary_dir,
                                                 const vector<string>& command_line_cmake_args,
                                                 const vector<config_name_t>& configs,
                                                 deps_recursion_wsp_t& wsp,
-                                                const cmakex_cache_t& cmakex_cache)
+                                                const cmakex_cache_t& cmakex_cache,
+                                                const vector<string>& pkgs_to_process)
 {
     idpo_recursion_result_t rr;
 
-    while (!wsp.pkgs_to_process.empty()) {
-        string pkg_name;
+    for (auto& pkg_name : pkgs_to_process) {
+        auto it = wsp.pkgs_to_process.find(pkg_name);
         {
-            auto it_begin = wsp.pkgs_to_process.begin();
-            pkg_name = *it_begin;
-            wsp.pkgs_to_process.erase(it_begin);
+            if (it == wsp.pkgs_to_process.end())
+                continue;
+            wsp.pkgs_to_process.erase(it);
         }
         auto rr_below = run_deps_add_pkg(pkg_name, binary_dir, command_line_cmake_args, configs,
                                          wsp, cmakex_cache);
@@ -239,7 +240,8 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(
     for (auto& d : request_deps)
         insert_new_request_into_wsp(pkg_request_t(d, configs, true), wsp);
 
-    return process_pkgs_to_process(binary_dir, command_line_cmake_args, configs, wsp, cmakex_cache);
+    return process_pkgs_to_process(binary_dir, command_line_cmake_args, configs, wsp, cmakex_cache,
+                                   request_deps);
 }
 
 idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
@@ -303,13 +305,17 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     HelperCmakeProject hcp(binary_dir);
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file, wsp.clear_downloaded_include_files);
 
+    vector<string> deps;
+
     // for each pkg:
     for (auto& addpkg_line : addpkgs_lines) {
         auto args = split(addpkg_line, '\t');
-        insert_new_request_into_wsp(pkg_request_from_args(args, configs), wsp);
+        auto req = pkg_request_from_args(args, configs);
+        deps.emplace_back(req.name);
+        insert_new_request_into_wsp(req, wsp);
     }
 
-    return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache);
+    return process_pkgs_to_process(binary_dir, global_cmake_args, configs, wsp, cmakex_cache, deps);
 }
 
 idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
