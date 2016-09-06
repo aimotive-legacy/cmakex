@@ -899,7 +899,7 @@ void write_hijack_module(string_par pkg_name, string_par binary_dir)
     string file = dir + "/" + c_fptcf_filename;
     if (!fs::is_regular_file(file))
         must_write_text(file, k_find_package_try_config_first_module_content);
-    file = dir + "/" + tolower(pkg_name) + "-config.cmake";
+    file = dir + "/Find" + pkg_name.str() + ".cmake";
     if (!fs::is_regular_file(file))
         must_write_text(file,
                         "include(FindPackageTryConfigFirst)\nfind_package_try_config_first()\n");
@@ -920,7 +920,8 @@ vector<string> make_sure_cmake_path_var_contains_path(
     string_par bin_dir,
     string_par var_name,     // like "CMAKE_PREFIX_PATH"
     string_par path_to_add,  // like install dir of the dependencies
-    vector<string> cmake_args)
+    vector<string>
+        cmake_args)
 {
     string cmake_path_var_value;
     string cmake_path_var_type;
