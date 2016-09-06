@@ -128,10 +128,11 @@ int main(int argc, char* argv[])
 
             fs::create_directories(cmakex_config_t(pars.binary_dir).find_module_hijack_dir());
 
-            install_deps_phase_one(
-                pars.binary_dir, pars.source_dir, {}, command_line_cmake_args, configs, wsp,
-                cmakex_cache,
-                pars.deps_script.empty() ? "" : fs::absolute(pars.deps_script).c_str());
+            string ds = pars.deps_script;
+            if (!ds.empty() && fs::is_regular_file(ds))
+                ds = fs::lexically_normal(fs::absolute(ds));
+            install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, command_line_cmake_args,
+                                   configs, wsp, cmakex_cache, ds);
             install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c,
                                    pars.build_args, pars.native_tool_args);
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),

@@ -254,11 +254,20 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
     CHECK(!binary_dir.empty());
     CHECK(!configs.empty());
     if (!source_dir.empty() || !custom_deps_script_file.empty()) {
-        string deps_script_file = fs::lexically_normal(
-            custom_deps_script_file.empty()
-                ? fs::absolute(source_dir.str()).string() + "/" + k_deps_script_filename
-                : custom_deps_script_file.str());
-        if (fs::is_regular_file(deps_script_file)) {
+        string deps_script_file;
+        if (custom_deps_script_file.empty()) {
+            deps_script_file = fs::lexically_normal(fs::absolute(source_dir.str()).string() + "/" +
+                                                    k_deps_script_filename);
+            if (fs::is_regular_file(deps_script_file)) {
+                if (!request_deps.empty())
+                    log_warn("Using dependency script \"%s\" instead of specified dependencies.",
+                             deps_script_file.c_str());
+                return install_deps_phase_one_deps_script(binary_dir, deps_script_file,
+                                                          command_line_cmake_args, configs, wsp,
+                                                          cmakex_cache);
+            }
+        } else {
+            deps_script_file = custom_deps_script_file;
             if (!request_deps.empty())
                 log_warn("Using dependency script \"%s\" instead of specified dependencies.",
                          deps_script_file.c_str());
@@ -266,6 +275,7 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
                 binary_dir, deps_script_file, command_line_cmake_args, configs, wsp, cmakex_cache);
         }
     }
+
     return install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
                                                configs, wsp, cmakex_cache);
 }
@@ -283,7 +293,8 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
     // - records the add_pkg commands
     // - records the cmakex commands
     // Then the configure ends.
-    // Process the recorded add_pkg commands which installs the requested dependency to the install
+    // Process the recorded add_pkg commands which installs the requested dependency to the
+    // install
     // directory.
 
     // create source dir
@@ -350,12 +361,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         sx::unique_trunc(cr);
         std::sort(BEGINEND(configs_on_prefix_path));
 
-        // in case the requested configs and the installed configs are different, we're accepting
+        // in case the requested configs and the installed configs are different, we're
+        // accepting
         // the installed configs
         string cmsg;
         if (cr != configs_on_prefix_path) {
             cmsg = stringf(
-                ", accepting installed configuration%s (%s) instead of the requested one%s (%s)%s",
+                ", accepting installed configuration%s (%s) instead of the requested one%s "
+                "(%s)%s",
                 configs_on_prefix_path.size() > 1 ? "s" : "",
                 join(get_prefer_NoConfig(configs_on_prefix_path), ", ").c_str(),
                 cr.size() > 1 ? "s" : "", join(get_prefer_NoConfig(cr), ", ").c_str(),
@@ -420,7 +433,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     pkg_bin_dir_of_config, "CMAKE_MODULE_PATH", cfg.find_module_hijack_dir(),
                     cmake_args_to_apply);
 
-                // get tentative per-config final_cmake_args from cmake cache tracker by applying
+                // get tentative per-config final_cmake_args from cmake cache tracker by
+                // applying
                 // these cmake_args onto the current tracked values
                 auto cct = load_cmake_cache_tracker(pkg_bin_dir_of_config);
                 cct.add_pending(cmake_args_to_apply);
@@ -499,7 +513,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         // also, it must not be cloned
         if (cloned) {
             throwf(
-                "%s found on the prefix path %s but and it's also checked out in %s. Remove either "
+                "%s found on the prefix path %s but and it's also checked out in %s. Remove "
+                "either "
                 "from the prefix path or from the directory.",
                 pkg_for_log(pkg_name).c_str(), path_for_log(pkg.found_on_prefix_path).c_str(),
                 path_for_log(cfg.pkg_clone_dir(pkg_name)).c_str());
@@ -507,7 +522,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         // if it's name-only then we accept it always
         if (pkg.request.name_only()) {
             // overwrite with actual installed descs
-            // the installed descs must be uniform, that is, same settings for each installed config
+            // the installed descs must be uniform, that is, same settings for each installed
+            // config
 
             auto& first_desc = installed_result.begin()->second.installed_config_desc;
             const char* different_option = nullptr;
@@ -568,7 +584,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 if (itc.status == pkg_request_not_compatible) {
                     throwf(
                         "Package %s found on the prefix path %s but the build options are not "
-                        "compatible with the current ones. Either remove from the prefix path or "
+                        "compatible with the current ones. Either remove from the prefix path "
+                        "or "
                         "check build options. The offending CMAKE_ARGS: [%s]",
                         pkg_for_log(pkg_name).c_str(),
                         path_for_log(pkg.found_on_prefix_path).c_str(),
@@ -621,7 +638,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 // installed as headers+binary
                 // the description that came with the binary should contain the detailed
                 // descriptions (requests) of its all dependencies. It's like a deps.cmake file
-                // 'materialized' that is, processed into a similar file we process the deps.cmake
+                // 'materialized' that is, processed into a similar file we process the
+                // deps.cmake
                 // and also git_tags resolved to concrete SHAs.
                 // The dependencies will be either built locally or downloaded based on that
                 // description
