@@ -72,16 +72,39 @@ string find_git_with_cmake()
     return resolved_path;
 }
 
+void test_git(string_par git_command)
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+    int r = exec_process(git_command, vector<string>{{"--version"}}, oeb.stdout_callback(),
+                         oeb.stderr_callback());
+    auto oem = oeb.move_result();
+
+    if (r) {
+        auto p = getenv("PATH");
+        throwf("Can't find git. Error code: %d, PATH: %s", r, p ? p : "<null>");
+    } else {
+        if (oem.size() >= 1) {
+            auto msg = oem.at(0);
+            auto pos = std::min(msg.text.find('\n'), msg.text.find('\r'));
+            if (pos != string::npos)
+                msg.text = msg.text.substr(0, pos);
+            printf("%s\n", msg.text.c_str());
+        }
+    }
+}
+
 string find_git_or_return_git()
 {
+    string result;
     try {
-        string result = find_git_with_cmake();
+        result = find_git_with_cmake();
         log_info("Using git: %s.", result.c_str());
-        return result;
     } catch (exception& e) {
         log_warn("Can't find git executable, using simply 'git'. Reason: %s", e.what());
-        return "git";
+        result = "git";
     }
+    test_git(result);
+    return result;
 }
 
 int exec_git(const vector<string>& args,
