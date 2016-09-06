@@ -49,8 +49,30 @@ HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
 {
 }
 
+void test_cmake()
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+    int r = exec_process("cmake", vector<string>{{"--version"}}, oeb.stdout_callback(),
+                         oeb.stderr_callback());
+    auto oem = oeb.move_result();
+
+    if (r) {
+        auto p = getenv("PATH");
+        throwf("Can't find cmake executable on the path. Error code: %d, PATH: %s", r,
+               p ? p : "<null>");
+    } else {
+        if (oem.size() >= 1) {
+            auto msg = oem.at(0);
+            auto pos = std::min(msg.text.find('\n'), msg.text.find('\r'));
+            if (pos != string::npos)
+                msg.text = msg.text.substr(0, pos);
+            printf("%s\n", msg.text.c_str());
+        }
+    }
+}
 void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args)
 {
+    test_cmake();
     for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
         if (!fs::is_directory(d)) {
             string msg;
