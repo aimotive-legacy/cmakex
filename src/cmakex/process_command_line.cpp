@@ -421,9 +421,9 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         if (b) {
             if (s) {
                 badpars_exit(
-                    stringf("The directory \"%s\" is both a valid source and a valid binary "
+                    stringf("The directory %s is both a valid source and a valid binary "
                             "directory. This is not permitted with cmakex",
-                            d.c_str()));
+                            path_for_log(d).c_str()));
             } else {
                 pcla.binary_dir = d;
             }
@@ -433,9 +433,9 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                 pcla.binary_dir = fs::current_path().string();
             } else {
                 badpars_exit(
-                    stringf("The directory \"%s\" is neither a valid source (no CMakeLists.txt), "
+                    stringf("The directory %s is neither a valid source (no CMakeLists.txt), "
                             "nor a valid binary directory.",
-                            d.c_str()));
+                            path_for_log(d).c_str()));
             }
         }
     } else if (cla.free_args.size() > 1) {
@@ -452,9 +452,9 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     if (!pcla.source_dir.empty()) {
         if (fs::equivalent(pcla.source_dir, pcla.binary_dir))
             badpars_exit(
-                stringf("The source and binary dirs are identical: \"%s\", this is not permitted "
+                stringf("The source and binary dirs are identical: %s, this is not permitted "
                         "with cmakex",
-                        fs::canonical(pcla.source_dir.c_str()).c_str()));
+                        path_for_log(fs::canonical(pcla.source_dir.c_str()).c_str()).c_str()));
     }
 
     // extract source dir from existing binary dir
@@ -490,10 +490,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             string source_dir = cmakex_cache.home_directory;
 
             if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
-                badpars_exit(stringf(
-                    "The source dir specified \"%s\" is different from the one stored in the "
-                    "%s: \"%s\"",
-                    pcla.source_dir.c_str(), k_cmakex_cache_filename, source_dir.c_str()));
+                badpars_exit(
+                    stringf("The source dir specified %s is different from the one stored in the "
+                            "%s: %s",
+                            path_for_log(pcla.source_dir).c_str(), k_cmakex_cache_filename,
+                            path_for_log(source_dir).c_str()));
             }
             if (pcla.source_dir.empty())
                 pcla.source_dir = source_dir;
@@ -502,11 +503,11 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             if (binary_dir_has_cmake_cache) {
                 string source_dir = cmake_cache.vars["CMAKE_HOME_DIRECTORY"];
                 if (!pcla.source_dir.empty() && !fs::equivalent(source_dir, pcla.source_dir)) {
-                    badpars_exit(
-                        stringf("The source dir specified \"%s\" is different from the one "
-                                "stored in the "
-                                "CMakeCache.txt: \"%s\"",
-                                pcla.source_dir.c_str(), source_dir.c_str()));
+                    badpars_exit(stringf(
+                        "The source dir specified %s is different from the one "
+                        "stored in "
+                        "CMakeCache.txt: %s",
+                        path_for_log(pcla.source_dir).c_str(), path_for_log(source_dir).c_str()));
                 }
                 if (pcla.source_dir.empty())
                     pcla.source_dir = source_dir;
@@ -519,15 +520,15 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     if (pcla.deps_mode != dm_deps_only) {
         if (pcla.source_dir.empty())
             badpars_exit(
-                stringf("No source dir has been specified and the binary dir \"%s\" is not valid "
+                stringf("No source dir has been specified and the binary dir %s is not valid "
                         "(contains no CMakeCache.txt or %s)",
-                        pcla.binary_dir.c_str(), k_cmakex_cache_filename));
+                        path_for_log(pcla.binary_dir).c_str(), k_cmakex_cache_filename));
 
         CHECK(!pcla.source_dir.empty());
 
         if (!is_valid_source_dir(pcla.source_dir))
-            badpars_exit(stringf("The source dir \"%s\" is not valid (no CMakeLists.txt)",
-                                 pcla.source_dir.c_str()));
+            badpars_exit(stringf("The source dir %s is not valid (no CMakeLists.txt)",
+                                 path_for_log(pcla.source_dir).c_str()));
 
         home_directory = fs::canonical(pcla.source_dir).string();
     }
@@ -620,11 +621,13 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     if (!pcla.source_dir.empty()) {
         if (fs::path(pcla.source_dir).is_absolute())
-            log_info("Using source dir: \"%s\"", pcla.source_dir.c_str());
+            log_info("Using source dir: %s", path_for_log(pcla.source_dir).c_str());
         else {
             log_info(
-                "Using source dir: \"%s\" -> \"%s\"", pcla.source_dir.c_str(),
-                strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.source_dir))).c_str());
+                "Using source dir: %s -> %s", path_for_log(pcla.source_dir).c_str(),
+                path_for_log(
+                    strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.source_dir))).c_str())
+                    .c_str());
         }
     }
 
@@ -632,10 +635,13 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         is_valid_binary_dir(pcla.binary_dir) ? "Using existing" : "Creating";
 
     if (fs::path(pcla.binary_dir).is_absolute())
-        log_info("%s binary dir: \"%s\"", using_or_creating, pcla.binary_dir.c_str());
+        log_info("%s binary dir: %s", using_or_creating, path_for_log(pcla.binary_dir).c_str());
     else
-        log_info("%s binary dir: \"%s\" -> \"%s\"", using_or_creating, pcla.binary_dir.c_str(),
-                 strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.binary_dir))).c_str());
+        log_info(
+            "%s binary dir: %s -> %s", using_or_creating, path_for_log(pcla.binary_dir).c_str(),
+            path_for_log(
+                strip_trailing_dot(fs::lexically_normal(fs::absolute(pcla.binary_dir))).c_str())
+                .c_str());
 
     pcla.cmake_args = normalize_cmake_args(pcla.cmake_args);
 

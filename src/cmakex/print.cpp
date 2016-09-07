@@ -190,15 +190,15 @@ void save_log_from_oem(string_par command_line,
             msg = "unknown exception";
         }
         if (!msg.empty()) {
-            log_error("Can't create directory for logs (\"%s\"), reason: %s.", log_dir.c_str(),
-                      msg.c_str());
+            log_error("Can't create directory for logs (%s), reason: %s.",
+                      path_for_log(log_dir).c_str(), msg.c_str());
             return;
         }
     }
     string log_path = log_dir.str() + "/" + log_filename.c_str();
     auto maybe_f = try_fopen(log_path, "w");
     if (!maybe_f) {
-        log_error_errno("Can't open log file for writing: \"%s\"", log_path.c_str());
+        log_error_errno("Can't open log file for writing: %s", path_for_log(log_path).c_str());
         return;
     }
     auto f = move(*maybe_f);
@@ -263,7 +263,7 @@ void save_log_from_oem(string_par command_line,
                stringf("Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str()));
 
     if (result)
-        log_info("Log saved to \"%s\".", /*prefix_msg.c_str(), */ log_path.c_str());
+        log_info("Log saved to %s.", /*prefix_msg.c_str(), */ path_for_log(log_path).c_str());
 }
 
 void log_datetime()

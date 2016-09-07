@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
     }
 
     if (g_verbose) {
-        log_info("Current directory: \"%s\"", fs::current_path().c_str());
+        log_info("Current directory: %s", path_for_log(fs::current_path().c_str()).c_str());
         for (int i = 0; i < argc; ++i) {
             log_info("arg#%d: `%s`", i, argv[i]);
         }

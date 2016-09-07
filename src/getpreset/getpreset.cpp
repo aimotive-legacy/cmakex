@@ -308,8 +308,8 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
     try {
         config = YAML::LoadFile(file);
     } catch (const std::exception& e) {
-        throw std::runtime_error(
-            stringf("Error loading preset file %s, reason: %s\n", path_for_log(file).c_str(), e.what()));
+        throw std::runtime_error(stringf("Error loading preset file %s, reason: %s\n",
+                                         path_for_log(file).c_str(), e.what()));
     }
 
     const YAML::Node variables = config["variables"];
@@ -319,8 +319,8 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
         throw std::runtime_error(stringf("No presets found in %s.\n", path_for_log(file).c_str()));
 
     if (!presets.IsMap()) {
-        throw std::runtime_error(
-            stringf("The value of the `presets` key is not a map in %s.\n", path_for_log(file).c_str()));
+        throw std::runtime_error(stringf("The value of the `presets` key is not a map in %s.\n",
+                                         path_for_log(file).c_str()));
     }
 
     vector<string> result;
@@ -346,9 +346,8 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
         }
 
         if (preset_name.empty())
-            throw std::runtime_error(
-                stringf("The preset name or alias '%s' not found in %s.\n",
-                        lookup_name.c_str(), path_for_log(file).c_str()));
+            throw std::runtime_error(stringf("The preset name or alias '%s' not found in %s.\n",
+                                             lookup_name.c_str(), path_for_log(file).c_str()));
 
         auto preset = presets[preset_name];
 
@@ -366,12 +365,12 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
                 vars.insert(pair_ss("CMAKE_CURRENT_LIST_DIR", input_dir));
                 for (auto& n : variables) {
                     if (!n.first.IsScalar()) {
-                        throw std::runtime_error(
-                            stringf("Non-scalar variable name found in %s.\n", path_for_log(file).c_str()));
+                        throw std::runtime_error(stringf("Non-scalar variable name found in %s.\n",
+                                                         path_for_log(file).c_str()));
                     } else if (!n.second.IsScalar()) {
-                        throw std::runtime_error(stringf(
-                            "The value of the variable '%s' is must be scalar in %s.\n",
-                            n.first.as<string>().c_str(), path_for_log(file).c_str()));
+                        throw std::runtime_error(
+                            stringf("The value of the variable '%s' is must be scalar in %s.\n",
+                                    n.first.as<string>().c_str(), path_for_log(file).c_str()));
                     }
                     string k = n.first.as<string>();
                     string v = n.second.as<string>();

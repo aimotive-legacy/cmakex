@@ -59,6 +59,9 @@ inline string join(const std::set<string>& v, const string& s)
     return join(to_vector(v), s);
 }
 
+string pkg_for_log(string_par pkg_name);
+string path_for_log(string_par path);
+
 struct file_t
 {
     explicit file_t(FILE* f) : f(f) {}
@@ -82,7 +85,7 @@ struct file_t
         if (f) {
             int r = fclose(f);
             if (r)
-                LOG_DEBUG("Failed to close \"%s\"", path_.c_str());
+                LOG_DEBUG("Failed to close %s", path_for_log(path_).c_str());
         }
     }
     FILE* stream() const { return f; }
@@ -258,8 +261,6 @@ Container sort_copy(const Container& x)
 }
 char system_path_separator();
 void must_write_text(string_par path, string_par content);
-string pkg_for_log(string_par pkg_name);
-string path_for_log(string_par path);
 
 // returns map[key] or default_value if not found
 template <class Map>

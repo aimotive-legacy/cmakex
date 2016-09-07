@@ -84,7 +84,8 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
                 msg = "unknown exception";
             }
             if (!msg.empty())
-                throwf("Can't create directory \"%s\", reason: %s.", d.c_str(), msg.c_str());
+                throwf("Can't create directory %s, reason: %s.", path_for_log(d).c_str(),
+                       msg.c_str());
         }
     }
 

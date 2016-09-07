@@ -212,8 +212,8 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
         else if (allow_invalid)
             return false;
         else
-            badpars_exit(stringf(
-                "Source path %s is a directory but contains no 'CMakeLists.txt'.", path_for_log(x).c_str()));
+            badpars_exit(stringf("Source path %s is a directory but contains no 'CMakeLists.txt'.",
+                                 path_for_log(x).c_str()));
     } else if (allow_invalid)
         return false;
     else
@@ -457,7 +457,8 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
     if (args.count("SOURCE_DIR") > 0) {
         request.b.source_dir = args.at("SOURCE_DIR")[0];
         if (fs::path(request.b.source_dir).is_absolute())
-            throwf("SOURCE_DIR must be a relative path: %s", path_for_log(request.b.source_dir).c_str());
+            throwf("SOURCE_DIR must be a relative path: %s",
+                   path_for_log(request.b.source_dir).c_str());
     }
     if (args.count("DEPENDS") > 0) {
         for (auto& d : args.at("DEPENDS"))

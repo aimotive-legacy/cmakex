@@ -47,7 +47,7 @@ void dump_oem(const cmakex::OutErrMessages& oem)
 int main(int argc, char* argv[])
 {
     try {
-        adasworks::log::Logger global_logger(adasworks::log::global_tag, argc, argv, AW_TRACE);
+        adasworks::log::Logger global_logger(adasworks::log::global_tag, AW_TRACE);
 
         CHECK(argc == 4);
 

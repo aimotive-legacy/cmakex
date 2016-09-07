@@ -63,7 +63,8 @@ string find_git_with_cmake()
         if (resolved_path.empty())
             throwf("Script with 'find_package(Git)' returned nothing.");
         if (!fs::exists(resolved_path))
-            throwf("Result of find_package(Git) does not exist: %s", path_for_log(resolved_path).c_str());
+            throwf("Result of find_package(Git) does not exist: %s",
+                   path_for_log(resolved_path).c_str());
     } catch (...) {
         fs::remove(script_path);
         throw;

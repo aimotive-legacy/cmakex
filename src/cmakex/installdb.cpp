@@ -120,21 +120,21 @@ installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par 
         load_json_input_archive(p, y);
         if (y.pkg_name != pkg_name)
             throwf(
-                "Invalid installed-config file: the pkg_name read from \"%s\" should be '%s' but "
+                "Invalid installed-config file: the pkg_name read from %s should be '%s' but "
                 "it is '%s'",
-                p.c_str(), y.pkg_name.c_str(), pkg_name.c_str());
+                path_for_log(p).c_str(), y.pkg_name.c_str(), pkg_name.c_str());
         auto path_from_deserialized = installed_pkg_config_desc_path(pkg_name, y.config);
         if (!fs::equivalent(path_from_deserialized, p))
-            throwf("Invalid installed-config file: the configuration type read from \"%s\" is '%s'",
-                   p.c_str(), y.config.get_prefer_NoConfig().c_str());
+            throwf("Invalid installed-config file: the configuration type read from %s is '%s'",
+                   path_for_log(p).c_str(), y.config.get_prefer_NoConfig().c_str());
 
         auto new_result_value_it_bool = r.config_descs.emplace(y.config, y);
         if (!new_result_value_it_bool.second)
             throwf(
-                "Installed-configuration file \"%s\" contains configuration '%s' but that config "
+                "Installed-configuration file %s contains configuration '%s' but that config "
                 "has already been listed in another installed-configuration file of the same "
                 "package.",
-                p.c_str(), y.config.get_prefer_NoConfig().c_str());
+                path_for_log(p).c_str(), y.config.get_prefer_NoConfig().c_str());
     }
     return r;
 }
@@ -311,9 +311,9 @@ void remove_and_log_error(string_par f)
     try {
         fs::remove(f.c_str());
     } catch (const exception& e) {
-        log_error("Failed to remove \"%s\", reason: %s", f.c_str(), e.what());
+        log_error("Failed to remove %s, reason: %s", path_for_log(f).c_str(), e.what());
     } catch (...) {
-        log_error("Failed to remove \"%s\", reason is unknown.", f.c_str());
+        log_error("Failed to remove %s, reason is unknown.", path_for_log(f).c_str());
     }
 }
 }

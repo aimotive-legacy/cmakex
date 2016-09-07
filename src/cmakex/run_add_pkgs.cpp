@@ -132,11 +132,11 @@ void add_pkg(const string& pkg_name,
                     else
                         throwf(
                             "The directory specified by the SOURCE_DIR option does not contain "
-                            "'CMakeLists.txt' (\"%s\")",
-                            d.c_str());
+                            "'CMakeLists.txt' (%s)",
+                            path_for_log(d).c_str());
                 } else
-                    throwf("The path specified by the SOURCE_DIR option is not a directory (\"%s\"",
-                           d.c_str());
+                    throwf("The path specified by the SOURCE_DIR option is not a directory (%s",
+                           path_for_log(d).c_str());
             }
             CHECK(build_script_valid);
             add_pkg_after_clone(pkg_name, pars, pkg_requests, pkg_statuses);

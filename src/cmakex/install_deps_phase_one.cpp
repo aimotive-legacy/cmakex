@@ -262,8 +262,8 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
                                                     k_deps_script_filename);
             if (fs::is_regular_file(deps_script_file)) {
                 if (!request_deps.empty())
-                    log_warn("Using dependency script \"%s\" instead of specified dependencies.",
-                             deps_script_file.c_str());
+                    log_warn("Using dependency script %s instead of specified dependencies.",
+                             path_for_log(deps_script_file).c_str());
                 return install_deps_phase_one_deps_script(binary_dir, deps_script_file,
                                                           command_line_cmake_args, configs, wsp,
                                                           cmakex_cache);
@@ -271,8 +271,8 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
         } else {
             deps_script_file = custom_deps_script_file;
             if (!request_deps.empty())
-                log_warn("Using dependency script \"%s\" instead of specified dependencies.",
-                         deps_script_file.c_str());
+                log_warn("Using dependency script %s instead of specified dependencies.",
+                         path_for_log(deps_script_file).c_str());
             return install_deps_phase_one_deps_script(
                 binary_dir, deps_script_file, command_line_cmake_args, configs, wsp, cmakex_cache);
         }
@@ -301,7 +301,7 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(string_par binary_dir
 
     // create source dir
 
-    log_info("Processing dependency script: \"%s\"", deps_script_file.c_str());
+    log_info("Processing dependency script: %s", path_for_log(deps_script_file).c_str());
     HelperCmakeProject hcp(binary_dir);
     auto addpkgs_lines = hcp.run_deps_script(deps_script_file, wsp.clear_downloaded_include_files);
 

@@ -124,7 +124,7 @@ file_t must_fopen(string_par path, string_par mode)
 {
     FILE* f = nowide::fopen(path.c_str(), mode.c_str());
     if (!f)
-        throwf_errno("Can't open \"%s\" in mode \"%s\"", path.c_str(), mode.c_str());
+        throwf_errno("Can't open %s in mode \"%s\"", path_for_log(path).c_str(), mode.c_str());
     return file_t(f);
 }
 
@@ -141,7 +141,7 @@ void must_fprintf(const file_t& f, const char* format, ...)
     int r = vfprintf(f.stream(), format, ap);
     va_end(ap);
     if (r < 0)
-        throwf_errno("Write error in file \"%s\"", f.path().c_str());
+        throwf_errno("Write error in file %s", path_for_log(f.path()).c_str());
 }
 int fprintf(const file_t& f, const char* format, ...)
 {
@@ -169,7 +169,7 @@ string must_fgetline_if_not_eof(const file_t& f)
         } else {
             if (feof(f.stream()))
                 return r;
-            throwf("Read error in file \"%s\"%s", f.path().c_str(),
+            throwf("Read error in file %s%s", path_for_log(f.path()).c_str(),
                    std::ferror(f.stream()) ? "." : ", ferror is zero.");
         }
     }
@@ -296,7 +296,7 @@ string file_sha(string_par path)
     do {
         bytes_read = fread(buf.data(), 1, buf.size(), f);
         if (ferror(f))
-            throwf("Error reading \"%s\" for SHA calculation.", path.c_str());
+            throwf("Error reading %s for SHA calculation.", path_for_log(path).c_str());
         e.update(buf.data(), bytes_read);
     } while (bytes_read == buf.size());
     return Poco::DigestEngine::digestToHex(e.digest());
@@ -370,7 +370,7 @@ string pkg_for_log(string_par pkg_name)
 string path_for_log(string_par path)
 {
     string r = path.str();
-    if (r.find(' ') != string::npos) {
+    if (r.empty() || r.find(' ') != string::npos) {
         r.insert(0, 1, '"');
         r.push_back('"');
     }
