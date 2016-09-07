@@ -113,11 +113,12 @@ void build(string_par binary_dir,
             }
 
             auto cmake_args_to_apply = cct.pending_cmake_args;
-            prepend_inplace(
-                cmake_args_to_apply,
-                vector<string>({string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config}));
             if (!cmake_build_type_option.empty())
                 cmake_args_to_apply.emplace_back(cmake_build_type_option);
+
+            append_inplace(
+                cmake_args_to_apply,
+                vector<string>({string("-H") + source_dir, string("-B") + pkg_bin_dir_of_config}));
 
             auto cl_config = log_exec("cmake", cmake_args_to_apply);
 

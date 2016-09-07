@@ -1,5 +1,16 @@
 #!/bin/bash -e
 
+if [[ $# == 0 ]]; then
+    echo "Using the default CMake generator";
+    cmake_gen_opt=""
+elif [[ $# == 1 ]]; then
+    cmake_gen_opt="-G$1"
+    echo "Using the CMake generator: $1";
+else
+    echo "Usage: make.sh [<cmake-generator>]" >&2
+    exit 1
+fi
+
 common_opts="-DCMAKE_CXX_STANDARD=11 -DCMAKE_DEBUG_POSTFIX=_d"
 deps_install=$PWD/deps/o
 
@@ -7,12 +18,12 @@ eval cmakex_cmake_args=(${CMAKEX_CMAKE_ARGS})
 
 function build_core {
     if [[ -n $CMAKEX_CONFIG_DEV ]]; then
-        cmake -H$src -B$build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEBUG_POSTFIX=_d $opts "${cmakex_cmake_args[@]}"
+        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEBUG_POSTFIX=_d $opts "${cmakex_cmake_args[@]}" "$cmake_gen_opt" -H$src -B$build
         cmake --build $build --target install --config Debug
         cmake $build -DCMAKE_BUILD_TYPE=Release
         cmake --build $build --target install --config Release
     else
-        cmake -H$src -B$build -DCMAKE_BUILD_TYPE=Release $opts
+        cmake -DCMAKE_BUILD_TYPE=Release $opts "$cmake_gen_opt" -H$src -B$build
         cmake --build $build --target install --config Release
     fi
 }
