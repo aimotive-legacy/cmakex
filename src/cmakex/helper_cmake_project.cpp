@@ -115,10 +115,6 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
         must_fprintf(f, "%s\n%s\n", cmakelists_text_hash.c_str(), cmakelists_text.c_str());
     }
 
-    vector<string> args;
-    args.emplace_back(string("-H") + cfg.cmakex_executor_dir());
-    args.emplace_back(string("-B") + build_script_executor_binary_dir);
-
     fs::create_directories(build_script_executor_binary_dir);
 
     bool initial_config =
@@ -133,10 +129,14 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     cct.add_pending(command_line_cmake_args);
     save_cmake_cache_tracker(build_script_executor_binary_dir, cct);
 
-    append_inplace(args, cct.pending_cmake_args);
+    vector<string> args = cct.pending_cmake_args;
     args.emplace_back(string("-U") + k_executor_project_command_cache_var);
     args.emplace_back(string{"-DCMAKEX_VERSION="} + cmakex_version_mmp);
+    args.emplace_back(string("-H") + cfg.cmakex_executor_dir());
+    args.emplace_back(string("-B") + build_script_executor_binary_dir);
+
     auto cl_config = string_exec("cmake", args);
+
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     auto oem = oeb.move_result();
