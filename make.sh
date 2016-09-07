@@ -18,12 +18,12 @@ eval cmakex_cmake_args=(${CMAKEX_CMAKE_ARGS})
 
 function build_core {
     if [[ -n $CMAKEX_CONFIG_DEV ]]; then
-        cmake -H$src -B$build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEBUG_POSTFIX=_d $opts "${cmakex_cmake_args[@]}" "$cmake_gen_opt"
+        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEBUG_POSTFIX=_d $opts "${cmakex_cmake_args[@]}" "$cmake_gen_opt" -H$src -B$build
         cmake --build $build --target install --config Debug
         cmake $build -DCMAKE_BUILD_TYPE=Release
         cmake --build $build --target install --config Release
     else
-        cmake -H$src -B$build -DCMAKE_BUILD_TYPE=Release $opts "$cmake_gen_opt"
+        cmake -DCMAKE_BUILD_TYPE=Release $opts "$cmake_gen_opt" -H$src -B$build
         cmake --build $build --target install --config Release
     fi
 }
