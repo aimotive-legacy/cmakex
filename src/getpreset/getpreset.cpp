@@ -114,7 +114,7 @@ vector<string> split(string_par x)
         // handle escaped charactes: transmit backslash and next character
         if (c == '\\') {
             if (p[1] == 0) {
-                fprintf(stderr, "Single backslash at end of the string \"%s\".\n", s.c_str());
+                fprintf(stderr, "Single backslash at end of the string `%s`.\n", s.c_str());
                 exit(EXIT_FAILURE);
             }
             add_to_w('\\');
@@ -183,7 +183,7 @@ string subs(string_par x, string_par var, string_par value)
     }
     for (auto c : {'$', '{', '}'}) {
         if (strchr(var.c_str(), c)) {
-            fprintf(stderr, "Character '%c' found in variable name \"%s\".\n", c, var.c_str());
+            fprintf(stderr, "Character '%c' found in variable name `%s`.\n", c, var.c_str());
             exit(EXIT_FAILURE);
         }
     }
@@ -283,8 +283,8 @@ std::tuple<string, vector<string>> find_file_and_names(string_par path_name)
         if (!fs::is_regular_file(x))
             throw std::runtime_error(stringf(
                 "The file specified in the CMAKEX_PRESET_FILE environment variable is invalid: "
-                "\"%s\".",
-                x));
+                "%s.",
+                path_for_log(x).c_str()));
         file = x;
     }
 
@@ -309,18 +309,18 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
         config = YAML::LoadFile(file);
     } catch (const std::exception& e) {
         throw std::runtime_error(
-            stringf("Error loading preset file \"%s\", reason: %s\n", file.c_str(), e.what()));
+            stringf("Error loading preset file %s, reason: %s\n", path_for_log(file).c_str(), e.what()));
     }
 
     const YAML::Node variables = config["variables"];
     const YAML::Node presets = config["presets"];
 
     if (!presets)
-        throw std::runtime_error(stringf("No presets found in \"%s\".\n", file.c_str()));
+        throw std::runtime_error(stringf("No presets found in %s.\n", path_for_log(file).c_str()));
 
     if (!presets.IsMap()) {
         throw std::runtime_error(
-            stringf("The value of the `presets` key is not a map in \"%s\".\n", file.c_str()));
+            stringf("The value of the `presets` key is not a map in %s.\n", path_for_log(file).c_str()));
     }
 
     vector<string> result;
@@ -347,8 +347,8 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
 
         if (preset_name.empty())
             throw std::runtime_error(
-                stringf("The preset name or alias \"%s\" not found in \"%s\".\n",
-                        lookup_name.c_str(), file.c_str()));
+                stringf("The preset name or alias '%s' not found in %s.\n",
+                        lookup_name.c_str(), path_for_log(file).c_str()));
 
         auto preset = presets[preset_name];
 
@@ -367,11 +367,11 @@ tuple<vector<string>, string, vector<string>> getpreset(string_par path_name, st
                 for (auto& n : variables) {
                     if (!n.first.IsScalar()) {
                         throw std::runtime_error(
-                            stringf("Non-scalar variable name found in \"%s\".\n", file.c_str()));
+                            stringf("Non-scalar variable name found in %s.\n", path_for_log(file).c_str()));
                     } else if (!n.second.IsScalar()) {
                         throw std::runtime_error(stringf(
-                            "The value of the variable \"%s\" is must be scalar in \"%s\".\n",
-                            n.first.as<string>().c_str(), file.c_str()));
+                            "The value of the variable '%s' is must be scalar in %s.\n",
+                            n.first.as<string>().c_str(), path_for_log(file).c_str()));
                     }
                     string k = n.first.as<string>();
                     string v = n.second.as<string>();

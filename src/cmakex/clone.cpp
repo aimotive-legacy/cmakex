@@ -119,14 +119,14 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
     cmakex_config_t cfg(binary_dir);
     string clone_dir = cfg.pkg_clone_dir(pkg_name);
 
-    log_info("Making sure the working copy in \"%s\" is checked out at remote's '%s'",
-             clone_dir.c_str(), cp.git_tag.c_str());
+    log_info("Making sure the working copy in %s is checked out at remote's '%s'",
+             path_for_log(clone_dir).c_str(), cp.git_tag.c_str());
 
     auto cds = pkg_clone_dir_status(binary_dir, pkg_name);
 
     string errormsg =
-        stringf("Remove the directory \"%s\" or checkout '%s' manually, then restart the build.",
-                clone_dir.c_str(), cp.git_tag.c_str());
+        stringf("Remove the directory %s or checkout '%s' manually, then restart the build.",
+                path_for_log(clone_dir).c_str(), cp.git_tag.c_str());
 
     switch (std::get<0>(cds)) {
         case pkg_clone_dir_doesnt_exist:
@@ -162,16 +162,16 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
     string git_tag_or_head = cp.git_tag.empty() ? "HEAD" : cp.git_tag.c_str();
 
     if (strict)
-        log_info("Making sure the working copy in \"%s\" is checked out at remote's '%s'",
-                 clone_dir.c_str(), git_tag_or_head.c_str());
+        log_info("Making sure the working copy in %s is checked out at remote's '%s'",
+                 path_for_log(clone_dir).c_str(), git_tag_or_head.c_str());
     auto cds = pkg_clone_dir_status(binary_dir, pkg_name);
 
     string errormsg, warnmsg;
     if (strict)
         errormsg = stringf(
-            "Remove the directory \"%s\" or checkout '%s' manually, then restart the "
+            "Remove the directory %s or checkout '%s' manually, then restart the "
             "build.",
-            clone_dir.c_str(), git_tag_or_head.c_str());
+            path_for_log(clone_dir).c_str(), git_tag_or_head.c_str());
     else
         warnmsg = "Using the existing files. Use the '--strict-clone' option to prevent this.";
 
@@ -182,25 +182,23 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
             break;
         case pkg_clone_dir_nonempty_nongit:
             if (strict)
-                throwf("The directory \"%s\" contains non-git files which are in the way. %s",
-                       clone_dir.c_str(), errormsg.c_str());
+                throwf("The directory %s contains non-git files which are in the way. %s",
+                       path_for_log(clone_dir).c_str(), errormsg.c_str());
             else
                 log_warn(
-                    "The directory \"%s\" contains non-git files instead of the requested commit "
-                    "'%s'. "
-                    "%s",
-                    clone_dir.c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
+                    "The directory %s contains non-git files instead of the requested commit "
+                    "'%s'. %s",
+                    path_for_log(clone_dir).c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
             break;
         case pkg_clone_dir_git_local_changes:
             if (strict)
-                throwf("The directory \"%s\" has local changes. %s", clone_dir.c_str(),
+                throwf("The directory %s has local changes. %s", path_for_log(clone_dir).c_str(),
                        errormsg.c_str());
             else
                 log_warn(
-                    "The directory \"%s\" contains non-git files instead of the requested commit "
-                    "'%s'. "
-                    "%s",
-                    clone_dir.c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
+                    "The directory %s contains non-git files instead of the requested commit "
+                    "'%s'. %s",
+                    path_for_log(clone_dir).c_str(), git_tag_or_head.c_str(), warnmsg.c_str());
             break;
         case pkg_clone_dir_git:
             // verify that get<1>(cds) ( = HEAD's SHA) equals to what cp.git_tag resolves to

@@ -36,8 +36,8 @@ string find_git_with_cmake()
         }
     }
     if (script_path.empty()) {
-        throwf("Can't create temporary file in \"%s\", please remove all the \"%s*\" files.",
-               tmpdir.c_str(), filename_base);
+        throwf("Can't create temporary file in %s, please remove all the \"%s*\" files.",
+               path_for_log(tmpdir).c_str(), filename_base);
     }
 
     try {
@@ -63,7 +63,7 @@ string find_git_with_cmake()
         if (resolved_path.empty())
             throwf("Script with 'find_package(Git)' returned nothing.");
         if (!fs::exists(resolved_path))
-            throwf("Result of find_package(Git) does not exist: \"%s\"", resolved_path.c_str());
+            throwf("Result of find_package(Git) does not exist: %s", path_for_log(resolved_path).c_str());
     } catch (...) {
         fs::remove(script_path);
         throw;
@@ -317,7 +317,7 @@ git_status_result_t git_status(string_par dir)
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
     int r = exec_git({"status", "-s", "--porcelain"}, dir, oeb.stdout_callback(), nullptr,
                      log_git_command_on_error);
-    THROW_UNLESS(!r, "git status failed (%d) for directory \"%s\"", r, dir.c_str());
+    THROW_UNLESS(!r, "git status failed (%d) for directory %s", r, path_for_log(dir).c_str());
     auto oem = oeb.move_result();
     git_status_result_t result;
     for (int i = 0; i < oem.size(); ++i) {

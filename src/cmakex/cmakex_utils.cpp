@@ -213,11 +213,11 @@ bool evaluate_source_dir(string_par x, bool allow_invalid)
             return false;
         else
             badpars_exit(stringf(
-                "Source path \"%s\" is a directory but contains no 'CMakeLists.txt'.", x.c_str()));
+                "Source path %s is a directory but contains no 'CMakeLists.txt'.", path_for_log(x).c_str()));
     } else if (allow_invalid)
         return false;
     else
-        badpars_exit(stringf("Source path not found: \"%s\".", x.c_str()));
+        badpars_exit(stringf("Source path not found: %s.", path_for_log(x).c_str()));
 
     CHECK(false);  // never here
     return false;
@@ -457,7 +457,7 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
     if (args.count("SOURCE_DIR") > 0) {
         request.b.source_dir = args.at("SOURCE_DIR")[0];
         if (fs::path(request.b.source_dir).is_absolute())
-            throwf("SOURCE_DIR must be a relative path: \"%s\"", request.b.source_dir.c_str());
+            throwf("SOURCE_DIR must be a relative path: %s", path_for_log(request.b.source_dir).c_str());
     }
     if (args.count("DEPENDS") > 0) {
         for (auto& d : args.at("DEPENDS"))
@@ -569,9 +569,8 @@ vector<string> normalize_cmake_args(const vector<string>& x)
                 } else {
                     if (prev_option != a) {
                         throwf(
-                            "Two, different '%s' options has been specified: \"%s\" "
-                            "and "
-                            "\"%s\". "
+                            "Two, different '%s' options has been specified: '%s' "
+                            "and '%s'. "
                             "There should be only a single '%s' option for a build.",
                             o, prev_option.c_str(), a.c_str(), o);
                     }
