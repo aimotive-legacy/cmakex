@@ -239,7 +239,6 @@ void save_log_from_oem(string_par command_line,
                 }
             }
             // find the next newline section
-            x0 = x1;
             int newline_count = 0;
             for (; x1 < xs; ++x1) {
                 auto c = msg.text[x1];
