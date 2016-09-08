@@ -282,7 +282,7 @@ std::tuple<string, vector<string>> find_file_and_names(string_par path_name)
                         path_name.c_str()));
         if (!fs::is_regular_file(x))
             throw std::runtime_error(stringf(
-                "The file specified in the CMAKEX_PRESET_FILE environment variable is invalid: "
+                "The file specified in the CMAKEX_PRESET_FILE environment variable does not exist: "
                 "%s.",
                 path_for_log(x).c_str()));
         file = x;

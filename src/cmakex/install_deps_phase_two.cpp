@@ -88,7 +88,6 @@ void install_deps_phase_two(string_par binary_dir,
             } else {
                 desc.git_sha = wp.resolved_git_tag;
             }
-
             desc.source_dir = wp.request.b.source_dir;
             desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
             for (auto& d : wp.request.depends) {

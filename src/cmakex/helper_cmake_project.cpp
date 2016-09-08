@@ -52,8 +52,17 @@ HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
 void test_cmake()
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
-    int r = exec_process("cmake", vector<string>{{"--version"}}, oeb.stdout_callback(),
+    int r;
+    try {
+        r = exec_process("cmake", vector<string>{{"--version"}}, oeb.stdout_callback(),
                          oeb.stderr_callback());
+    } catch (const exception& e) {
+        log_error("Exception during testing 'cmake': %s", e.what());
+        r = ECANCELED;
+    } catch (...) {
+        log_error("Unknown exception during testing 'cmake'");
+        r = ECANCELED;
+    }
     auto oem = oeb.move_result();
 
     if (r) {
@@ -139,11 +148,25 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     auto cl_config = string_exec("cmake", args);
 
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
-    int r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
+    int r;
+    try {
+        r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
+    } catch (...) {
+        r = ECANCELED;
+        fflush(stdout);
+        printf("%s\n", cl_config.c_str());
+
+        save_log_from_oem(
+            cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(),
+            string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
+        fflush(stdout);
+        throw;
+    }
     auto oem = oeb.move_result();
 
     if (r)
         printf("%s\n", cl_config.c_str());
+
     save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
                       string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
 
@@ -177,7 +200,18 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
 
     auto cl_deps = string_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
-    int r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
+    int r;
+    try {
+        r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
+    } catch (...) {
+        r = ECANCELED;
+        fflush(stdout);
+        printf("%s\n", cl_deps.c_str());
+        save_log_from_oem(cl_deps, r, oeb2.move_result(), cfg.cmakex_log_dir(),
+                          string(k_build_script_executor_log_name) + "-run" + k_log_extension);
+        fflush(stdout);
+        throw;
+    }
     auto oem2 = oeb2.move_result();
     if (r)
         printf("%s\n", cl_deps.c_str());

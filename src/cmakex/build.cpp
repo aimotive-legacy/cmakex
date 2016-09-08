@@ -127,8 +127,21 @@ void build(string_par binary_dir,
                 r = exec_process("cmake", cmake_args_to_apply);
             } else {
                 OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
-                r = exec_process("cmake", cmake_args_to_apply, oeb.stdout_callback(),
-                                 oeb.stderr_callback());
+                try {
+                    r = exec_process("cmake", cmake_args_to_apply, oeb.stdout_callback(),
+                                     oeb.stderr_callback());
+                } catch (...) {
+                    if (g_verbose)
+                        log_error("Exception during executing 'cmake' config-step.");
+                    r = ECANCELED;
+                    fflush(stdout);
+                    save_log_from_oem(
+                        cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(),
+                        stringf("%s-%s-configure%s", pkg_name.c_str(),
+                                config.get_prefer_NoConfig().c_str(), k_log_extension));
+                    fflush(stdout);
+                    throw;
+                }
                 auto oem = oeb.move_result();
 
                 save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
@@ -194,7 +207,21 @@ void build(string_par binary_dir,
                 r = exec_process("cmake", args);
             } else {
                 OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
-                r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
+                try {
+                    r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
+                } catch (...) {
+                    if (g_verbose)
+                        log_error("Exception during executing 'cmake' build-step.");
+                    r = ECANCELED;
+                    fflush(stdout);
+                    save_log_from_oem(
+                        cl_build, r, oeb.move_result(), cfg.cmakex_log_dir(),
+                        stringf("%s-%s-build-%s%s", pkg_name.c_str(),
+                                config.get_prefer_NoConfig().c_str(),
+                                target.empty() ? "all" : target.c_str(), k_log_extension));
+                    fflush(stdout);
+                    throw;
+                }
                 auto oem = oeb.move_result();
 
                 save_log_from_oem(
@@ -207,32 +234,48 @@ void build(string_par binary_dir,
                     // write out hijack module that tries the installed config module first
                     // collect the config-modules that has been written
                     for (int i = 0; i < oem.size(); ++i) {
-                        auto msg = oem.at(i);
-                        auto colon_pos = msg.text.find(':');
-                        if (colon_pos == string::npos)
-                            continue;
-                        fs::path path(trim(msg.text.substr(colon_pos + 1)));
-                        if (!fs::is_regular_file(path))
-                            continue;
-                        auto filename = path.filename().string();
-                        string base;
-                        for (auto e : {"-config.cmake", "Config.cmake"}) {
-                            if (ends_with(filename, e)) {
-                                base = filename.substr(0, filename.size() - strlen(e));
-                                break;
+                        auto v = split(oem.at(i).text, '\n');
+                        for (auto& text : v) {
+                            text = trim(text);
+                            auto colon_pos = text.find(':');
+                            if (colon_pos == string::npos)
+                                continue;
+                            auto path_str = trim(text.substr(colon_pos + 1));
+                            if (!ends_with(path_str, "-config.cmake") &&
+                                !ends_with(path_str, "Config.cmake"))
+                                continue;
+                            fs::path path(path_str);
+                            if (!fs::is_regular_file(path))
+                                continue;
+                            auto filename = path.filename().string();
+                            string base;
+                            for (auto e : {"-config.cmake", "Config.cmake"}) {
+                                if (ends_with(filename, e)) {
+                                    base = filename.substr(0, filename.size() - strlen(e));
+                                    break;
+                                }
                             }
-                        }
-                        if (base.empty())
-                            continue;
-                        // find out if there's such an official config module
-                        if (cmakex_cache.cmake_root.empty())
-                            continue;
-                        auto find_module =
-                            cmakex_cache.cmake_root + "/Modules/Find" + base + ".cmake";
-                        if (!fs::is_regular_file(find_module))
-                            continue;
+                            if (base.empty())
+                                continue;
+                            // find out if there's such an official config module
+                            if (cmakex_cache.cmake_root.empty())
+                                continue;
+                            auto find_module =
+                                cmakex_cache.cmake_root + "/Modules/Find" + base + ".cmake";
+                            if (!fs::is_regular_file(find_module))
+                                continue;
 
-                        write_hijack_module(base, binary_dir);
+                            log_info(
+                                "Generating a special 'Find%s.cmake' which diverts "
+                                "'find_package(%s ...)' from finding the official find-module and "
+                                "finds "
+                                "the %s config-module instead. This hijacker find-module is "
+                                "written to %s which is automatically added to all projects' "
+                                "CMAKE_MODULE_PATHs.",
+                                base.c_str(), base.c_str(), filename.c_str(),
+                                path_for_log(cfg.find_module_hijack_dir()).c_str());
+                            write_hijack_module(base, binary_dir);
+                        }
                     }
                 }
             }
@@ -263,5 +306,8 @@ void build(string_par binary_dir,
                 sx::format_duration(dur_sec(high_resolution_clock::now() - tic).count()).c_str());
         }
 #endif
+    if (g_verbose)
+        log_info("End of build: %s - %s", pkg_for_log(pkg_name).c_str(),
+                 config.get_prefer_NoConfig().c_str());
 }
 }
