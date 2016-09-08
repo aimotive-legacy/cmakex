@@ -17,14 +17,17 @@ deps_install=$PWD/deps/o
 eval cmakex_cmake_args=(${CMAKEX_CMAKE_ARGS})
 
 function build_core {
+    if [[ -z "$CMAKEX_SINGLE_CONFIG" ]]; then
+        CMAKEX_SINGLE_CONFIG=Release
+    fi
     if [[ -n $CMAKEX_CONFIG_DEV ]]; then
         cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_DEBUG_POSTFIX=_d $opts "${cmakex_cmake_args[@]}" "$cmake_gen_opt" -H$src -B$build
         cmake --build $build --target install --config Debug
         cmake $build -DCMAKE_BUILD_TYPE=Release
         cmake --build $build --target install --config Release
     else
-        cmake -DCMAKE_BUILD_TYPE=Release $opts "$cmake_gen_opt" -H$src -B$build
-        cmake --build $build --target install --config Release
+        cmake -DCMAKE_BUILD_TYPE=$CMAKEX_SINGLE_CONFIG $opts "$cmake_gen_opt" -H$src -B$build
+        cmake --build $build --target install --config $CMAKEX_SINGLE_CONFIG
     fi
 }
 
