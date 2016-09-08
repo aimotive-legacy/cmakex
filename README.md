@@ -2,7 +2,7 @@
 
 Extension for the `cmake` command
 
-Keywords: lightweight C/C++ package management, multiple repos tool,
+Keywords: lightweight, non-intrusive C/C++ package management, multiple repos tool,
 applying common cmake build/toolchain options, package server
 
 ## Show me quickly what I can do with this
@@ -55,6 +55,8 @@ command adding these interdependent features:
 3. **Lightweight package-management**: Describe your projects' dependencies in a
    cmake-script with `ExternalProject_Add`-like syntax. The dependencies will
    be automatically downloaded and installed before building your main project.
+   No change needed in your CMakeLists.txt and you can use unchanged thirdparties
+   as dependencies.
 4. **Multiple-repos**: Work in multiple projects simultaneously and build only
    the out-of-date projects automatically.
 5. **Binary package server**: (to be implemented) Install a local or remote build-
