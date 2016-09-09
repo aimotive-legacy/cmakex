@@ -402,17 +402,6 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
 
     bool define_only = args.count("DEFINE_ONLY");
 
-    if (!define_only && args.count("GIT_URL") == 0 && args.count("GIT_REPOSITORY") == 0) {
-        // this supposed to be a name-only request. No other fields should be specified
-        for (auto c :
-             {"GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW", "DEPENDS", "CMAKE_ARGS", "CONFIGS"}) {
-            if (args.count(c) != 0)
-                throwf(
-                    "Missing GIT_URL/GIT_REPOSITORY. It should be either only the package name or "
-                    "the package name with GIT_URL/GIT_REPOSITORY and optional other arguments.");
-        }
-    }
-
     vector<config_name_t> configs;
     if (args.count("CONFIGS") > 0) {
         for (auto& cc : args.at("CONFIGS")) {
