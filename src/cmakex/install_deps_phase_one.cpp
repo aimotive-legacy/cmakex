@@ -367,11 +367,12 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         sx::unique_trunc(cr);
         std::sort(BEGINEND(configs_on_prefix_path));
 
+        auto missing_configs = set_difference(cr, configs_on_prefix_path);
         // in case the requested configs and the installed configs are different, we're
         // accepting
         // the installed configs
         string cmsg;
-        if (cr != configs_on_prefix_path) {
+        if (!missing_configs.empty()) {
             cmsg = stringf(
                 ", accepting installed configuration%s (%s) instead of the requested one%s "
                 "(%s)%s",
