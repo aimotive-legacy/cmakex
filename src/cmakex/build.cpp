@@ -1,5 +1,6 @@
 #include "build.h"
 
+#include <adasworks/sx/algorithm.h>
 #include <adasworks/sx/check.h>
 
 #include "cmakex_utils.h"
@@ -13,17 +14,19 @@ namespace cmakex {
 
 namespace fs = filesystem;
 
-void build(string_par binary_dir,
-           string_par pkg_name,
-           string_par pkg_source_dir,
-           const vector<string>& cmake_args_in,
-           config_name_t config,
-           const vector<string>& build_targets,
-           bool force_config_step,
-           const cmakex_cache_t& cmakex_cache,
-           vector<string> build_args,
-           const vector<string>& native_tool_args)
+build_result_t build(string_par binary_dir,
+                     string_par pkg_name,
+                     string_par pkg_source_dir,
+                     const vector<string>& cmake_args_in,
+                     config_name_t config,
+                     const vector<string>& build_targets,
+                     bool force_config_step,
+                     const cmakex_cache_t& cmakex_cache,
+                     vector<string> build_args,
+                     const vector<string>& native_tool_args)
 {
+    build_result_t build_result;
+
     cmakex_config_t cfg(binary_dir);
     CHECK(cmakex_cache.valid);
 
@@ -265,16 +268,7 @@ void build(string_par binary_dir,
                             if (!fs::is_regular_file(find_module))
                                 continue;
 
-                            log_info(
-                                "Generating a special 'Find%s.cmake' which diverts "
-                                "'find_package(%s ...)' from finding the official find-module and "
-                                "finds "
-                                "the %s config-module instead. This hijacker find-module is "
-                                "written to %s which is automatically added to all projects' "
-                                "CMAKE_MODULE_PATHs.",
-                                base.c_str(), base.c_str(), filename.c_str(),
-                                path_for_log(cfg.find_module_hijack_dir()).c_str());
-                            write_hijack_module(base, binary_dir);
+                            build_result.hijack_modules_needed.emplace_back(base);
                         }
                     }
                 }
@@ -309,5 +303,9 @@ void build(string_par binary_dir,
     if (g_verbose)
         log_info("End of build: %s - %s", pkg_for_log(pkg_name).c_str(),
                  config.get_prefer_NoConfig().c_str());
+
+    std::sort(BEGINEND(build_result.hijack_modules_needed));
+    sx::unique_trunc(build_result.hijack_modules_needed);
+    return build_result;
 }
 }

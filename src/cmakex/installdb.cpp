@@ -14,7 +14,7 @@ CEREAL_CLASS_VERSION(cmakex::pkg_desc_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_build_pars_t, 1)
 CEREAL_CLASS_VERSION(cmakex::pkg_clone_pars_t, 1)
 // CEREAL_CLASS_VERSION(cmakex::pkg_files_t, 1)
-CEREAL_CLASS_VERSION(cmakex::installed_config_desc_t, 2)
+CEREAL_CLASS_VERSION(cmakex::installed_config_desc_t, 3)
 
 namespace cmakex {
 
@@ -74,9 +74,11 @@ void serialize(Archive& archive, final_cmake_args_t& m)
 template <class Archive>
 void serialize(Archive& archive, installed_config_desc_t& m, uint32_t version)
 {
-    THROW_UNLESS(version == 2);
+    THROW_UNLESS(version == 2 || version == 3);
     archive(A(pkg_name), A(config), A(git_url), A(git_sha), A(source_dir), A(final_cmake_args),
             A(deps_shas));
+    if (version == 3)
+        archive(A(hijack_modules_needed));
 }
 
 #undef A

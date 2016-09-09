@@ -876,7 +876,15 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     // and second, different request will be an error
     // If that's not good, relax and implement some heuristics
 
-    if (!build_reasons.empty()) {
+    if (build_reasons.empty()) {
+        vector<string> v;
+        for (auto kv : installed_result)
+            append_inplace(v, kv.second.installed_config_desc.hijack_modules_needed);
+        std::sort(BEGINEND(v));
+        sx::unique_trunc(v);
+        for (auto& x : v)
+            write_hijack_module(x, binary_dir);
+    } else {
         CHECK(cloned);
         wsp.build_order.push_back(pkg_name.str());
         pkg.resolved_git_tag = cloned_sha;

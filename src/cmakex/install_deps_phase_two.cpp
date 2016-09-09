@@ -67,9 +67,14 @@ void install_deps_phase_two(string_par binary_dir,
                 for (++it; it != br.end(); ++it)
                     log_info("%s%s", s1.c_str(), it->c_str());
             }
-            build(binary_dir, p, wp.request.b.source_dir, wp.pcd.at(config).cmake_args_to_apply,
-                  config, {"", "install"}, force_config_step_now, cfg.cmakex_cache(), build_args,
-                  native_tool_args);
+            auto build_result =
+                build(binary_dir, p, wp.request.b.source_dir, wp.pcd.at(config).cmake_args_to_apply,
+                      config, {"", "install"}, force_config_step_now, cfg.cmakex_cache(),
+                      build_args, native_tool_args);
+
+            for (auto& base : build_result.hijack_modules_needed)
+                write_hijack_module(base, binary_dir);
+
             // for a multiconfig generator we're forcing cmake-config step only for the first
             // configuration. Subsequent configurations share the same binary dir and fed with the
             // same cmake args.
@@ -95,6 +100,7 @@ void install_deps_phase_two(string_par binary_dir,
                 for (auto& kv : dep_installed.config_descs)
                     desc.deps_shas[d][kv.first] = calc_sha(kv.second);
             }
+            desc.hijack_modules_needed = build_result.hijack_modules_needed;
             installdb.install_with_unspecified_files(desc);
         }
         log_info();

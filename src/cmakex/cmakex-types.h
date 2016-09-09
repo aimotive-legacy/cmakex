@@ -133,9 +133,12 @@ struct installed_config_desc_t
     config_name_t config;
     string git_url;
     string git_sha;
-    string source_dir;                    // (relative) directory containing CMakeLists.txt
-    final_cmake_args_t final_cmake_args;  // all cmake args including global ones
-    deps_shas_t deps_shas;                // sha's of dependencies at the time of the build
+    string source_dir;                     // (relative) directory containing CMakeLists.txt
+    final_cmake_args_t final_cmake_args;   // all cmake args including global ones
+    deps_shas_t deps_shas;                 // sha's of dependencies at the time of the build
+    vector<string> hijack_modules_needed;  // names of modules having official cmake find-modules
+                                           // which needed to be shadowed to find the config-module
+                                           // instead
 private:
     installed_config_desc_t() = default;
 };

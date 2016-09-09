@@ -365,8 +365,10 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             log_info("Using presets [%s] from %s", join(names, ", ").c_str(),
                      path_for_log(file).c_str());
         auto npa = normalize_cmake_args(preset_args);
-        if (g_verbose)
+        if (g_verbose) {
             log_info("CMAKE_ARGS from preset: [%s]", join(preset_args, ", ").c_str());
+            log_info("normalized CMAKE_ARGS from preset: [%s]", join(npa, ", ").c_str());
+        }
         pcla.cmake_args = normalize_cmake_args(concat(preset_args, pcla.cmake_args));
     }
 

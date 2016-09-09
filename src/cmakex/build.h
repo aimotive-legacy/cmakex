@@ -5,9 +5,16 @@
 #include "using-decls.h"
 
 namespace cmakex {
+
 // build the referenced package (project)
 // it is cloned out, need to be built with options specified in request
-void build(
+struct build_result_t
+{
+    vector<string> hijack_modules_needed;  // list of Find*.cmake modules to shadow an official
+    // CMake find-module. This vector contains the base name: Find<base-name>.cmake
+};
+
+build_result_t build(
     string_par binary_dir,
     string_par pkg_name,        // empty for main project
     string_par pkg_source_dir,  // pkg-root relative for pkg, cwd-relative or abs for main project

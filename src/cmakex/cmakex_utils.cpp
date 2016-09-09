@@ -882,6 +882,7 @@ void write_hijack_module(string_par pkg_name, string_par binary_dir)
 {
     cmakex_config_t cfg(binary_dir);
     string dir = cfg.find_module_hijack_dir();
+
     if (!fs::is_directory(dir))
         fs::create_directories(dir);
     static const char* const c_fptcf_filename = "FindPackageTryConfigFirst.cmake";
@@ -889,9 +890,22 @@ void write_hijack_module(string_par pkg_name, string_par binary_dir)
     if (!fs::is_regular_file(file))
         must_write_text(file, k_find_package_try_config_first_module_content);
     file = dir + "/Find" + pkg_name.str() + ".cmake";
-    if (!fs::is_regular_file(file))
+
+    const char* generating_or_using = "Using";
+    if (!fs::is_regular_file(file)) {
+        generating_or_using = "Generating";
         must_write_text(file,
                         "include(FindPackageTryConfigFirst)\nfind_package_try_config_first()\n");
+    }
+
+    log_info(
+        "%s a special 'Find%s.cmake' which diverts "
+        "'find_package(%s ...)' from finding the official find-module and "
+        "finds "
+        "the the config-module instead. This hijacker find-module is "
+        "written to %s which is automatically added to all projects' "
+        "CMAKE_MODULE_PATHs.",
+        generating_or_using, pkg_name.c_str(), pkg_name.c_str(), path_for_log(dir).c_str());
 }
 
 const string* find_specific_cmake_arg_or_null(string_par cmake_var_name,
@@ -909,7 +923,8 @@ vector<string> make_sure_cmake_path_var_contains_path(
     string_par bin_dir,
     string_par var_name,     // like "CMAKE_PREFIX_PATH"
     string_par path_to_add,  // like install dir of the dependencies
-    vector<string> cmake_args)
+    vector<string>
+        cmake_args)
 {
     string cmake_path_var_value;
     string cmake_path_var_type;
