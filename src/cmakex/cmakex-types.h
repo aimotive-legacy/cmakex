@@ -254,10 +254,17 @@ struct processed_command_line_args_cmake_mode_t : base_command_line_args_cmake_m
 enum pkg_request_status_against_installed_config_t
 {
     invalid_status,
-    pkg_request_satisfied,      // the request is satisfied by what is installed
-    pkg_request_not_installed,  // the requested package is not installed at all
-    pkg_request_not_compatible  // the request package is installed with incompatible build
-    // options
+    pkg_request_satisfied,                // the request is satisfied by what is installed
+    pkg_request_not_installed,            // the requested package is not installed at all
+    pkg_request_different_but_satisfied,  // this is the OK status for packages that are not
+                                          // building locally but found or downloaded as
+                                          // pre-installed. The critical build options are identical
+                                          // (like value of user CMake variables) but there can be
+                                          // non-critical differences that are not interesting when
+                                          // not building a package locally (CMAKE_INSTALL_PREFIX,
+                                          // CMAKE_GENERATOR, etc..)
+    pkg_request_different  // the request package is installed with different build options, should
+                           // be rebuilt
 };
 
 struct pkg_request_details_against_installed_config_t
@@ -268,7 +275,10 @@ struct pkg_request_details_against_installed_config_t
     {
     }
     pkg_request_status_against_installed_config_t status = invalid_status;
-    string incompatible_cmake_args;
+    string incompatible_cmake_args_local;  // that are makes two local builds incompatible (trigger
+                                           // rebuild)
+    string incompatible_cmake_args_any;    // that makes any two builds incompatible (i.e. those
+                                           // imported/downloaded as prebuilt binary)
     installed_config_desc_t installed_config_desc;
 };
 

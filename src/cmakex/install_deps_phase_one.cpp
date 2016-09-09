@@ -75,14 +75,14 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
 
     // compare CMAKE_ARGS
     auto v = incompatible_cmake_args(b1.cmake_args, b2.cmake_args, true);
-    if (!v.empty()) {
+    if (!get<0>(v).empty()) {
         throwf(
             "Different CMAKE_ARGS args for the same package. The package '%s' is being "
             "added "
             "for the second time but the following CMAKE_ARGS are incompatible with the "
             "first "
             "request: %s",
-            pkg_name.c_str(), join(v, ", ").c_str());
+            pkg_name.c_str(), join(get<0>(v), ", ").c_str());
     }
 
     // compare configs
@@ -587,7 +587,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         } else {
             for (auto& c : pkg.request.b.configs()) {
                 auto& itc = installed_result.at(c);
-                if (itc.status == pkg_request_not_compatible) {
+                if (itc.status == pkg_request_different) {
                     throwf(
                         "Package %s found on the prefix path %s but the build options are not "
                         "compatible with the current ones. Either remove from the prefix path "
@@ -595,10 +595,10 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         "check build options. The offending CMAKE_ARGS: [%s]",
                         pkg_for_log(pkg_name).c_str(),
                         path_for_log(pkg.found_on_prefix_path).c_str(),
-                        itc.incompatible_cmake_args.c_str());
+                        itc.incompatible_cmake_args_any.c_str());
                 } else {
                     // it can't be not installed
-                    CHECK(itc.status == pkg_request_satisfied);
+                    CHECK(itc.status == pkg_request_different_but_satisfied);
                 }
             }
         }
@@ -662,11 +662,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             }
         }
 
+        // if we're building a dependency but otherwise we're satisfied, the primary reason is that
+        // the dependency will be rebuilt
         if (rr.building_some_pkg) {
             for (auto& c : pkg.request.b.configs()) {
                 auto status = installed_result.at(c).status;
-                if (status != pkg_request_not_installed && status != pkg_request_not_compatible)
+                if (status == pkg_request_satisfied)
                     build_reasons[c].assign(1, "a dependency has been rebuilt");
+                // if not satisfied we expect the code below find another reason
             }
         }
 
@@ -680,7 +683,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 case pkg_request_not_installed:
                     build_reasons[config] = {"initial build"};
                     break;
-                case pkg_request_not_compatible: {
+                case pkg_request_different_but_satisfied:
+                case pkg_request_different: {
                     auto& br = build_reasons[config];
                     br = {stringf("build options changed")};
                     br.emplace_back(stringf(
@@ -692,7 +696,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         join(pkg.pcd.at(config).tentative_final_cmake_args.args, " ").c_str()));
                     br.emplace_back(
                         stringf("Incompatible CMAKE_ARGS: %s",
-                                current_install_details.incompatible_cmake_args.c_str()));
+                                current_install_details.incompatible_cmake_args_local.c_str()));
                 } break;
                 case pkg_request_satisfied: {
                     // test for new commits or uncommited changes

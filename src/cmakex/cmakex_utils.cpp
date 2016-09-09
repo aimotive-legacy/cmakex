@@ -923,8 +923,7 @@ vector<string> make_sure_cmake_path_var_contains_path(
     string_par bin_dir,
     string_par var_name,     // like "CMAKE_PREFIX_PATH"
     string_par path_to_add,  // like install dir of the dependencies
-    vector<string>
-        cmake_args)
+    vector<string> cmake_args)
 {
     string cmake_path_var_value;
     string cmake_path_var_type;

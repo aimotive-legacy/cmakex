@@ -208,29 +208,46 @@ string InstallDB::installed_pkg_config_desc_path(string_par pkg_name,
     return dbpath + "/" + pkg_name.c_str() + "-files.json";
 }
 */
-bool is_critical_cmake_arg(const parsed_cmake_arg_t& pca)
+enum cmake_arg_criticalness_t
 {
-    for (auto p : {"-C", "-D", "-G", "-T", "-A"}) {
-        if (pca.switch_ == p)
-            return true;
+    cac_noncritical,                // like --trace
+    cac_critical_for_local_builds,  // like -DCMAKE_PREFIX_PATH=... which is ignored for packages
+                                    // not built locally
+    cac_critical                    // like -DMYVAR=VALUE
+};
+
+cmake_arg_criticalness_t is_critical_cmake_arg(const parsed_cmake_arg_t& pca)
+{
+    if (pca.switch_ == "-C" || pca.switch_ == "-T" || pca.switch_ == "-A")
+        return cac_critical;
+    if (pca.switch_ == "-D") {
+        if (pca.name == "CMAKE_INSTALL_PREFIX" || pca.name == "CMAKE_PREFIX_PATH" ||
+            pca.name == "CMAKE_MODULE_PATH")
+            return cac_critical_for_local_builds;
     }
-    return false;
+    //-G is noncritical, the other variables will make the difference, like compiler_id, etc...
+    return cac_noncritical;
 }
 
-vector<string> incompatible_cmake_args(const final_cmake_args_t& x, const final_cmake_args_t& y)
+tuple<vector<string>, vector<string>> incompatible_cmake_args(const final_cmake_args_t& x,
+                                                              const final_cmake_args_t& y)
 {
     auto r = incompatible_cmake_args(x.args, y.args, false);
-    if (x.c_sha != y.c_sha)
-        r.emplace_back("(different files for the switch '-C')");
-    if (x.cmake_toolchain_file_sha != y.cmake_toolchain_file_sha)
-        r.emplace_back("(different CMake toolchain files)");
+    if (x.c_sha != y.c_sha) {
+        get<0>(r).emplace_back("(different files for the switch '-C')");
+        get<1>(r).emplace_back("(different files for the switch '-C')");
+    }
+    if (x.cmake_toolchain_file_sha != y.cmake_toolchain_file_sha) {
+        get<0>(r).emplace_back("(different CMake toolchain files)");
+        get<1>(r).emplace_back("(different CMake toolchain files)");
+    }
 
     return r;
 }
 
-vector<string> incompatible_cmake_args(const vector<string>& x,
-                                       const vector<string>& y,
-                                       bool consider_c_and_toolchain)
+tuple<vector<string>, vector<string>> incompatible_cmake_args(const vector<string>& x,
+                                                              const vector<string>& y,
+                                                              bool consider_c_and_toolchain)
 {
     vector<string> r;
     auto cx = normalize_cmake_args(x);
@@ -272,16 +289,24 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
         } else {
             auto& cd = it_installed_config->second;
             r.emplace(req_config, cd);
-            auto ica = incompatible_cmake_args(cd.final_cmake_args, kv.second);
+            vector<string> ica_local, ica_any;
+            tie(ica_local, ica_any) = incompatible_cmake_args(cd.final_cmake_args, kv.second);
+            vector<string> ica_critical;
             if (bp_source_dir != cd.source_dir) {
-                ica.emplace_back(stringf("(different source dirs: '%s' and '%s')",
-                                         cd.source_dir.c_str(), bp_source_dir.c_str()));
+                auto x = stringf("(different source dirs: '%s' and '%s')", cd.source_dir.c_str(),
+                                 bp_source_dir.c_str());
+                ica_local.emplace_back(x);
+                ica_any.emplace_back(x);
             }
-            if (ica.empty()) {
+            if (ica_local.empty()) {
                 r.at(req_config).status = pkg_request_satisfied;
+            } else if (ica_any.empty()) {
+                r.at(req_config).status = pkg_request_different_but_satisfied;
+                r.at(req_config).incompatible_cmake_args_local = join(ica_local, " ");
             } else {
-                r.at(req_config).status = pkg_request_not_compatible;
-                r.at(req_config).incompatible_cmake_args = join(ica, " ");
+                r.at(req_config).status = pkg_request_different;
+                r.at(req_config).incompatible_cmake_args_local = join(ica_local, " ");
+                r.at(req_config).incompatible_cmake_args_any = join(ica_any, " ");
             }
         }
     }

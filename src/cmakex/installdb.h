@@ -10,11 +10,11 @@ namespace cmakex {
 
 // returns a possibly empty list of incompatible cmake args. Only critical cmake args will be
 // considered: "-C", "-D", "-G", "-T", "-A"
-vector<string> incompatible_cmake_args(const vector<string>& x,
-                                       const vector<string>& y,
-                                       bool consider_c_and_toolchain);
-vector<string> incompatible_final_cmake_args(const final_cmake_args_t& x,
-                                             const final_cmake_args_t& y);
+tuple<vector<string>, vector<string>> incompatible_cmake_args(const vector<string>& x,
+                                                              const vector<string>& y,
+                                                              bool consider_c_and_toolchain);
+tuple<vector<string>, vector<string>> incompatible_final_cmake_args(const final_cmake_args_t& x,
+                                                                    const final_cmake_args_t& y);
 
 // stores, adds and removes and queries the list of packages and corresponding files
 // installed into a directory
