@@ -249,7 +249,8 @@ tuple<vector<string>, vector<string>> incompatible_cmake_args(const vector<strin
                                                               const vector<string>& y,
                                                               bool consider_c_and_toolchain)
 {
-    vector<string> r;
+    tuple<vector<string>, vector<string>> r;
+
     auto cx = normalize_cmake_args(x);
     auto cy = normalize_cmake_args(y);
 
@@ -258,8 +259,19 @@ tuple<vector<string>, vector<string>> incompatible_cmake_args(const vector<strin
         if (!consider_c_and_toolchain &&
             ((pca.switch_ == "-D" && pca.name == "CMAKE_TOOLCHAIN_FILE") || pca.switch_ == "-C"))
             return;  // handled separately
-        if (is_critical_cmake_arg(pca))
-            r.emplace_back(o.str());
+        switch (is_critical_cmake_arg(pca)) {
+            case cac_noncritical:
+                break;
+            case cac_critical:
+                get<0>(r).emplace_back(o.str());
+                get<1>(r).emplace_back(o.str());
+                break;
+            case cac_critical_for_local_builds:
+                get<0>(r).emplace_back(o.str());
+                break;
+            default:
+                CHECK(false);
+        }
     };
 
     for (auto& o : set_difference(cx, cy)) {
