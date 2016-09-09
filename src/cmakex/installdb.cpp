@@ -124,7 +124,8 @@ installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par 
                 "it is '%s'",
                 path_for_log(p).c_str(), y.pkg_name.c_str(), pkg_name.c_str());
         auto path_from_deserialized = installed_pkg_config_desc_path(pkg_name, y.config);
-        if (!fs::equivalent(path_from_deserialized, p)) {
+        if (fs::path(path_from_deserialized).filename().string() !=
+            fs::path(p).filename().string()) {
             string v;
             if (g_verbose)
                 v = stringf(", reconstructed path: %s",
