@@ -660,7 +660,12 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                                      cmakex_cache);
 #endif
             }
-        }
+        }  // else branch of if cloned
+
+        // if it has been found on a prefix path, we don't need a build reason, we're done, exit the
+        // attempts loop
+        if (!pkg.found_on_prefix_path.empty())
+            break;
 
         // if we're building a dependency but otherwise we're satisfied, the primary reason is that
         // the dependency will be rebuilt
