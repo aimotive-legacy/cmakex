@@ -124,9 +124,14 @@ installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par 
                 "it is '%s'",
                 path_for_log(p).c_str(), y.pkg_name.c_str(), pkg_name.c_str());
         auto path_from_deserialized = installed_pkg_config_desc_path(pkg_name, y.config);
-        if (!fs::equivalent(path_from_deserialized, p))
-            throwf("Invalid installed-config file: the configuration type read from %s is '%s'",
-                   path_for_log(p).c_str(), y.config.get_prefer_NoConfig().c_str());
+        if (!fs::equivalent(path_from_deserialized, p)) {
+            string v;
+            if (g_verbose)
+                v = stringf(", reconstructed path: %s",
+                            path_for_log(path_from_deserialized).c_str());
+            throwf("Invalid installed-config file: the configuration type read from %s is '%s'%s",
+                   path_for_log(p).c_str(), y.config.get_prefer_NoConfig().c_str(), v.c_str());
+        }
 
         auto new_result_value_it_bool = r.config_descs.emplace(y.config, y);
         if (!new_result_value_it_bool.second)
@@ -192,7 +197,7 @@ string InstallDB::installed_pkg_config_desc_path(string_par pkg_name,
                                                  const config_name_t& config) const
 {
     return stringf("%s/%s.json", installed_pkg_desc_dir(pkg_name, "").c_str(),
-                   config.get_lowercase_prefer_noconfig().c_str());
+                   tolower(config.get_prefer_NoConfig()).c_str());
 }
 
 /*string InstallDB::installed_pkg_files_path(string_par pkg_name) const

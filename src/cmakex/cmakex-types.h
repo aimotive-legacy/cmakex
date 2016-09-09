@@ -48,11 +48,6 @@ struct config_name_t
         static const string NoConfig{"NoConfig"};
         return value.empty() ? NoConfig : value;
     }
-    string get_lowercase_prefer_noconfig() const
-    {
-        static const string noconfig{"noconfig"};
-        return value.empty() ? noconfig : cmakex::tolower(value);
-    }
 
     bool operator==(const config_name_t& x) const { return value == x.value; }
     bool operator<(const config_name_t& x) const { return value < x.value; }
