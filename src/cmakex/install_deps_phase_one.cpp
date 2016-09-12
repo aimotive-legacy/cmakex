@@ -597,9 +597,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         pkg_for_log(pkg_name).c_str(),
                         path_for_log(pkg.found_on_prefix_path).c_str(),
                         itc.incompatible_cmake_args_any.c_str());
-                } else {
+                } else if (itc.status != pkg_request_different_but_satisfied) {
                     // it can't be not installed
-                    CHECK(itc.status == pkg_request_different_but_satisfied);
+                    throwf(
+                        "Internal error: itc.status should be pkg_request_different_but_satisfied "
+                        "but it's: %d, incompatible args for local build: %s, incompatible args "
+                        "for any build: %s",
+                        (int)itc.status, itc.incompatible_cmake_args_local.c_str(),
+                        itc.incompatible_cmake_args_any.c_str());
                 }
             }
         }
