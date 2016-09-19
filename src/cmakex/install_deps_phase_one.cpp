@@ -108,14 +108,14 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
     if (c1.git_url != c2.git_url)
         throwf(
             "Different repository URLs requested for the same package. Previously, for "
-            "package "
-            "'%s' this URL was specified: %s, now this: %s",
-            pkg_name.c_str(), c1.git_url.c_str(), c2.git_url.c_str());
-    if (c1.git_tag != c2.git_tag)
+            "%s this URL was specified: '%s', now this: '%s'",
+            pkg_for_log(pkg_name).c_str(), c1.git_url.c_str(), c2.git_url.c_str());
+    // for git_tag it's acceptable if the later git_tag is empty, it means don't care
+    if (c1.git_tag != c2.git_tag && !c2.git_tag.empty())
         throwf(
-            "Different commits requested for the same package. Previously, for package "
-            "'%s' this GIT_TAG was specified: %s, now this: %s",
-            pkg_name.c_str(), c1.git_tag.c_str(), c2.git_tag.c_str());
+            "Different commits requested for the same package. Previously, for "
+            "%s this GIT_TAG was specified: '%s', now this: '%s'",
+            pkg_for_log(pkg_name).c_str(), c1.git_tag.c_str(), c2.git_tag.c_str());
 
     // compare dependencies
     auto& d1 = r1.depends;
@@ -123,7 +123,7 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
 
     if (d1 != d2)
         throwf(
-            "Different dependecies requested for the same package. Previously, for package "
+            "Different dependencies requested for the same package. Previously, for package "
             "'%s' these dependencies were requested: [%s], now these: [%s]",
             pkg_name.c_str(), join(d1, ", ").c_str(), join(d2, ", ").c_str());
 }
