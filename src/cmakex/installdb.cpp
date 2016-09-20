@@ -293,7 +293,7 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
     string_par prefix_path)
 {
     LOG_TRACE("entering evaluate_pkg_request_build_pars(%s, %s, [%s], %s)",
-              pkg_for_log(pkg_name).c_str(), bp_source_dir.c_str(),
+              pkg_for_log(pkg_name).c_str(), path_for_log(bp_source_dir).c_str(),
               join(get_prefer_NoConfig(keys_of_map(bp_final_cmake_args)), ", ").c_str(),
               prefix_path.c_str());
 
