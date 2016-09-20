@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <adasworks/sx/array_view.h>
+#include <adasworks/sx/log.h>
 #include <adasworks/sx/maybe.h>
 #include <adasworks/sx/string_par.h>
 #include <adasworks/sx/stringf.h>
@@ -33,6 +34,7 @@ using std::tie;
 using std::make_tuple;
 
 namespace sx = adasworks::sx;
+namespace log = adasworks::log;
 
 using sx::stringf;
 using sx::string_par;

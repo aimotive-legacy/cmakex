@@ -116,6 +116,8 @@ installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par 
 {
     installed_pkg_configs_t r;
     auto paths = glob_installed_pkg_config_descs(pkg_name, prefix_path);
+    LOG_TRACE("glob_installed_pkg_config_descs(%s, %s) -> [%s]", pkg_name.c_str(),
+              prefix_path.c_str(), join(paths, ", ").c_str());
     for (auto& p : paths) {
         CHECK(fs::is_regular_file(p));  // just globbed
         installed_config_desc_t y = installed_config_desc_t::uninitialized_installed_config_desc();
@@ -290,7 +292,17 @@ pkg_request_details_against_installed_t InstallDB::evaluate_pkg_request_build_pa
     const std::map<config_name_t, final_cmake_args_t>& bp_final_cmake_args,
     string_par prefix_path)
 {
+    LOG_TRACE("entering evaluate_pkg_request_build_pars(%s, %s, [%s], %s)",
+              pkg_for_log(pkg_name).c_str(), bp_source_dir.c_str(),
+              join(get_prefer_NoConfig(keys_of_map(bp_final_cmake_args)), ", ").c_str(),
+              prefix_path.c_str());
+
     auto installed_configs = try_get_installed_pkg_all_configs(pkg_name, prefix_path);
+
+    LOG_TRACE("called try_get_installed_pkg_all_configs(%s, %s) -> configs [%s]",
+              pkg_for_log(pkg_name).c_str(), prefix_path.c_str(),
+              join(get_prefer_NoConfig(keys_of_map(installed_configs.config_descs)), ", ").c_str());
+
     pkg_request_details_against_installed_t r;
     for (auto& kv : bp_final_cmake_args) {
         auto& req_config = kv.first;

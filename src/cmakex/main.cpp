@@ -5,7 +5,6 @@
 #include <nowide/cstdlib.hpp>
 
 #include <adasworks/sx/check.h>
-#include <adasworks/sx/log.h>
 
 #include "cmakex_utils.h"
 #include "filesystem.h"
@@ -39,7 +38,10 @@ int main(int argc, char* argv[])
         exit(0);
     }
 #endif
-    adasworks::log::Logger global_logger(adasworks::log::global_tag, AW_TRACE);
+    log::Logger global_logger(adasworks::log::global_tag);
+    LOG_DEBUG("Debug log messages are enabled");
+    LOG_TRACE("Trace log messages are enabled");
+
     int result = EXIT_SUCCESS;
 
     for (int argix = 1; argix < argc; ++argix) {
