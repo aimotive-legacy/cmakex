@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include <adasworks/sx/preproc.h>
+
 #include "misc_utils.h"
 
 namespace cmakex {
@@ -34,5 +36,22 @@ void final_cmake_args_t::assign(const vector<string>& cmake_args,
     args = cmake_args;
     this->c_sha = c_sha.str();
     this->cmake_toolchain_file_sha = cmake_toolchain_file_sha.str();
+}
+
+string to_string(pkg_request_status_against_installed_config_t x)
+{
+    switch (x) {
+#define A(X) \
+    case X:  \
+        return AW_STRINGIZE(X)
+        A(invalid_status);
+        A(pkg_request_satisfied);
+        A(pkg_request_not_installed);
+        A(pkg_request_different_but_satisfied);
+        A(pkg_request_different);
+#undef A
+        default:
+            return stringf("[invalid pkg_request_status_against_installed_config_t: %d]", (int)x);
+    }
 }
 }

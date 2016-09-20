@@ -266,7 +266,7 @@ enum pkg_request_status_against_installed_config_t
     pkg_request_different  // the request package is installed with different build options, should
                            // be rebuilt
 };
-
+string to_string(pkg_request_status_against_installed_config_t x);
 struct pkg_request_details_against_installed_config_t
 {
     pkg_request_details_against_installed_config_t(

@@ -617,9 +617,17 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
     idpo_recursion_result_t rr;
 
+    LOG_TRACE("%s", pkg_for_log(pkg_name).c_str());
+    for (auto& kv : installed_result) {
+        LOG_TRACE("Installed: %s -> %s", kv.first.get_prefer_NoConfig().c_str(),
+                  to_string(kv.second.status).c_str());
+    }
+
     // if first attempt finds reason to build and this package is not cloned, a second attempt
     // will follow after a clone
     for (int attempts = 1;; ++attempts) {
+        LOG_TRACE("Attempt#%d, %s", attempts, cloned ? "cloned" : "not cloned");
+
         CHECK(attempts <= 2);  // before second iteration there will be a cloning so the second
                                // iteration must finish
         build_reasons.clear();
