@@ -356,10 +356,16 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     // - if it's installed on a prefix path we accept that installed package as it is
     auto prefix_paths = stable_unique(
         concat(cmakex_cache.cmakex_prefix_path_vector, cmakex_cache.env_cmakex_prefix_path_vector));
-    if (!prefix_paths.empty()) {
+
+    do {  // one-shot scope
         vector<config_name_t> configs_on_prefix_path;
-        tie(pkg.found_on_prefix_path, configs_on_prefix_path) =
-            installdb.quick_check_on_prefix_paths(pkg_name, prefix_paths);
+        if (!prefix_paths.empty())
+            tie(pkg.found_on_prefix_path, configs_on_prefix_path) =
+                installdb.quick_check_on_prefix_paths(pkg_name, prefix_paths);
+
+        if (pkg.found_on_prefix_path.empty())
+            break;
+
         vector<config_name_t> requested_configs = pkg.request.b.configs();
         CHECK(!requested_configs
                    .empty());  // even for name-only requests must contain the default configs
@@ -371,8 +377,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
         auto missing_configs = set_difference(requested_configs, configs_on_prefix_path);
         // in case the requested configs and the installed configs are different, we're
-        // accepting
-        // the installed configs
+        // accepting the installed configs
         string cmsg;
         if (!missing_configs.empty()) {
             cmsg = stringf(
@@ -388,11 +393,10 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             cmsg =
                 stringf(" (%s)", join(get_prefer_NoConfig(configs_on_prefix_path), ", ").c_str());
 
-        if (!pkg.found_on_prefix_path.empty())
-            log_info("Using %s from %s%s.", pkg_for_log(pkg_name).c_str(),
-                     path_for_log(pkg.found_on_prefix_path).c_str(), cmsg.c_str());
+        log_info("Using %s from %s%s.", pkg_for_log(pkg_name).c_str(),
+                 path_for_log(pkg.found_on_prefix_path).c_str(), cmsg.c_str());
         // in case the request is only a name, we're accepting the installed desc as request
-    }
+    } while (false);  // one-shot scope
 
     struct per_config_data_t
     {
