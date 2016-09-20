@@ -48,7 +48,9 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(
 
 // todo what if the existing r1 is name-only, r2 is normal
 // is it possible or what to do then?
-void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_request_t& r2)
+void verify_if_requests_are_compatible(const pkg_request_t& r1,
+                                       const pkg_request_t& r2,
+                                       bool was_accepted_from_prefix_path)
 {
     CHECK(r1.name == r2.name);
     CHECK(!r1.name_only());
@@ -94,13 +96,12 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1, const pkg_reques
     CHECK(!ec2.empty());
     const char* fcl2 = b2.using_default_configs() ? fcl : "";
 
-    if (ec1 != ec2) {
+    if (!was_accepted_from_prefix_path && ec1 != ec2) {
         auto v1 = join(get_prefer_NoConfig(ec1), ", ");
         auto v2 = join(get_prefer_NoConfig(ec2), ", ");
         throwf(
             "Different configurations requested for the same package. Previously, for "
-            "package "
-            "'%s' these configurations had been requested: [%s]%s and now these: [%s]%s",
+            "package '%s' these configurations had been requested: [%s]%s and now these: [%s]%s",
             pkg_name.c_str(), v1.c_str(), fcl1, v2.c_str(), fcl2);
     }
 
@@ -199,7 +200,8 @@ void insert_new_request_into_wsp(const pkg_request_t& req_in, deps_recursion_wsp
             }
         } else {
             if (!req->name_only())
-                verify_if_requests_are_compatible(it->second.request, *req);
+                verify_if_requests_are_compatible(it->second.request, *req,
+                                                  !it->second.found_on_prefix_path.empty());
         }
     }
 }
