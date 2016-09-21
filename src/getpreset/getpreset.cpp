@@ -40,7 +40,7 @@ void print_usage()
 
 or
 
-    getpreset <preset-file.yaml>/<preset-name-or-alias> <field>
+    getpreset <preset-file.yaml>#<preset-name-or-alias> <field>
 
 The second argument is the field to retrieve. The official fields
 names are: `name`, `args` and `arch`.
@@ -48,7 +48,7 @@ names are: `name`, `args` and `arch`.
 Examples (return the `args` fields of the `vs2013` preset):
 
     getpreset vs2013 args
-    getpreset some/dir/presets.yaml/vs2013 args
+    getpreset some/dir/presets.yaml#vs2013 args
 
 In the first case the `CMAKEX_PRESET_FILE` environment variable should
 contain the path of the preset file.

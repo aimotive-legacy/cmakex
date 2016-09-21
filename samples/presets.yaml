@@ -111,7 +111,7 @@ presets:
     x86_64-win32-msvc12: # _MSC_VER = 1800
         alias: vs2013-x64
         cmake: [*common_args, -G "Visual Studio 12 Win64"]
-    x86_64-win32-msvc14: # _MSC_VER = 1900
+    x86-win32-msvc14: # _MSC_VER = 1900
         alias: vs2015
         cmake: [*common_args, -G "Visual Studio 14"]
     x86_64-win32-msvc14: # _MSC_VER = 1900
