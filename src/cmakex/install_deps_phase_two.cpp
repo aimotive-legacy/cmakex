@@ -31,6 +31,11 @@ void install_deps_phase_two(string_par binary_dir,
     log_info();
 
     InstallDB installdb(binary_dir);
+    cmakex_config_t cfg(binary_dir);
+    CHECK(cfg.cmakex_cache().valid);
+    auto prefix_paths = stable_unique(concat(cfg.cmakex_cache().cmakex_prefix_path_vector,
+                                             cfg.cmakex_cache().env_cmakex_prefix_path_vector));
+
     for (auto& p : wsp.build_order) {
         log_datetime();
         auto& wp = wsp.pkg_map.at(p);
@@ -47,9 +52,6 @@ void install_deps_phase_two(string_par binary_dir,
         if (configs_to_build.size() > 1)
             log_info("Configurations: [%s]",
                      join(get_prefer_NoConfig(configs_to_build), ", ").c_str());
-
-        cmakex_config_t cfg(binary_dir);
-        CHECK(cfg.cmakex_cache().valid);
 
         clone_helper_t clone_helper(binary_dir, p);
 
@@ -96,7 +98,7 @@ void install_deps_phase_two(string_par binary_dir,
             desc.source_dir = wp.request.b.source_dir;
             desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
             for (auto& d : wp.request.depends) {
-                auto dep_installed = installdb.try_get_installed_pkg_all_configs(d);
+                auto dep_installed = installdb.try_get_installed_pkg_all_configs(d, prefix_paths);
                 for (auto& kv : dep_installed.config_descs)
                     desc.deps_shas[d][kv.first] = calc_sha(kv.second);
             }

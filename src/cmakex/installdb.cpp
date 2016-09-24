@@ -111,6 +111,14 @@ string config_from_installed_pkg_config_path(string_par s)
     return fs::path(s).stem().string();
 }
 
+installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(
+    string_par pkg_name,
+    const vector<string>& prefix_paths) const
+{
+    auto r = quick_check_on_prefix_paths(pkg_name, prefix_paths);
+    return try_get_installed_pkg_all_configs(pkg_name, get<0>(r));
+}
+
 installed_pkg_configs_t InstallDB::try_get_installed_pkg_all_configs(string_par pkg_name,
                                                                      string_par prefix_path) const
 {
@@ -384,7 +392,7 @@ void InstallDB::uninstall_config_if_installed(string_par pkg_name, const config_
 }
 tuple<string, vector<config_name_t>> InstallDB::quick_check_on_prefix_paths(
     string_par pkg_name,
-    const vector<string>& prefix_paths)
+    const vector<string>& prefix_paths) const
 {
     tuple<string, vector<config_name_t>> result;
     vector<string> v;

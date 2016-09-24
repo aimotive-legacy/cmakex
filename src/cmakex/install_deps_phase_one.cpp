@@ -218,8 +218,10 @@ idpo_recursion_result_t process_pkgs_to_process(string_par binary_dir,
     for (auto& pkg_name : pkgs_to_process) {
         auto it = wsp.pkgs_to_process.find(pkg_name);
         {
-            if (it == wsp.pkgs_to_process.end())
+            if (it == wsp.pkgs_to_process.end()) {
+                rr.add_pkg(pkg_name);
                 continue;
+            }
             wsp.pkgs_to_process.erase(it);
         }
         auto rr_below = run_deps_add_pkg(pkg_name, binary_dir, command_line_cmake_args,
@@ -738,7 +740,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                 "workspace is at a new commit",
                                 stringf("Currently installed from commit: %s",
                                         current_install_desc.git_sha.c_str()),
-                                string("Current commit in workspace: %s", cloned_sha.c_str())};
+                                stringf("Current commit in workspace: %s", cloned_sha.c_str())};
                             break;
                         }
                     }
@@ -777,7 +779,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
                         // this dep is requested, was present at the previous installation
                         // check if it's installed now
-                        auto dep_current_install = installdb.try_get_installed_pkg_all_configs(d);
+                        auto dep_current_install =
+                            installdb.try_get_installed_pkg_all_configs(d, prefix_paths);
                         if (dep_current_install.empty()) {
                             // it's not installed now but it's requested. This should have
                             // triggered

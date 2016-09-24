@@ -33,6 +33,9 @@ public:
         string_par prefix_path = "");
     installed_pkg_configs_t try_get_installed_pkg_all_configs(string_par pkg_name,
                                                               string_par prefix_path = "") const;
+    installed_pkg_configs_t try_get_installed_pkg_all_configs(
+        string_par pkg_name,
+        const vector<string>& prefix_paths) const;
     // maybe<pkg_files_t> try_get_installed_pkg_files(string_par pkg_name) const;
 
     // if incremental, the desc must be compatible with the currently installed desc
@@ -45,7 +48,7 @@ public:
     // returns empty if it's not installed or installed in this installdb
     tuple<string, vector<config_name_t>> quick_check_on_prefix_paths(
         string_par pkg_name,
-        const vector<string>& prefix_paths);
+        const vector<string>& prefix_paths) const;
 
 private:
     void put_installed_pkg_desc(installed_config_desc_t p);  // taken by value
