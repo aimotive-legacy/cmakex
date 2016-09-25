@@ -220,6 +220,13 @@ idpo_recursion_result_t process_pkgs_to_process(string_par binary_dir,
         {
             if (it == wsp.pkgs_to_process.end()) {
                 rr.add_pkg(pkg_name);
+
+                // it's already processed but we may be building it
+                auto itp = wsp.pkg_map.find(pkg_name);
+                // packages found on prefix paths do not go into pkg_map
+                if (itp != wsp.pkg_map.end())
+                    rr.building_some_pkg |= itp->second.building_now;
+
                 continue;
             }
             wsp.pkgs_to_process.erase(it);
@@ -927,6 +934,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         for (auto& kv : build_reasons)
             pkg.pcd.at(kv.first).build_reasons = kv.second;
         rr.building_some_pkg = true;
+        pkg.building_now = true;
     }
     rr.add_pkg(pkg_name);
     return rr;

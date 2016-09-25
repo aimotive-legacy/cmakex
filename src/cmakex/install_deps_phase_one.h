@@ -23,6 +23,7 @@ struct deps_recursion_wsp_t
         string resolved_git_tag;
         string found_on_prefix_path;  // if non-empty this package has been found on a prefix path
         std::map<config_name_t, per_config_data> pcd;
+        bool building_now = false;
     };
 
     vector<string> requester_stack;
