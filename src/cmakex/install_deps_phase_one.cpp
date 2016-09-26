@@ -247,6 +247,8 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(
     deps_recursion_wsp_t& wsp,
     const cmakex_cache_t& cmakex_cache)
 {
+    LOG_DEBUG("Dependencies from DEPENDS: %s", join(request_deps, ", ").c_str());
+
     // for each pkg:
     for (auto& d : request_deps)
         insert_new_request_into_wsp(pkg_request_t(d, command_line_configs, true), wsp);
@@ -324,8 +326,21 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(
     for (auto& addpkg_line : addpkgs_lines) {
         auto args = split(addpkg_line, '\t');
         auto req = pkg_request_from_args(args, command_line_configs);
-        deps.emplace_back(req.name);
+        if (!req.define_only)
+            deps.emplace_back(req.name);
         insert_new_request_into_wsp(req, wsp);
+    }
+    if (!wsp.requester_stack.empty()) {
+        auto pkg_name = wsp.requester_stack.back();
+        auto it = wsp.pkg_map.find(pkg_name);
+        if (it == wsp.pkg_map.end())
+            LOG_DEBUG("%s no dependencies from script.", pkg_for_log(pkg_name).c_str());
+        else
+            LOG_DEBUG("%s dependencies from script: [%s]", pkg_for_log(pkg_name).c_str(),
+                      join(deps, ", ").c_str());
+    } else {
+        LOG_DEBUG("Main project dependencies from script: [%s]",
+                  join(keys_of_map(wsp.pkg_map), ", ").c_str());
     }
 
     return process_pkgs_to_process(binary_dir, global_cmake_args, command_line_configs, wsp,
@@ -339,6 +354,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                                          deps_recursion_wsp_t& wsp,
                                          const cmakex_cache_t& cmakex_cache)
 {
+    LOG_DEBUG("run_deps_add_pkg(%s, ...)", pkg_for_log(pkg_name).c_str());
+
     const cmakex_config_t cfg(binary_dir);
 
     CHECK(wsp.pkg_map.count(pkg_name.str()) > 0);
