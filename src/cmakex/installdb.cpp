@@ -234,6 +234,8 @@ cmake_arg_criticalness_t is_critical_cmake_arg(const parsed_cmake_arg_t& pca)
         if (pca.name == "CMAKE_INSTALL_PREFIX" || pca.name == "CMAKE_PREFIX_PATH" ||
             pca.name == "CMAKE_MODULE_PATH")
             return cac_critical_for_local_builds;
+        else
+            return cac_critical;
     }
     //-G is noncritical, the other variables will make the difference, like compiler_id, etc...
     return cac_noncritical;
