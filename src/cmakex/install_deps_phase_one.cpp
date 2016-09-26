@@ -604,8 +604,8 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             }
 
             if (different_option) {
-                throwf(
-                    "Package %s found on the prefix path %s but its configurations (%s) have "
+                log_warn(
+                    "Package %s found on the prefix path %s and its configurations (%s) have "
                     "been built with different build options. Offending option: %s.",
                     pkg_for_log(pkg_name).c_str(), path_for_log(pkg.found_on_prefix_path).c_str(),
                     join(get_prefer_NoConfig(keys_of_map(installed_result)), ", ").c_str(),
@@ -624,11 +624,9 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
             for (auto& c : pkg.request.b.configs()) {
                 auto& itc = installed_result.at(c);
                 if (itc.status == pkg_request_different) {
-                    throwf(
-                        "Package %s found on the prefix path %s but the build options are not "
-                        "compatible with the current ones. Either remove from the prefix path "
-                        "or "
-                        "check build options. The offending CMAKE_ARGS: [%s]",
+                    log_warn(
+                        "Package %s found on the prefix path %s and some build options differ"
+                        " from the current ones. The offending CMAKE_ARGS: [%s]",
                         pkg_for_log(pkg_name).c_str(),
                         path_for_log(pkg.found_on_prefix_path).c_str(),
                         itc.incompatible_cmake_args_any.c_str());
