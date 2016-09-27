@@ -50,7 +50,8 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(
 // is it possible or what to do then?
 void verify_if_requests_are_compatible(const pkg_request_t& r1,
                                        const pkg_request_t& r2,
-                                       bool was_accepted_from_prefix_path)
+                                       bool was_accepted_from_prefix_path,
+                                       bool dependencies_from_script)
 {
     CHECK(r1.name == r2.name);
     CHECK(!r1.name_only());
@@ -122,7 +123,7 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1,
     auto& d1 = r1.depends;
     auto& d2 = r2.depends;
 
-    if (d1 != d2)
+    if (!dependencies_from_script && d1 != d2)
         throwf(
             "Different dependencies requested for the same package. Previously, for package "
             "'%s' these dependencies were requested: [%s], now these: [%s]",
@@ -201,7 +202,8 @@ void insert_new_request_into_wsp(const pkg_request_t& req_in, deps_recursion_wsp
         } else {
             if (!req->name_only())
                 verify_if_requests_are_compatible(it->second.request, *req,
-                                                  !it->second.found_on_prefix_path.empty());
+                                                  !it->second.found_on_prefix_path.empty(),
+                                                  it->second.dependencies_from_script);
         }
     }
 }
@@ -257,14 +259,15 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(
                                    cmakex_cache, request_deps);
 }
 
-idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
-                                               string_par source_dir,
-                                               const vector<string>& request_deps,
-                                               const vector<string>& command_line_cmake_args,
-                                               const vector<config_name_t>& command_line_configs,
-                                               deps_recursion_wsp_t& wsp,
-                                               const cmakex_cache_t& cmakex_cache,
-                                               string_par custom_deps_script_file)
+tuple<idpo_recursion_result_t, bool> install_deps_phase_one(
+    string_par binary_dir,
+    string_par source_dir,
+    const vector<string>& request_deps,
+    const vector<string>& command_line_cmake_args,
+    const vector<config_name_t>& command_line_configs,
+    deps_recursion_wsp_t& wsp,
+    const cmakex_cache_t& cmakex_cache,
+    string_par custom_deps_script_file)
 {
     CHECK(!binary_dir.empty());
     CHECK(!command_line_configs.empty());
@@ -277,23 +280,26 @@ idpo_recursion_result_t install_deps_phase_one(string_par binary_dir,
                 if (!request_deps.empty())
                     log_warn("Using dependency script %s instead of specified dependencies.",
                              path_for_log(deps_script_file).c_str());
-                return install_deps_phase_one_deps_script(binary_dir, deps_script_file,
-                                                          command_line_cmake_args,
-                                                          command_line_configs, wsp, cmakex_cache);
+                return {install_deps_phase_one_deps_script(binary_dir, deps_script_file,
+                                                           command_line_cmake_args,
+                                                           command_line_configs, wsp, cmakex_cache),
+                        true};
             }
         } else {
             deps_script_file = custom_deps_script_file;
             if (!request_deps.empty())
                 log_warn("Using dependency script %s instead of specified dependencies.",
                          path_for_log(deps_script_file).c_str());
-            return install_deps_phase_one_deps_script(binary_dir, deps_script_file,
-                                                      command_line_cmake_args, command_line_configs,
-                                                      wsp, cmakex_cache);
+            return {install_deps_phase_one_deps_script(binary_dir, deps_script_file,
+                                                       command_line_cmake_args,
+                                                       command_line_configs, wsp, cmakex_cache),
+                    true};
         }
     }
 
-    return install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
-                                               command_line_configs, wsp, cmakex_cache);
+    return {install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
+                                                command_line_configs, wsp, cmakex_cache),
+            false};
 }
 
 idpo_recursion_result_t install_deps_phase_one_deps_script(
@@ -672,9 +678,9 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         if (cloned) {
             wsp.requester_stack.emplace_back(pkg_name);
 
-            rr = install_deps_phase_one(binary_dir, pkg_source_dir, to_vector(pkg.request.depends),
-                                        command_line_cmake_args, command_line_configs, wsp,
-                                        cmakex_cache, "");
+            tie(rr, pkg.dependencies_from_script) = install_deps_phase_one(
+                binary_dir, pkg_source_dir, to_vector(pkg.request.depends), command_line_cmake_args,
+                command_line_configs, wsp, cmakex_cache, "");
 
             CHECK(wsp.requester_stack.back() == pkg_name);
             wsp.requester_stack.pop_back();

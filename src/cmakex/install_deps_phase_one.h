@@ -24,6 +24,8 @@ struct deps_recursion_wsp_t
         string found_on_prefix_path;  // if non-empty this package has been found on a prefix path
         std::map<config_name_t, per_config_data> pcd;
         bool building_now = false;
+        bool dependencies_from_script = false;  // true if dependencies read from deps.cmake which
+                                                // overrides all DEPENDS specifications
     };
 
     vector<string> requester_stack;
@@ -56,7 +58,9 @@ private:
 };
 
 // returns packages encountered during the recursion
-idpo_recursion_result_t install_deps_phase_one(
+// the boolean indicates the dependencies has been read from deps script (and not a DEPENDS
+// argument)
+tuple<idpo_recursion_result_t, bool> install_deps_phase_one(
     string_par binary_dir,               // main project binary dir
     string_par source_dir,               // the package's source dir (or the main source dir)
     const vector<string>& request_deps,  // dependency list from request, will be
