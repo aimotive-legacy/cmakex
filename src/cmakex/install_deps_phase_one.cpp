@@ -280,26 +280,27 @@ tuple<idpo_recursion_result_t, bool> install_deps_phase_one(
                 if (!request_deps.empty())
                     log_warn("Using dependency script %s instead of specified dependencies.",
                              path_for_log(deps_script_file).c_str());
-                return {install_deps_phase_one_deps_script(binary_dir, deps_script_file,
-                                                           command_line_cmake_args,
-                                                           command_line_configs, wsp, cmakex_cache),
-                        true};
+                return make_tuple(install_deps_phase_one_deps_script(
+                                      binary_dir, deps_script_file, command_line_cmake_args,
+                                      command_line_configs, wsp, cmakex_cache),
+                                  true);
             }
         } else {
             deps_script_file = custom_deps_script_file;
             if (!request_deps.empty())
                 log_warn("Using dependency script %s instead of specified dependencies.",
                          path_for_log(deps_script_file).c_str());
-            return {install_deps_phase_one_deps_script(binary_dir, deps_script_file,
-                                                       command_line_cmake_args,
-                                                       command_line_configs, wsp, cmakex_cache),
-                    true};
+            return make_tuple(install_deps_phase_one_deps_script(
+                                  binary_dir, deps_script_file, command_line_cmake_args,
+                                  command_line_configs, wsp, cmakex_cache),
+                              true);
         }
     }
 
-    return {install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
-                                                command_line_configs, wsp, cmakex_cache),
-            false};
+    return make_tuple(
+        install_deps_phase_one_request_deps(binary_dir, request_deps, command_line_cmake_args,
+                                            command_line_configs, wsp, cmakex_cache),
+        false);
 }
 
 idpo_recursion_result_t install_deps_phase_one_deps_script(
