@@ -678,6 +678,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
             CHECK(wsp.requester_stack.back() == pkg_name);
             wsp.requester_stack.pop_back();
+            pkg.request.depends.insert(BEGINEND(rr.pkgs_encountered));
         } else {
             if (!pkg.found_on_prefix_path.empty()) {
                 rr = install_deps_phase_one_request_deps(
