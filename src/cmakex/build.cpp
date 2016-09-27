@@ -257,7 +257,6 @@ build_result_t build(string_par binary_dir,
                             const int c_strlen_Find = 4;
                             string basename =
                                 make_string(butleft(it.path().getBaseName(), c_strlen_Find));
-                            LOG_INFO("%s", basename.c_str());
                             cmake_find_module_names.emplace_back(tolower(basename), basename);
                         }
                         std::sort(BEGINEND(cmake_find_module_names));
