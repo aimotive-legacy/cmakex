@@ -32,6 +32,7 @@ using std::pair;
 using std::get;
 using std::tie;
 using std::make_tuple;
+using pair_ss = std::pair<string, string>;
 
 namespace sx = adasworks::sx;
 namespace log = adasworks::log;

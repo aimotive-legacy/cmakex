@@ -231,7 +231,8 @@ bool tolower_equals(string_par x, string_par y);
 
 // remote whitespace before and after x
 string trim(string_par x);
-string tolower(string_par x);
+void tolower_inplace(string& x);
+string tolower(string x);
 
 // like std::binary_search but linear
 template <class Cont, class Elem>

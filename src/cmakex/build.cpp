@@ -3,6 +3,9 @@
 #include <adasworks/sx/algorithm.h>
 #include <adasworks/sx/check.h>
 
+#include <Poco/DirectoryIterator.h>
+#include <Poco/Glob.h>
+
 #include "cmakex_utils.h"
 #include "filesystem.h"
 #include "installdb.h"
@@ -234,6 +237,33 @@ build_result_t build(string_par binary_dir,
                             target.empty() ? "all" : target.c_str(), k_log_extension));
 
                 if (r == EXIT_SUCCESS && target == "install") {
+                    vector<pair_ss> cmake_find_module_names;
+                    bool cmake_find_module_names_loaded = false;
+                    auto load_cmake_find_module_names = [&cmake_find_module_names, &cmakex_cache,
+                                                         &cmake_find_module_names_loaded]() {
+                        if (cmake_find_module_names_loaded)
+                            return;
+                        string find_module_dir = cmakex_cache.cmake_root + "/Modules";
+                        string find_module_pattern = find_module_dir + "/Find*.cmake";
+                        if (!fs::is_directory(find_module_dir))
+                            return;
+                        Poco::Glob globber("Find*.cmake");
+                        for (Poco::DirectoryIterator it(find_module_dir);
+                             it != Poco::DirectoryIterator(); ++it) {
+                            if (!it->isFile())
+                                continue;
+                            if (!globber.match(it.name()))
+                                continue;
+                            const int c_strlen_Find = 4;
+                            string basename =
+                                make_string(butleft(it.path().getBaseName(), c_strlen_Find));
+                            LOG_INFO("%s", basename.c_str());
+                            cmake_find_module_names.emplace_back(tolower(basename), basename);
+                        }
+                        std::sort(BEGINEND(cmake_find_module_names));
+                        cmake_find_module_names_loaded = true;
+                    };
+
                     // write out hijack module that tries the installed config module first
                     // collect the config-modules that has been written
                     for (int i = 0; i < oem.size(); ++i) {
@@ -261,14 +291,13 @@ build_result_t build(string_par binary_dir,
                             if (base.empty())
                                 continue;
                             // find out if there's such an official config module
-                            if (cmakex_cache.cmake_root.empty())
-                                continue;
-                            auto find_module =
-                                cmakex_cache.cmake_root + "/Modules/Find" + base + ".cmake";
-                            if (!fs::is_regular_file(find_module))
-                                continue;
-
-                            build_result.hijack_modules_needed.emplace_back(base);
+                            load_cmake_find_module_names();
+                            tolower_inplace(base);
+                            auto it = std::lower_bound(
+                                BEGINEND(cmake_find_module_names), tolower(base),
+                                [](const pair_ss& x, const string& y) { return x.first < y; });
+                            if (it->first == base)
+                                build_result.hijack_modules_needed.emplace_back(it->second);
                         }
                     }
                 }

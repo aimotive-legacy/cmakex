@@ -334,13 +334,18 @@ string trim(string_par x)
     return r;
 }
 
-string tolower(string_par x)
+void tolower_inplace(string& x)
 {
-    string r(x.size(), 0);
-    for (int i = 0; i < x.size(); ++i)
-        r[i] = std::tolower(x[i]);
-    return r;
+    for (auto& c : x)
+        c = std::tolower(c);
 }
+
+string tolower(string x)
+{
+    tolower_inplace(x);
+    return x;
+}
+
 char system_path_separator()
 {
 #ifdef _WIN32
