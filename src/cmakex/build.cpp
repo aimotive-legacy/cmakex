@@ -25,7 +25,8 @@ build_result_t build(string_par binary_dir,
                      const vector<string>& build_targets,
                      bool force_config_step,
                      const cmakex_cache_t& cmakex_cache,
-                     vector<string> build_args,
+                     vector<string>
+                         build_args,
                      const vector<string>& native_tool_args)
 {
     build_result_t build_result;
@@ -86,14 +87,16 @@ build_result_t build(string_par binary_dir,
         }
     }  // if multiconfig generator
 
-    force_config_step = force_config_step || initial_build;
+    force_config_step =
+        force_config_step || initial_build || cmake_build_type_changing || !cmake_args.empty();
 
     // clean first handled specially
     // 1. it should be applied only once per config
     // 2. sometimes it should be applied automatically
-    bool clean_first = is_one_of("--clean-first", build_args);
-    bool clean_first_added = false;
-    if (clean_first) {
+    const bool clean_first_was_specified = is_one_of("--clean-first", build_args);
+    bool clean_first_is_needed = clean_first_was_specified;
+    // always remove it at this stage, we'll add it later if needed
+    if (clean_first_was_specified) {
         build_args.erase(
             remove_if(BEGINEND(build_args), [](const string& x) { return x == "--clean-first"; }),
             build_args.end());
@@ -113,11 +116,6 @@ build_result_t build(string_par binary_dir,
 
         // do config step only if needed
         if (force_config_step || !cct.pending_cmake_args.empty()) {
-            if (cmake_build_type_changing && !initial_build) {
-                clean_first_added = !clean_first;
-                clean_first = true;
-            }
-
             auto cmake_args_to_apply = cct.pending_cmake_args;
             if (!cmake_build_type_option.empty())
                 cmake_args_to_apply.emplace_back(cmake_build_type_option);
@@ -174,6 +172,9 @@ build_result_t build(string_par binary_dir,
         }
     }
 
+    if ((cmake_build_type_changing && !initial_build) || clean_first_was_specified)
+        clean_first_is_needed = true;
+
     for (auto& target : build_targets) {
         vector<string> args = {"--build", pkg_bin_dir_of_config.c_str()};
         if (!target.empty()) {
@@ -191,14 +192,14 @@ build_result_t build(string_par binary_dir,
         // when changing CMAKE_BUILD_TYPE the makefile generators usually fail to update the
         // configuration-dependent things. An automatic '--clean-first' helps
         if (target == "clean")
-            clean_first = false;
-        else if (clean_first) {
-            if (clean_first_added)
+            clean_first_is_needed = false;
+        else if (clean_first_is_needed) {
+            if (!clean_first_was_specified)
                 log_warn(
                     "Automatically adding '--clean-first' because CMAKE_BUILD_TYPE is "
                     "changing");
             args.emplace_back("--clean-first");
-            clean_first = false;  // add only for the first target
+            clean_first_is_needed = false;  // add only for the first target
         }
 
         if (!native_tool_args.empty()) {
