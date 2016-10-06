@@ -555,11 +555,16 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             cmake_generator = extract_generator_from_cmake_args(pcla.cmake_args);
         }
         cmakex_cache.multiconfig_generator = is_generator_multiconfig(cmake_generator);
-        if (binary_dir_has_cmake_cache)
-            cmakex_cache.per_config_bin_dirs = false;  // building upon an existing non-cmakex build
-        else
-            cmakex_cache.per_config_bin_dirs =
-                cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
+        bool b = !cmakex_cache.multiconfig_generator && cfg.per_config_bin_dirs();
+        if (binary_dir_has_cmake_cache && b) {
+            b = false;
+            log_warn(
+                "Per-config build directories were requested but this is an existing, "
+                "non-cmakex-enabled, single build directory, so we're using single build "
+                "directories for this build. Remove the build directory and reconfigure for "
+                "per-config build directories.");
+        }
+        cmakex_cache.per_config_bin_dirs = b;
         cmakex_cache.valid = true;
     }
 

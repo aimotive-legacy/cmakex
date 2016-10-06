@@ -25,8 +25,7 @@ build_result_t build(string_par binary_dir,
                      const vector<string>& build_targets,
                      bool force_config_step,
                      const cmakex_cache_t& cmakex_cache,
-                     vector<string>
-                         build_args,
+                     vector<string> build_args,
                      const vector<string>& native_tool_args)
 {
     build_result_t build_result;

@@ -46,7 +46,7 @@ struct cmakex_config_t
     bool per_config_bin_dirs() const { return per_config_bin_dirs_; }
 private:
     const string cmake_binary_dir;
-    bool per_config_bin_dirs_ = false;  // the user setting
+    bool per_config_bin_dirs_ = true;  // the user setting
     cmakex_cache_t cmakex_cache_;
 };
 
