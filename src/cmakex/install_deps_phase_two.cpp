@@ -60,27 +60,28 @@ void install_deps_phase_two(string_par binary_dir,
         return desc;
     };
 
-    auto create_moc = [](const installed_config_desc_t& desc, const deps_recursion_wsp_t::pkg_t& wp,
-                         const string& git_sha) {
+    auto create_moc = [](const deps_recursion_wsp_t::pkg_t& wp, const string& git_url,
+                         const string& git_sha, const vector<string>& depends,
+                         const string& source_dir, const final_cmake_args_t& final_cmake_args) {
         manifest_of_config_t moc;
-        moc.git_url = stringf("GIT_URL %s", desc.git_url.c_str());
+        moc.git_url = stringf("GIT_URL %s", git_url.c_str());
         moc.git_tag = stringf("GIT_TAG %s", git_sha.c_str());
         moc.git_tag_and_comment =
             stringf("GIT_TAG %s # request: %s", git_sha.c_str(),
                     wp.request.c.git_tag.empty() ? "HEAD" : wp.request.c.git_tag.c_str());
-        if (!desc.deps_shas.empty()) {
-            string depends_list = join(keys_of_map(desc.deps_shas), " ");
+        if (!depends.empty()) {
+            string depends_list = join(depends, " ");
             if (wp.dependencies_from_script)
                 moc.depends_maybe_commented =
                     stringf("# dependencies defined in deps.cmake: %s", depends_list.c_str());
             else
                 moc.depends_maybe_commented = stringf("DEPENDS %s", depends_list.c_str());
         }
-        if (!desc.source_dir.empty())
-            moc.source_dir = stringf("SOURCE %s", path_for_log(desc.source_dir).c_str());
-        if (!desc.final_cmake_args.args.empty()) {
+        if (!source_dir.empty())
+            moc.source_dir = stringf("SOURCE %s", path_for_log(source_dir).c_str());
+        if (!final_cmake_args.args.empty()) {
             moc.cmake_args = "CMAKE_ARGS";
-            for (auto& ca : desc.final_cmake_args.args) {
+            for (auto& ca : final_cmake_args.args) {
                 auto pca = parse_cmake_arg(ca);
                 if (pca.name == "CMAKE_PREFIX_PATH" || pca.name == "CMAKE_MODULE_PATH" ||
                     pca.name == "CMAKE_INSTALL_PREFIX" || pca.name == "CMAKE_TOOLCHAIN_FILE")
@@ -89,8 +90,8 @@ void install_deps_phase_two(string_par binary_dir,
                 moc.cmake_args += escape_cmake_arg(ca);
             }
         }
-        moc.c_sha = desc.final_cmake_args.c_sha;
-        moc.toolchain_sha = desc.final_cmake_args.cmake_toolchain_file_sha;
+        moc.c_sha = final_cmake_args.c_sha;
+        moc.toolchain_sha = final_cmake_args.cmake_toolchain_file_sha;
         return moc;
     };
     for (auto& p : wsp.build_order) {
@@ -163,9 +164,9 @@ void install_deps_phase_two(string_par binary_dir,
         for (auto& ic : ics.config_descs) {
             auto& config = ic.first;
             LOG_TRACE("Creating moc for %s - %s", p.c_str(), config.get_prefer_NoConfig().c_str());
-            auto desc =
-                create_desc(p, config, wp, ic.second.hijack_modules_needed, ic.second.git_sha);
-            auto moc = create_moc(desc, wp, ic.second.git_sha);
+            auto& ics = ic.second;
+            auto moc = create_moc(wp, ics.git_url, ics.git_sha, keys_of_map(ics.deps_shas),
+                                  ics.source_dir, ics.final_cmake_args);
             wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
         }
     }
