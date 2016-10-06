@@ -189,6 +189,7 @@ void insert_new_request_into_wsp(const pkg_request_t& req_in, deps_recursion_wsp
     if (it == wsp.pkg_map.end()) {
         // first time we encounter this package
         CHECK(!to_be_processed);
+        LOG_TRACE("First time encountering %s", req_in.name.c_str());
         wsp.pkgs_to_process.insert(req_in.name);
         wsp.pkg_map.emplace(std::piecewise_construct, std::forward_as_tuple(req_in.name),
                             std::forward_as_tuple(*req));
@@ -219,23 +220,25 @@ idpo_recursion_result_t process_pkgs_to_process(string_par binary_dir,
 
     for (auto& pkg_name : pkgs_to_process) {
         auto it = wsp.pkgs_to_process.find(pkg_name);
-        {
-            if (it == wsp.pkgs_to_process.end()) {
-                rr.add_pkg(pkg_name);
+        if (it == wsp.pkgs_to_process.end()) {
+            // if it's not there it means we've already processed it
+            rr.add_pkg(pkg_name);  // but we still need to record that we've encountered it for the
+                                   // requestor package
 
-                // it's already processed but we may be building it
-                auto itp = wsp.pkg_map.find(pkg_name);
-                // packages found on prefix paths do not go into pkg_map
-                if (itp != wsp.pkg_map.end())
-                    rr.building_some_pkg |= itp->second.building_now;
-
-                continue;
-            }
+            // also need to record if the already processed package is about to build
+            auto itp = wsp.pkg_map.find(pkg_name);
+            if (itp == wsp.pkg_map.end())
+                LOG_FATAL(
+                    "Internal error, %s must have been already processed and it's not in pkg_map",
+                    pkg_for_log(pkg_name).c_str());
+            rr.building_some_pkg |= itp->second.building_now;
+        } else {
+            // we're processing it now
             wsp.pkgs_to_process.erase(it);
+            auto rr_below = run_deps_add_pkg(pkg_name, binary_dir, command_line_cmake_args,
+                                             command_line_configs, wsp, cmakex_cache);
+            rr.add(rr_below);
         }
-        auto rr_below = run_deps_add_pkg(pkg_name, binary_dir, command_line_cmake_args,
-                                         command_line_configs, wsp, cmakex_cache);
-        rr.add(rr_below);
     }
 
     return rr;
@@ -249,8 +252,15 @@ idpo_recursion_result_t install_deps_phase_one_request_deps(
     deps_recursion_wsp_t& wsp,
     const cmakex_cache_t& cmakex_cache)
 {
-    LOG_DEBUG("Dependencies from DEPENDS: %s", join(request_deps, ", ").c_str());
-
+    if (g_verbose) {
+        string p = wsp.requester_stack.empty() ? string("the main project")
+                                               : pkg_for_log(wsp.requester_stack.back());
+        if (request_deps.empty())
+            log_verbose("No dependencies found for %s", p.c_str());
+        else
+            log_verbose("Dependencies for %s (from DEPENDS): %s", p.c_str(),
+                        join(request_deps, ", ").c_str());
+    }
     // for each pkg:
     for (auto& d : request_deps)
         insert_new_request_into_wsp(pkg_request_t(d, command_line_configs, true), wsp);
@@ -337,19 +347,23 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(
             deps.emplace_back(req.name);
         insert_new_request_into_wsp(req, wsp);
     }
-    if (!wsp.requester_stack.empty()) {
-        auto pkg_name = wsp.requester_stack.back();
-        auto it = wsp.pkg_map.find(pkg_name);
-        if (it == wsp.pkg_map.end())
-            LOG_DEBUG("%s no dependencies from script.", pkg_for_log(pkg_name).c_str());
-        else
-            LOG_DEBUG("%s dependencies from script: [%s]", pkg_for_log(pkg_name).c_str(),
-                      join(deps, ", ").c_str());
-    } else {
-        LOG_DEBUG("Main project dependencies from script: [%s]",
-                  join(keys_of_map(wsp.pkg_map), ", ").c_str());
+    if (g_verbose) {
+        if (!wsp.requester_stack.empty()) {
+            auto pkg_name = wsp.requester_stack.back();
+            auto it = wsp.pkg_map.find(pkg_name);
+            if (it == wsp.pkg_map.end())
+                log_verbose("No dependencies for %s.", pkg_for_log(pkg_name).c_str());
+            else
+                log_verbose("Dependencies for %s (from script): [%s]",
+                            pkg_for_log(pkg_name).c_str(), join(deps, ", ").c_str());
+        } else {
+            if (wsp.pkg_map.empty())
+                log_verbose("No dependencies for the main project.");
+            else
+                log_verbose("Dependencies for the main project (from script): [%s]",
+                            join(keys_of_map(wsp.pkg_map), ", ").c_str());
+        }
     }
-
     return process_pkgs_to_process(binary_dir, global_cmake_args, command_line_configs, wsp,
                                    cmakex_cache, deps);
 }

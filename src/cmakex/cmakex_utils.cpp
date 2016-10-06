@@ -974,4 +974,50 @@ vector<string> make_sure_cmake_path_var_contains_path(
     }
     return cmake_args;
 }
+
+string escape_cmake_arg(string_par x)
+{
+    bool quote = false;
+    string result;
+    result.reserve(x.size());
+    for (auto c : x) {
+        if (!isalnum(c) && c != '_' && c != '-' && c != '+' && c != '=' && c != '/' && c != '.')
+            quote = true;
+        switch (c) {
+            case '$':
+            case '"':
+            case '\\':
+            case ';':
+                result += stringf("\\%c", c);
+                break;
+            default:
+                result += c;
+        }
+    }
+    if (quote)
+        result = stringf("\"%s\"", result.c_str());
+    return result;
+}
+string escape_command_line_arg(string_par x)
+{
+    bool quote = false;
+    string result;
+    result.reserve(x.size());
+    for (auto c : x) {
+        if (!isalnum(c) && c != '_' && c != '/' && c != '-' && c != '=' && c != '.' && c != ',')
+            quote = true;
+        switch (c) {
+            case '"':
+            case '\\':
+            case '!':
+                result += stringf("\\%c", c);
+                break;
+            default:
+                result += c;
+        }
+    }
+    if (quote)
+        result = stringf("\"%s\"", result.c_str());
+    return result;
+}
 }

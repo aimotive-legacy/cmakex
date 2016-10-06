@@ -120,6 +120,16 @@ Presets
                   Use the file specified in the CMAKEX_PRESET_FILE environment
                   variable.
 
+Miscellaneous
+=============
+
+    --manifest=<path>
+              Save a manifest file to <path> which can be used to reproduce the
+              same build later. It contains `add_pkg` commands to describe the
+              dependencies and also information about the command line and the
+              main project. It's advised to use the `.cmake` extenstion so it
+              can be given to the `--deps=` argument later.
+
 Examples:
 =========
 
@@ -285,6 +295,10 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 pars.arg_p = argv[argix];
             } else if (arg == "--force-build") {
                 pars.force_build = true;
+            } else if (starts_with(arg, "--manifest=")) {
+                pars.manifest = make_string(butleft(arg, strlen("--manifest=")));
+                if (pars.manifest.empty())
+                    badpars_exit("Missing path after '--manifest='");
             } else if (arg == "--update-includes") {
                 pars.clear_downloaded_include_files = true;
             } else if (!starts_with(arg, '-')) {

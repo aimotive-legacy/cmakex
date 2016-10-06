@@ -7,6 +7,26 @@
 
 namespace cmakex {
 
+struct manifest_of_config_t
+{
+    string git_url;
+    string git_tag;  // only for comparison
+    string git_tag_and_comment;
+    string depends_maybe_commented;
+    bool depends_from_script;
+    string source_dir;
+    string cmake_args;
+    string c_sha;
+    string toolchain_sha;
+    bool operator==(const manifest_of_config_t& y) const
+    {
+        return git_url == y.git_url && git_tag == y.git_tag &&
+               depends_maybe_commented == y.depends_maybe_commented && source_dir == y.source_dir &&
+               cmake_args == y.cmake_args;
+    }
+    bool operator!=(const manifest_of_config_t& y) const { return !(*this == y); }
+};
+
 struct deps_recursion_wsp_t
 {
     struct per_config_data
@@ -15,6 +35,7 @@ struct deps_recursion_wsp_t
         vector<string> cmake_args_to_apply;
         final_cmake_args_t tentative_final_cmake_args;
     };
+    using manifests_per_config_t = std::map<config_name_t, manifest_of_config_t>;
     struct pkg_t
     {
         pkg_t(const pkg_request_t& req) : request(req) {}
@@ -26,6 +47,7 @@ struct deps_recursion_wsp_t
         bool building_now = false;
         bool dependencies_from_script = false;  // true if dependencies read from deps.cmake which
                                                 // overrides all DEPENDS specifications
+        manifests_per_config_t manifests_per_config;
     };
 
     vector<string> requester_stack;

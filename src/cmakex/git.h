@@ -69,7 +69,7 @@ struct git_status_result_t
     vector<string> lines;
     bool clean_or_untracked_only() const;
 };
-git_status_result_t git_status(string_par dir);
+git_status_result_t git_status(string_par dir, bool branch_tracking = false);
 }
 
 #endif

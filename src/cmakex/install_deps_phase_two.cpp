@@ -36,7 +36,67 @@ void install_deps_phase_two(string_par binary_dir,
     auto prefix_paths = stable_unique(concat(cfg.cmakex_cache().cmakex_prefix_path_vector,
                                              cfg.cmakex_cache().env_cmakex_prefix_path_vector));
 
+    std::set<string> pkgs_to_moc;
+    for (auto& kv : wsp.pkg_map)
+        pkgs_to_moc.insert(kv.first);
+
+    auto create_desc = [&installdb, &prefix_paths](
+        const string& p, config_name_t config, const deps_recursion_wsp_t::pkg_t& wp,
+        const vector<string>& hijack_modules_needed, const string& cloned_sha) {
+        installed_config_desc_t desc(p, config);
+        desc.git_url = wp.request.c.git_url;
+        if (cloned_sha == k_sha_uncommitted) {
+            desc.git_sha = stringf("<installed-from-uncommited-changes-at-%s",
+                                   current_datetime_string_for_log().c_str());
+        } else {
+            desc.git_sha = wp.resolved_git_tag;
+        }
+        desc.source_dir = wp.request.b.source_dir;
+        desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
+        for (auto& d : wp.request.depends) {
+            auto dep_installed = installdb.try_get_installed_pkg_all_configs(d, prefix_paths);
+            for (auto& kv : dep_installed.config_descs)
+                desc.deps_shas[d][kv.first] = calc_sha(kv.second);
+        }
+        desc.hijack_modules_needed = hijack_modules_needed;
+        return desc;
+    };
+
+    auto create_moc = [](const installed_config_desc_t& desc,
+                         const deps_recursion_wsp_t::pkg_t& wp) {
+        manifest_of_config_t moc;
+        moc.git_url = stringf("GIT_URL %s", desc.git_url.c_str());
+        moc.git_tag = stringf("GIT_TAG %s", desc.git_sha.c_str());
+        moc.git_tag_and_comment =
+            stringf("GIT_TAG %s # request: %s", desc.git_sha.c_str(),
+                    wp.request.c.git_tag.empty() ? "HEAD" : wp.request.c.git_tag.c_str());
+        if (!desc.deps_shas.empty()) {
+            string depends_list = join(keys_of_map(desc.deps_shas), " ");
+            if (wp.dependencies_from_script)
+                moc.depends_maybe_commented =
+                    stringf("# dependencies defined in deps.cmake: %s", depends_list.c_str());
+            else
+                moc.depends_maybe_commented = stringf("DEPENDS %s", depends_list.c_str());
+        }
+        if (!desc.source_dir.empty())
+            moc.source_dir = stringf("SOURCE %s", path_for_log(desc.source_dir).c_str());
+        if (!desc.final_cmake_args.args.empty()) {
+            moc.cmake_args = "CMAKE_ARGS";
+            for (auto& ca : desc.final_cmake_args.args) {
+                auto pca = parse_cmake_arg(ca);
+                if (pca.name == "CMAKE_PREFIX_PATH" || pca.name == "CMAKE_MODULE_PATH" ||
+                    pca.name == "CMAKE_INSTALL_PREFIX" || pca.name == "CMAKE_TOOLCHAIN_FILE")
+                    continue;
+                moc.cmake_args += " ";
+                moc.cmake_args += escape_cmake_arg(ca);
+            }
+        }
+        moc.c_sha = desc.final_cmake_args.c_sha;
+        moc.toolchain_sha = desc.final_cmake_args.cmake_toolchain_file_sha;
+        return moc;
+    };
     for (auto& p : wsp.build_order) {
+        pkgs_to_moc.erase(p);
         log_datetime();
         auto& wp = wsp.pkg_map.at(p);
         log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
@@ -86,26 +146,27 @@ void install_deps_phase_two(string_par binary_dir,
                 force_config_step_now = false;
             // copy or link installed files into install prefix
             // register this build with installdb
-            installed_config_desc_t desc(p, config);
-            desc.git_url = wp.request.c.git_url;
             CHECK(clone_helper.cloned);
-            if (clone_helper.cloned_sha == k_sha_uncommitted) {
-                desc.git_sha = stringf("<installed-from-uncommited-changes-at-%s",
-                                       current_datetime_string_for_log().c_str());
-            } else {
-                desc.git_sha = wp.resolved_git_tag;
-            }
-            desc.source_dir = wp.request.b.source_dir;
-            desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
-            for (auto& d : wp.request.depends) {
-                auto dep_installed = installdb.try_get_installed_pkg_all_configs(d, prefix_paths);
-                for (auto& kv : dep_installed.config_descs)
-                    desc.deps_shas[d][kv.first] = calc_sha(kv.second);
-            }
-            desc.hijack_modules_needed = build_result.hijack_modules_needed;
+            auto desc = create_desc(p, config, wp, build_result.hijack_modules_needed,
+                                    clone_helper.cloned_sha);
+
+            auto moc = create_moc(desc, wp);
+            wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
+
             installdb.install_with_unspecified_files(desc);
         }
         log_info();
     }  // iterate over build order
+    for (auto& p : pkgs_to_moc) {
+        auto& wp = wsp.pkg_map.at(p);
+        auto ics = installdb.try_get_installed_pkg_all_configs(p, prefix_paths);
+        for (auto& ic : ics.config_descs) {
+            auto& config = ic.first;
+            auto desc =
+                create_desc(p, config, wp, ic.second.hijack_modules_needed, ic.second.git_sha);
+            auto moc = create_moc(desc, wp);
+            wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
+        }
+    }
 }
 }

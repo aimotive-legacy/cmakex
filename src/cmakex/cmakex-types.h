@@ -206,6 +206,7 @@ struct base_command_line_args_cmake_mode_t
     string deps_script;
     bool force_build = false;
     bool clear_downloaded_include_files = false;
+    string manifest;  // contains path for manifest file or empty
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t

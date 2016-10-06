@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include <nowide/cstdlib.hpp>
+#include <nowide/cstdio.hpp>
 
 #include <adasworks/sx/check.h>
 
@@ -66,6 +67,8 @@ int main(int argc, char* argv[])
             cmakex_prefix_path_to_vector(env_cmake_prefix_path, true);
     }
 
+    FILE* manifest_handle = nullptr;
+
     try {
         auto cla = process_command_line_1(argc, argv);
         if (cla.subcommand.empty())
@@ -82,6 +85,14 @@ int main(int argc, char* argv[])
         // project or after configuring the main project
 
         CHECK(pars.deps_mode == dm_deps_only || !pars.source_dir.empty());
+
+        if (!pars.manifest.empty()) {
+            manifest_handle = nowide::fopen(pars.manifest.c_str(), "w");
+            if (!manifest_handle)
+                throw runtime_error(stringf("Can't open manifest file for writing: %s",
+                                            path_for_log(pars.manifest).c_str()));
+        }
+
         if (pars.deps_mode != dm_main_only) {
             deps_recursion_wsp_t wsp;
             wsp.force_build = pars.force_build;
@@ -135,18 +146,145 @@ int main(int argc, char* argv[])
                 ds = fs::lexically_normal(fs::absolute(ds));
             install_deps_phase_one(pars.binary_dir, pars.source_dir, {}, command_line_cmake_args,
                                    configs, wsp, cmakex_cache, ds);
+#if 0
+            for (auto& kv : wsp.pkg_map) {
+                auto& pkg_name = kv.first;
+                auto& pkg = kv.second;
+                LOG_INFO(" *** %s ***", pkg_for_log(pkg_name).c_str());
+                LOG_INFO("deps from script: %s", pkg.dependencies_from_script ? "yes" : "no");
+                for (auto& kvx : pkg.pcd) {
+                    LOG_INFO("- config: %s", kvx.first.get_prefer_NoConfig().c_str());
+                    LOG_INFO("- CMAKE_ARGS: %s",
+                             join(kvx.second.tentative_final_cmake_args.args, ", ").c_str());
+                }
+                LOG_INFO("SOURCE_DIR %s", pkg.request.b.source_dir.c_str());
+                LOG_INFO("GIT_TAG %s -> %s", pkg.request.c.git_tag.c_str(),
+                         pkg.resolved_git_tag.c_str());
+                LOG_INFO("GIT_URL %s", pkg.request.c.git_url.c_str());
+                LOG_INFO("DEPENDS %s", join(pkg.request.depends, ", ").c_str());
+            }
+#endif
             install_deps_phase_two(pars.binary_dir, wsp, !pars.cmake_args.empty() || pars.flag_c,
                                    pars.build_args, pars.native_tool_args);
             log_info("%d dependenc%s %s been processed.", (int)wsp.pkg_map.size(),
                      wsp.pkg_map.size() == 1 ? "y" : "ies",
                      wsp.pkg_map.size() == 1 ? "has" : "have");
             log_info();
+            if (manifest_handle) {
+                fprintf(manifest_handle, "#### DEPENDENCIES ####\n\n");
+                for (auto& kv : wsp.pkg_map) {
+                    auto pkg_name = kv.first;
+                    auto& mspc = kv.second.manifests_per_config;
+                    if (mspc.empty())
+                        continue;
+                    auto it = mspc.begin();
+                    auto& m0 = it->second;
+                    bool all_the_same = true;
+                    for (; it != mspc.end(); ++it) {
+                        auto& m = it->second;
+                        if (m != m0) {
+                            all_the_same = false;
+                            break;
+                        }
+                    }
+
+                    auto printf_add_pkg = [&pkg_name](const manifest_of_config_t& m0, string prefix,
+                                                      string configs) {
+                        string ap = prefix + stringf("add_pkg(%s", pkg_name.c_str());
+                        if (!m0.git_url.empty())
+                            ap += " " + m0.git_url;
+                        if (!m0.git_tag_and_comment.empty())
+                            ap += " " + m0.git_tag_and_comment;
+                        ap += "\n";
+                        if (!m0.source_dir.empty())
+                            ap += prefix + "    " + m0.source_dir + "\n";
+                        if (!m0.cmake_args.empty())
+                            ap += prefix + "    " + m0.cmake_args + "\n";
+                        if (!m0.depends_maybe_commented.empty())
+                            ap += prefix + "    " + m0.depends_maybe_commented + "\n";
+                        ap += prefix + "    " + configs + ")\n";
+                        return ap;
+                    };
+
+                    if (all_the_same) {
+                        string configs =
+                            stringf("CONFIGS %s",
+                                    join(get_prefer_NoConfig(keys_of_map(mspc)), " ").c_str());
+                        auto s = printf_add_pkg(m0, "", configs);
+                        fprintf(manifest_handle, "%s", s.c_str());
+                    } else {
+                        auto it = mspc.begin();
+                        auto s = printf_add_pkg(
+                            it->second, "",
+                            stringf("CONFIGS %s", it->first.get_prefer_NoConfig().c_str()));
+                        fprintf(manifest_handle, "%s", s.c_str());
+                        fprintf(manifest_handle,
+                                "# The following configurations has also been installed but with "
+                                "different build settings:");
+                        for (++it; it != mspc.end(); ++it) {
+                            auto s = printf_add_pkg(
+                                it->second, "# ",
+                                stringf("CONFIGS %s", it->first.get_prefer_NoConfig().c_str()));
+                            fprintf(manifest_handle, "%s", s.c_str());
+                        }
+                    }
+                    fprintf(manifest_handle, "\n");
+                }
+                fprintf(manifest_handle, "\n");
+            }
         }
         if (pars.deps_mode == dm_deps_and_main)
             log_info_framed_message(stringf("Building main project"));
 
-        if (pars.deps_mode != dm_deps_only)
+        if (pars.deps_mode != dm_deps_only) {
             run_cmake_steps(pars, cmakex_cache);
+            if (manifest_handle) {
+                string report = "#### MAIN PROJECT ####\n#\n";
+                report += stringf("# current directory: %s\n", fs::current_path().c_str());
+                report += "# command line:\n#     ";
+                string command_line;
+                for (int i = 0; i < argc; ++i) {
+                    if (!command_line.empty())
+                        command_line += " ";
+                    command_line += escape_command_line_arg(argv[i]);
+                }
+                report += stringf("%s\n#\n", command_line.c_str());
+
+                string rev_parse_result;
+                string abs_source_dir = fs::absolute(pars.source_dir).string();
+                try {
+                    auto sha = git_rev_parse("HEAD", abs_source_dir);
+                    if (sha.empty())
+                        rev_parse_result = stringf(
+                            "# Can't get git revision, source dir is probably not a git dir: %s",
+                            path_for_log(abs_source_dir).c_str());
+                    else
+                        rev_parse_result = stringf("# HEAD is at %s", sha.c_str());
+                } catch (const exception& e) {
+                    rev_parse_result = stringf("# Can't get git revision, reason: %s", e.what());
+                } catch (...) {
+                    rev_parse_result =
+                        stringf("# Can't get git revision, reason: Unknown exception.");
+                }
+                report += stringf("%s\n", rev_parse_result.c_str());
+
+                string status_lines = "# git status -sb\n#\n";
+                try {
+                    auto y = git_status(abs_source_dir, true);
+                    for (auto& l : y.lines) {
+                        status_lines += stringf("#     %s\n", l.c_str());
+                    }
+                } catch (const exception& e) {
+                    status_lines = stringf("# Can't get git status, reason: %s\n", e.what());
+                } catch (...) {
+                    status_lines = "# Can't get git status, reason: Unknown exception.\n";
+                }
+                report += status_lines;
+                fprintf(manifest_handle, "%s", report.c_str());
+            }
+        }
+        if (manifest_handle)
+            log_info("Manifest file written to: %s", path_for_log(pars.manifest).c_str());
     } catch (const exception& e) {
         log_fatal("%s", e.what());
         result = EXIT_FAILURE;
@@ -154,6 +292,10 @@ int main(int argc, char* argv[])
         log_fatal("Unhandled exception");
         result = EXIT_FAILURE;
     }
+
+    if (manifest_handle)
+        fclose(manifest_handle);
+
     return result;
 }
 }

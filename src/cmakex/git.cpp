@@ -313,20 +313,30 @@ bool git_status_result_t::clean_or_untracked_only() const
     return true;
 }
 
-git_status_result_t git_status(string_par dir)
+git_status_result_t git_status(string_par dir, bool branch_tracking)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git({"status", "-s", "--porcelain"}, dir, oeb.stdout_callback(), nullptr,
-                     log_git_command_on_error);
-    THROW_UNLESS(!r, "git status failed (%d) for directory %s", r, path_for_log(dir).c_str());
+    vector<string> args = {"status", "-s", "--porcelain"};
+    if (branch_tracking)
+        args.push_back("-b");
+
+    int r = exec_git(args, dir, oeb.stdout_callback(), nullptr, log_git_command_on_error);
+    if (r)
+        throw runtime_error(
+            stringf("git status failed (%d) for directory %s", r, path_for_log(dir).c_str()));
     auto oem = oeb.move_result();
     git_status_result_t result;
     for (int i = 0; i < oem.size(); ++i) {
         auto msg = oem.at(i);
         if (msg.source != out_err_message_base_t::source_stdout)
             continue;
-        CHECK(msg.text.size() >= 4);  // 2-char status code + space + single char path
-        result.lines.emplace_back(move(msg.text));
+        msg.text.erase(std::remove_if(BEGINEND(msg.text), [](char c) { return c == '\r'; }),
+                       msg.text.end());
+        auto lines = split(msg.text, '\n');
+        for (auto& l : lines) {
+            if (l.size() >= 4)
+                result.lines.emplace_back(move(l));
+        }
     }
     return result;
 }

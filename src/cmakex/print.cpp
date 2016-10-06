@@ -22,6 +22,19 @@ void log_info()
     fflush(stdout);
 }
 
+void log_verbose(const char* s, ...)
+{
+    if (!g_verbose)
+        return;
+    printf("-- ");
+    va_list ap;
+    va_start(ap, s);
+    vprintf(s, ap);
+    va_end(ap);
+    printf("\n");
+    fflush(stdout);
+}
+
 void log_info(const char* s, ...)
 {
     printf("-- ");
