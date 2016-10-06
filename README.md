@@ -171,6 +171,16 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
                   Use the file specified in the CMAKEX_PRESET_FILE environment
                   variable.
 
+Miscellaneous
+=============
+
+    --manifest=<path>
+              Save a manifest file to <path> which can be used to reproduce the
+              same build later. It contains `add_pkg` commands to describe the
+              dependencies and also information about the command line and the
+              main project. It's advised to use the `.cmake` extenstion so it
+              can be given to the `--deps=` argument later.
+
 ### Examples:
 
 Configure, install and test a project from scrach, for `Debug` and `Release`
