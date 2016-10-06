@@ -36,10 +36,6 @@ void install_deps_phase_two(string_par binary_dir,
     auto prefix_paths = stable_unique(concat(cfg.cmakex_cache().cmakex_prefix_path_vector,
                                              cfg.cmakex_cache().env_cmakex_prefix_path_vector));
 
-    std::set<string> pkgs_to_moc;
-    for (auto& kv : wsp.pkg_map)
-        pkgs_to_moc.insert(kv.first);
-
     auto create_desc = [&installdb, &prefix_paths](
         const string& p, config_name_t config, const deps_recursion_wsp_t::pkg_t& wp,
         const vector<string>& hijack_modules_needed, const string& cloned_sha) {
@@ -62,13 +58,13 @@ void install_deps_phase_two(string_par binary_dir,
         return desc;
     };
 
-    auto create_moc = [](const installed_config_desc_t& desc,
-                         const deps_recursion_wsp_t::pkg_t& wp) {
+    auto create_moc = [](const installed_config_desc_t& desc, const deps_recursion_wsp_t::pkg_t& wp,
+                         const string& git_sha) {
         manifest_of_config_t moc;
         moc.git_url = stringf("GIT_URL %s", desc.git_url.c_str());
-        moc.git_tag = stringf("GIT_TAG %s", desc.git_sha.c_str());
+        moc.git_tag = stringf("GIT_TAG %s", git_sha.c_str());
         moc.git_tag_and_comment =
-            stringf("GIT_TAG %s # request: %s", desc.git_sha.c_str(),
+            stringf("GIT_TAG %s # request: %s", git_sha.c_str(),
                     wp.request.c.git_tag.empty() ? "HEAD" : wp.request.c.git_tag.c_str());
         if (!desc.deps_shas.empty()) {
             string depends_list = join(keys_of_map(desc.deps_shas), " ");
@@ -96,7 +92,7 @@ void install_deps_phase_two(string_par binary_dir,
         return moc;
     };
     for (auto& p : wsp.build_order) {
-        pkgs_to_moc.erase(p);
+        // pkgs_to_moc.erase(p);
         log_datetime();
         auto& wp = wsp.pkg_map.at(p);
         log_info_framed_message(stringf("Building %s", pkg_for_log(p).c_str()));
@@ -150,21 +146,23 @@ void install_deps_phase_two(string_par binary_dir,
             auto desc = create_desc(p, config, wp, build_result.hijack_modules_needed,
                                     clone_helper.cloned_sha);
 
-            auto moc = create_moc(desc, wp);
-            wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
-
+            /*
+                        auto moc = create_moc(desc, wp);
+                        wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
+            */
             installdb.install_with_unspecified_files(desc);
         }
         log_info();
     }  // iterate over build order
-    for (auto& p : pkgs_to_moc) {
-        auto& wp = wsp.pkg_map.at(p);
+    for (auto& kv : wsp.pkg_map) {
+        auto& p = kv.first;
+        auto& wp = kv.second;
         auto ics = installdb.try_get_installed_pkg_all_configs(p, prefix_paths);
         for (auto& ic : ics.config_descs) {
             auto& config = ic.first;
             auto desc =
                 create_desc(p, config, wp, ic.second.hijack_modules_needed, ic.second.git_sha);
-            auto moc = create_moc(desc, wp);
+            auto moc = create_moc(desc, wp, ic.second.git_sha);
             wp.manifests_per_config.insert(std::make_pair(config, move(moc)));
         }
     }
