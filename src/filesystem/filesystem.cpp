@@ -560,25 +560,39 @@ path absolute(const path& p, const path& base)
 
 path lexically_normal(const path& p)
 {
-    Poco::Path x(p.c_str());
+    path result;
+    const Poco::Path x(p.c_str());
+
+    if (x.isRelative() && x.depth() == 0 && x.toString().empty())  // optimized if empty()
+        return result;                                             // empty
+
     Poco::Path y(x.isAbsolute());
+
     y.setNode(x.getNode());
     y.setDevice(x.getDevice());
+
     for (int i = 0; i <= x.depth(); ++i) {
         auto& di = x.directory(i);
-        if (di == "." && i != x.depth())
+        if (di.empty() || di == ".")
             continue;
-        else if (di == "..") {
-            y.makeParent();
-        } else if (di.empty()) {
-            if (i == x.depth())
-                y.append(".");
-            continue;
+        if (di == "..") {
+            if (y.depth() > 0 && y.directory(y.depth() - 1) != "..") {
+                y.popDirectory();
+                continue;
+            } else if (x.isAbsolute()) {
+                CHECK(y.depth() == 0 || y.directory(y.depth() - 1) != "..");
+                continue;
+            }
         }
-
-        y.append(di);
+        y.pushDirectory(di);
     }
-    return y.toString();
+    // move the last directory to filename to prevent trailing slash
+    if (y.depth() > 0) {
+        y.setFileName(y.directory(y.depth() - 1));
+        y.popDirectory();
+    }
+    result = y.toString();
+    return result;
 }
 
 bool equivalent(const path& p1, const path& p2)
