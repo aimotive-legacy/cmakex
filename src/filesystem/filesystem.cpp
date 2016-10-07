@@ -560,41 +560,25 @@ path absolute(const path& p, const path& base)
 
 path lexically_normal(const path& p)
 {
-    auto ps = p.string();
-    if (ps.empty())
-        return {};
-    if (ps == "/" || ps == "\\")
-        return Poco::Path(true).toString();
-
-    auto pp = Poco::Path(p.string());
-    std::vector<std::string> comps;
-    bool trailing_dot = false;
-
-    for (int i = 0; i <= pp.depth(); ++i) {
-        auto& c = pp[i];
-        if (c == "." || c.empty()) {
-            if (i == pp.depth())
-                trailing_dot = true;
+    Poco::Path x(p.c_str());
+    Poco::Path y(x.isAbsolute());
+    y.setNode(x.getNode());
+    y.setDevice(x.getDevice());
+    for (int i = 0; i <= x.depth(); ++i) {
+        auto& di = x.directory(i);
+        if (di == "." && i != x.depth())
+            continue;
+        else if (di == "..") {
+            y.makeParent();
+        } else if (di.empty()) {
+            if (i == x.depth())
+                y.append(".");
             continue;
         }
-        if (c == ".." && !comps.empty())
-            comps.pop_back();
-        else
-            comps.emplace_back(c);
+
+        y.append(di);
     }
-    if (trailing_dot)
-        comps.emplace_back(".");
-
-    Poco::Path pq(pp.isAbsolute());
-    pq.setNode(pp.getNode());
-    pq.setDevice(pp.getDevice());
-
-    for (int i = 0; i + 1 < comps.size(); ++i)
-        pq.pushDirectory(comps[i]);
-    if (!comps.empty())
-        pq.setFileName(comps.back());
-
-    return pq.toString();
+    return y.toString();
 }
 
 bool equivalent(const path& p1, const path& p2)
