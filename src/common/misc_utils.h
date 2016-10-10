@@ -273,6 +273,7 @@ typename Map::mapped_type map_at_or_default(
     auto it = map.find(key);
     return it == map.end() ? default_value : it->second;
 }
+vector<string> split_at_newlines(string text);
 }
 
 #endif

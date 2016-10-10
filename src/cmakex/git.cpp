@@ -333,9 +333,7 @@ git_status_result_t git_status(string_par dir, bool branch_tracking)
         auto msg = oem.at(i);
         if (msg.source != out_err_message_base_t::source_stdout)
             continue;
-        msg.text.erase(std::remove_if(BEGINEND(msg.text), [](char c) { return c == '\r'; }),
-                       msg.text.end());
-        auto lines = split(msg.text, '\n');
+        auto lines = split_at_newlines(msg.text);
         for (auto& l : lines) {
             if (l.size() >= 4)
                 result.lines.emplace_back(move(l));

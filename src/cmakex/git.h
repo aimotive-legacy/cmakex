@@ -18,8 +18,8 @@ string find_git_or_return_git();
 // - captured internally (if user function == nullptr)
 enum log_git_command_t
 {
-    log_git_command_never,  // never log command line, stdout/err are either forwarded to user
-                            // function or ignored
+    log_git_command_never,     // never log command line, stdout/err are either forwarded to user
+                               // function or ignored
     log_git_command_on_error,  // log command line + stderr only on error (stderr cannot be
                                // forwarded to user function in this case). Stdout will be also
                                // logged if not captured by user function.

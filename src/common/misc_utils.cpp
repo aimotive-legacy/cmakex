@@ -381,4 +381,9 @@ string path_for_log(string_par path)
     }
     return r;
 }
+vector<string> split_at_newlines(string text)
+{
+    text.erase(std::remove_if(BEGINEND(text), [](char c) { return c == '\r'; }), text.end());
+    return split(text, '\n');
+}
 }

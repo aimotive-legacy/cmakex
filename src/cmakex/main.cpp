@@ -250,8 +250,31 @@ int main(int argc, char* argv[])
                 }
                 report += stringf("%s\n#\n", command_line.c_str());
 
-                string rev_parse_result;
                 string abs_source_dir = fs::absolute(pars.source_dir).string();
+
+                string remote_lines = "# git remote -v\n";
+                try {
+                    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+                    int r = exec_git({"remote", "-v"}, abs_source_dir, oeb.stdout_callback(),
+                                     nullptr, log_git_command_on_error);
+                    if (r)
+                        throw std::runtime_error(
+                            stringf("'git remote -v' failed with error code %d", r));
+                    OutErrMessages oem(oeb.move_result());
+                    for (int i = 0; i < oem.size(); ++i) {
+                        auto msg = oem.at(i);
+                        auto lines = split_at_newlines(msg.text);
+                        for (auto& l : lines)
+                            remote_lines += stringf("#     %s\n", l.c_str());
+                    }
+                } catch (const exception& e) {
+                    remote_lines = stringf("# Can't get git remote, reason: %s\n", e.what());
+                } catch (...) {
+                    remote_lines = "# Can't get git remote, reason: Unknown exception.\n";
+                }
+                report += remote_lines;
+
+                string rev_parse_result;
                 try {
                     auto sha = git_rev_parse("HEAD", abs_source_dir);
                     if (sha.empty())
@@ -268,7 +291,7 @@ int main(int argc, char* argv[])
                 }
                 report += stringf("%s\n", rev_parse_result.c_str());
 
-                string status_lines = "# git status -sb\n#\n";
+                string status_lines = "# git status -sb\n";
                 try {
                     auto y = git_status(abs_source_dir, true);
                     for (auto& l : y.lines) {
@@ -280,6 +303,7 @@ int main(int argc, char* argv[])
                     status_lines = "# Can't get git status, reason: Unknown exception.\n";
                 }
                 report += status_lines;
+
                 fprintf(manifest_handle, "%s", report.c_str());
             }
         }
