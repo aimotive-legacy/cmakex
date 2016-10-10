@@ -136,7 +136,7 @@ int exec_git(const vector<string>& args,
 
     if (quiet_mode == log_git_command_always)
         log_exec("git", args, working_directory);
-    else
+    if (quiet_mode != log_git_command_never)
         CHECK(stderr_callback == nullptr);
 
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
@@ -148,8 +148,10 @@ int exec_git(const vector<string>& args,
         quiet_mode != log_git_command_always && stderr_callback == nullptr ? oeb.stderr_callback()
                                                                            : stderr_callback);
 
-    if (quiet_mode == log_git_command_on_error && result) {
+    if (quiet_mode == log_git_command_on_error && result)
         log_exec("git", args, working_directory);
+
+    if (quiet_mode == log_git_command_always || (quiet_mode == log_git_command_never && result)) {
         OutErrMessages oem(oeb.move_result());
         for (int i = 0; i < oem.size(); ++i) {
             auto m = oem.at(i);
@@ -216,7 +218,8 @@ int git_checkout(vector<string> args, string_par dir)
 string try_find_unique_ref_by_sha_with_ls_remote(string_par git_url, string_par sha)
 {
     OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
-    int r = exec_git({"ls-remote", git_url.c_str()}, nullptr, nullptr, log_git_command_never);
+    int r = exec_git({"ls-remote", git_url.c_str()}, oeb.stdout_callback(), nullptr,
+                     log_git_command_never);
     if (r)
         return {};
     auto oem = oeb.move_result();

@@ -13,11 +13,19 @@ static const char* const k_sha_uncommitted = "<uncommitted>";
 // find git with cmake's find_package(Git), on failure returns "git"
 string find_git_or_return_git();
 
+// the stdout/stderr of the git commands are either
+// - forwarded to user functions
+// - captured internally (if user function == nullptr)
 enum log_git_command_t
 {
-    log_git_command_never,
-    log_git_command_on_error,
-    log_git_command_always
+    log_git_command_never,  // never log command line, stdout/err are either forwarded to user
+                            // function or ignored
+    log_git_command_on_error,  // log command line + stderr only on error (stderr cannot be
+                               // forwarded to user function in this case). Stdout will be also
+                               // logged if not captured by user function.
+    log_git_command_always  // log command line + stderr always (stderr cannot be forwarded to user
+                            // function in this case). Stdout will be also logged if not captured by
+                            // user function.
 };
 
 int exec_git(const vector<string>& args,
