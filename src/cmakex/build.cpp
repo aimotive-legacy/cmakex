@@ -102,9 +102,8 @@ build_result_t build(string_par binary_dir,
     }
 
     log_info("Writing logs to %s.",
-             path_for_log(stringf("%s/%s-%s-*%s", cfg.cmakex_log_dir().c_str(),
-                                  config.get_prefer_NoConfig().c_str(), pkg_name.c_str(),
-                                  k_log_extension))
+             path_for_log(stringf("%s/%s-%s-*%s", cfg.cmakex_log_dir().c_str(), pkg_name.c_str(),
+                                  config.get_prefer_NoConfig().c_str(), k_log_extension))
                  .c_str());
 
     {  // scope only
