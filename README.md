@@ -171,6 +171,17 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
                   Use the file specified in the CMAKEX_PRESET_FILE environment
                   variable.
 
+cmakex configuration
+====================
+
+    --deps-source=<DIR>
+    --deps-build=<DIR>
+    --deps-install=<DIR>
+                    Parent directories of the of the source directories (cloned
+                    repositories), build directories and install directory for
+                    the dependencies. The default values are `_deps`,
+                    `_deps-build` and `_deps-install` under `CMAKE_BINARY_DIR`.
+
 Miscellaneous
 =============
 

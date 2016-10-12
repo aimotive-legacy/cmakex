@@ -130,6 +130,17 @@ Miscellaneous
               main project. It's advised to use the `.cmake` extenstion so it
               can be given to the `--deps=` argument later.
 
+cmakex configuration
+====================
+
+    --deps-source=<DIR>
+    --deps-build=<DIR>
+    --deps-install=<DIR>
+                    Parent directories of the of the source directories (cloned
+                    repositories), build directories and install directory for
+                    the dependencies. The default values are `_deps`,
+                    `_deps-build` and `_deps-install` under `CMAKE_BINARY_DIR`.
+
 Examples:
 =========
 
@@ -301,6 +312,18 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                     badpars_exit("Missing path after '--manifest='");
             } else if (arg == "--update-includes") {
                 pars.clear_downloaded_include_files = true;
+            } else if (starts_with(arg, "--deps-source=")) {
+                pars.deps_source_dir = make_string(butleft(arg, strlen("--deps-source=")));
+                if (pars.deps_source_dir.empty())
+                    badpars_exit("Missing path after '--deps-source='");
+            } else if (starts_with(arg, "--deps-build=")) {
+                pars.deps_build_dir = make_string(butleft(arg, strlen("--deps-build=")));
+                if (pars.deps_build_dir.empty())
+                    badpars_exit("Missing path after '--deps-build='");
+            } else if (starts_with(arg, "--deps-install=")) {
+                pars.deps_install_dir = make_string(butleft(arg, strlen("--deps-install=")));
+                if (pars.deps_install_dir.empty())
+                    badpars_exit("Missing path after '--deps-install='");
             } else if (!starts_with(arg, '-')) {
                 pars.free_args.emplace_back(arg);
             } else {
@@ -665,6 +688,19 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                 .c_str());
 
     pcla.cmake_args = normalize_cmake_args(pcla.cmake_args);
+
+    if (!cla.deps_source_dir.empty())
+        cmakex_cache.deps_source_dir = fs::absolute(cla.deps_source_dir);
+    else if (cmakex_cache.deps_source_dir.empty())
+        cmakex_cache.deps_source_dir = cfg.default_deps_source_dir();
+    if (!cla.deps_build_dir.empty())
+        cmakex_cache.deps_build_dir = fs::absolute(cla.deps_build_dir);
+    else if (cmakex_cache.deps_build_dir.empty())
+        cmakex_cache.deps_build_dir = cfg.default_deps_build_dir();
+    if (!cla.deps_install_dir.empty())
+        cmakex_cache.deps_install_dir = fs::absolute(cla.deps_install_dir);
+    else if (cmakex_cache.deps_install_dir.empty())
+        cmakex_cache.deps_install_dir = cfg.default_deps_install_dir();
 
     return make_tuple(move(pcla), move(cmakex_cache));
 }

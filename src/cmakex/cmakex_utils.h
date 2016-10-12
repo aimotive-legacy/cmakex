@@ -28,8 +28,6 @@ struct cmakex_config_t
     string pkg_clone_dir(string_par pkg_name) const;
     // string pkg_deps_script_file(string_par pkg_name) const;
 
-    // package-local install dir
-    string pkg_install_dir(string_par pkg_name) const;
     // common install dir for dependencies
     string deps_install_dir() const;
     string find_module_hijack_dir() const;
@@ -44,6 +42,10 @@ struct cmakex_config_t
     // this is the user setting, effective only for single-config generators
     // i.e. it can be true for multi-config but then it's ignored
     bool per_config_bin_dirs() const { return per_config_bin_dirs_; }
+    string default_deps_source_dir() const;
+    string default_deps_build_dir() const;
+    string default_deps_install_dir() const;
+
 private:
     const string cmake_binary_dir;
     bool per_config_bin_dirs_ = true;  // the user setting

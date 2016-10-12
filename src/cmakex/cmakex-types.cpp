@@ -9,9 +9,11 @@
 namespace cmakex {
 bool operator==(const cmakex_cache_t& x, const cmakex_cache_t& y)
 {
-    return x.valid == y.valid && x.home_directory == y.home_directory &&
-           x.multiconfig_generator == y.multiconfig_generator &&
-           x.per_config_bin_dirs == y.per_config_bin_dirs;
+#define A(X) x.X == y.X
+    return A(valid) && A(home_directory) && A(multiconfig_generator) && A(per_config_bin_dirs) &&
+           A(cmakex_prefix_path_vector) && A(env_cmakex_prefix_path_vector) && A(cmake_root) &&
+           A(deps_source_dir) && A(deps_build_dir) && A(deps_install_dir);
+#undef A
 }
 
 void config_name_t::normalize()

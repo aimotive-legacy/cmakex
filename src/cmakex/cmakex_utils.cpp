@@ -8,7 +8,7 @@
 #include "print.h"
 #include "resource.h"
 
-CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 1)
+CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 2)
 CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 2)
 
 namespace cmakex {
@@ -20,9 +20,11 @@ namespace fs = filesystem;
 template <class Archive>
 void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
 {
-    THROW_UNLESS(version == 1);
+    THROW_UNLESS(version == 1 || version == 2);
     archive(A(valid), A(home_directory), A(multiconfig_generator), A(per_config_bin_dirs),
             A(cmakex_prefix_path_vector), A(env_cmakex_prefix_path_vector), A(cmake_root));
+    if (version == 2)
+        archive(A(deps_source_dir), A(deps_build_dir), A(deps_install_dir));
 }
 
 #if 0
@@ -155,12 +157,16 @@ string cmakex_config_t::cmakex_log_dir() const
 }
 string cmakex_config_t::pkg_clone_dir(string_par pkg_name) const
 {
-    return cmake_binary_dir + "/_deps/" + pkg_name.c_str();
+    return (cmakex_cache_.deps_source_dir.empty() ? default_deps_source_dir()
+                                                  : cmakex_cache_.deps_source_dir + "/") +
+           pkg_name.c_str();
 }
 
 string cmakex_config_t::pkg_binary_dir_common(string_par pkg_name) const
 {
-    return cmake_binary_dir + "/_deps/" + pkg_name.c_str() + "-build";
+    return (cmakex_cache_.deps_build_dir.empty() ? default_deps_build_dir()
+                                                 : cmakex_cache_.deps_build_dir + "/") +
+           pkg_name.c_str() + "-build";
 }
 
 string cmakex_config_t::pkg_binary_dir_of_config(string_par pkg_name,
@@ -185,19 +191,32 @@ bool is_generator_multiconfig(string_par cmake_generator)
     return false;
 }
 
-string cmakex_config_t::pkg_install_dir(string_par pkg_name) const
-{
-    return cmake_binary_dir + "/_deps/" + pkg_name.c_str() + "-install";
-}
-
 string cmakex_config_t::deps_install_dir() const
 {
-    return cmake_binary_dir + "/_deps-install";
+    return cmakex_cache_.deps_install_dir.empty() ? default_deps_install_dir()
+                                                  : cmakex_cache_.deps_install_dir;
 }
+
 string cmakex_config_t::find_module_hijack_dir() const
 {
     return deps_install_dir() + "/_cmakex/hijack";
 }
+
+string cmakex_config_t::default_deps_source_dir() const
+{
+    return cmake_binary_dir + "/_deps/";
+}
+
+string cmakex_config_t::default_deps_build_dir() const
+{
+    return cmake_binary_dir + "/_deps-build/";
+}
+
+string cmakex_config_t::default_deps_install_dir() const
+{
+    return cmake_binary_dir + "/_deps-install";
+}
+
 void badpars_exit(string_par msg)
 {
     fprintf(stderr, "Error, bad parameters: %s.\n", msg.c_str());

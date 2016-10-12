@@ -207,6 +207,9 @@ struct base_command_line_args_cmake_mode_t
     bool force_build = false;
     bool clear_downloaded_include_files = false;
     string manifest;  // contains path for manifest file or empty
+    string deps_source_dir;
+    string deps_build_dir;
+    string deps_install_dir;
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
@@ -232,6 +235,10 @@ struct cmakex_cache_t
     // variable, but left as is if the env var is not
     // set
     string cmake_root;
+    // version 2 fields
+    string deps_source_dir;
+    string deps_build_dir;
+    string deps_install_dir;
 };
 
 bool operator==(const cmakex_cache_t& x, const cmakex_cache_t& y);
