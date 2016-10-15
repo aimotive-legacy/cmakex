@@ -204,12 +204,12 @@ string cmakex_config_t::find_module_hijack_dir() const
 
 string cmakex_config_t::default_deps_source_dir() const
 {
-    return cmake_binary_dir + "/_deps/";
+    return cmake_binary_dir + "/_deps";
 }
 
 string cmakex_config_t::default_deps_build_dir() const
 {
-    return cmake_binary_dir + "/_deps-build/";
+    return cmake_binary_dir + "/_deps-build";
 }
 
 string cmakex_config_t::default_deps_install_dir() const

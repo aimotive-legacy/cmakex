@@ -521,7 +521,10 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
 
     cmakex_cache_t cmakex_cache = cfg.cmakex_cache();
 
-    if (pcla.deps_mode != dm_deps_only) {
+    string home_directory;
+
+    // we need source dir if it's not deps_only or empty deps_only
+    if (pcla.deps_mode != dm_deps_only || pcla.deps_script.empty()) {
         if (cmakex_cache.valid) {
             if (cmakex_cache.home_directory.empty())
                 cmakex_cache.home_directory = pcla.source_dir;
@@ -552,16 +555,16 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                     pcla.source_dir = source_dir;
             }
         }
-    }
 
-    string home_directory;
-
-    if (pcla.deps_mode != dm_deps_only) {
         if (pcla.source_dir.empty())
             badpars_exit(
                 stringf("No source dir has been specified and the binary dir %s is not valid "
-                        "(contains no CMakeCache.txt or %s)",
-                        path_for_log(pcla.binary_dir).c_str(), k_cmakex_cache_filename));
+                        "(contains no CMakeCache.txt or %s)%s",
+                        path_for_log(pcla.binary_dir).c_str(), k_cmakex_cache_filename,
+                        pcla.deps_mode == dm_deps_only
+                            ? ". In '--deps-only' mode you can omit source dir only "
+                              "if you specify a script with '--deps-only=<DIR>'"
+                            : ""));
 
         CHECK(!pcla.source_dir.empty());
 
