@@ -171,6 +171,10 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
                   Use the file specified in the CMAKEX_PRESET_FILE environment
                   variable.
 
+If the CMAKEX_PRESET_FILE environment variable is not set and there's a
+`default-cmakex-presets.yaml` file in the directory of the cmakex executable
+it will be used as default preset file.
+
 cmakex configuration
 ====================
 
