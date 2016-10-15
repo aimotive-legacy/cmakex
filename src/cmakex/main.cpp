@@ -5,6 +5,8 @@
 #include <nowide/cstdlib.hpp>
 #include <nowide/cstdio.hpp>
 
+#include <Poco/Util/Application.h>
+
 #include <adasworks/sx/check.h>
 
 #include "cmakex_utils.h"
@@ -20,6 +22,17 @@
 #include "run_cmake_steps.h"
 
 namespace cmakex {
+
+const char* c_default_cmakex_preset_filename = "default-cmakex-presets.yaml";
+
+string get_executable_path(string_par argv0)
+{
+    class DummyApplication : public Poco::Util::Application
+    {
+    } da;
+    da.init({argv0.c_str()});
+    return da.commandPath();
+}
 
 namespace fs = filesystem;
 
@@ -43,6 +56,29 @@ int main(int argc, char* argv[])
     LOG_DEBUG("Debug log messages are enabled");
     LOG_TRACE("Trace log messages are enabled");
 
+    {
+        // using default-cmakex-preset.yaml in the application's dir, if needed
+        auto dpf = fs::path(get_executable_path(argv[0])).parent_path().string() + "/" +
+                   c_default_cmakex_preset_filename;
+        auto e_cpf = nowide::getenv("CMAKEX_PRESET_FILE");
+        auto dpf_exists = fs::is_regular_file(dpf);
+
+        if (e_cpf && strlen(e_cpf) > 0)
+            LOG_DEBUG("Using $CMAKEX_PRESET_FILE=%s as default preset file.",
+                      path_for_log(e_cpf).c_str());
+        else {
+            if (dpf_exists) {
+                LOG_DEBUG("Using %s as default preset file (in the directory of the executable).",
+                          path_for_log(dpf).c_str());
+                nowide::setenv("CMAKEX_PRESET_FILE", dpf.c_str(), 1);
+            } else
+                LOG_DEBUG(
+                    "Not using %s as default preset file (file doesn't exist in the directory of "
+                    "the "
+                    "executable).",
+                    path_for_log(dpf).c_str());
+        }
+    }
     int result = EXIT_SUCCESS;
 
     for (int argix = 1; argix < argc; ++argix) {

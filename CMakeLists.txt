@@ -54,7 +54,7 @@ cmake_print_variables(CMAKEX_VERSION_MMP CMAKEX_VERSION_WITH_META)
 find_package(aw-sx REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(nowide REQUIRED)
-find_package(Poco REQUIRED Foundation)
+find_package(Poco REQUIRED Foundation Util)
 find_package(cereal REQUIRED)
 
 if(NOT CMAKE_CROSSCOMPILING)
