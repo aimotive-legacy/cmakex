@@ -416,7 +416,8 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
         throwf("Empty package descriptor, package name is missing.");
     const string request_name = pkg_args[0];
     const auto args = parse_arguments(
-        {"DEFINE_ONLY"}, {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR", "GIT_SHALLOW"},
+        {"DEFINE_ONLY"},
+        {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "GIT_TAG_OVERRIDE", "SOURCE_DIR", "GIT_SHALLOW"},
         {"DEPENDS", "CMAKE_ARGS", "CONFIGS"}, vector<string>(pkg_args.begin() + 1, pkg_args.end()));
 
     bool define_only = args.count("DEFINE_ONLY");
@@ -440,26 +441,30 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
 
     request.define_only = define_only;
 
-    for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "SOURCE_DIR"}) {
+    for (auto c : {"GIT_REPOSITORY", "GIT_URL", "GIT_TAG", "GIT_TAG_OVERRIDE", "SOURCE_DIR"}) {
         auto count = args.count(c);
         CHECK(count == 0 || args.at(c).size() == 1);
         if (count > 0 && args.at(c).empty())
             throwf("Empty string after '%s'.", c);
     }
     string a, b;
-    if (args.count("GIT_REPOSITORY") > 0)
-        a = args.at("GIT_REPOSITORY")[0];
-    if (args.count("GIT_URL") > 0)
-        b = args.at("GIT_URL")[0];
-    if (!a.empty()) {
-        request.c.git_url = a;
-        if (!b.empty())
-            throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
-    } else
-        request.c.git_url = b;
 
-    if (args.count("GIT_TAG") > 0)
+    if (args.count("GIT_REPOSITORY") > 0) {
+        if (args.count("GIT_URL") > 0)
+            throwf("Both GIT_URL and GIT_REPOSITORY are specified.");
+        request.c.git_url = args.at("GIT_REPOSITORY")[0];
+    } else if (args.count("GIT_URL") > 0)
+        request.c.git_url = args.at("GIT_URL")[0];
+
+    if (args.count("GIT_TAG") > 0) {
+        if (args.count("GIT_TAG_OVERRIDE") > 0)
+            throwf("Both GIT_TAG and GIT_TAG_IGNORE are specified.");
         request.c.git_tag = args.at("GIT_TAG")[0];
+    } else if (args.count("GIT_TAG_OVERRIDE") > 0) {
+        request.c.git_tag = args.at("GIT_TAG_OVERRIDE")[0];
+        request.git_tag_override = true;
+    }
+
     if (args.count("GIT_SHALLOW") > 0)
         request.git_shallow = eval_cmake_boolean_or_fail(args.at("GIT_SHALLOW")[0]);
     if (args.count("SOURCE_DIR") > 0) {

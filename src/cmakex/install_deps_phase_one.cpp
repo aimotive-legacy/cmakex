@@ -132,11 +132,40 @@ void verify_if_requests_are_compatible(const pkg_request_t& r1,
 void update_request(pkg_request_t& x, const pkg_request_t& y)
 {
     // merge into exisiting definition
+    CHECK(x.name == y.name);
     x.git_shallow |= y.git_shallow;
     if (!y.c.git_url.empty())
         x.c.git_url = y.c.git_url;
-    if (!y.c.git_tag.empty())
-        x.c.git_tag = y.c.git_tag;
+    if (!y.c.git_tag.empty()) {
+        if (x.c.git_tag.empty()) {
+            CHECK(!x.git_tag_override);
+            x.c.git_tag = y.c.git_tag;
+            x.git_tag_override = y.git_tag_override;
+        } else {
+            // both x and y are non-empty
+            if (x.git_tag_override) {
+                if (y.git_tag_override) {
+                    // error if they're different
+                    if (x.c.git_tag != y.c.git_tag)
+                        throwf(
+                            "%s: In def_pkg() commands two GIT_TAG_OVERRIDE options specify "
+                            "different GIT_TAGs: '%s' and '%s'",
+                            pkg_for_log(x.name).c_str(), x.c.git_tag.c_str(), y.c.git_tag.c_str());
+                }
+                // else ignore second, non-override GIT_TAG
+            } else {
+                if (!y.git_tag_override && x.c.git_tag != y.c.git_tag)
+                    log_warn(
+                        "%s: In def_pkg() commands, overwriting a previous GIT_TAG options: '%s' "
+                        "-> '%s'",
+                        pkg_for_log(x.name).c_str(), x.c.git_tag.c_str(), y.c.git_tag.c_str());
+                x.c.git_tag = y.c.git_tag;
+                x.git_tag_override = y.git_tag_override;
+            }
+        }
+    } else {
+        CHECK(!y.git_tag_override);
+    }
     if (!y.b.source_dir.empty())
         x.b.source_dir = y.b.source_dir;
     x.b.cmake_args = normalize_cmake_args(concat(x.b.cmake_args, y.b.cmake_args));
@@ -200,10 +229,16 @@ void insert_new_request_into_wsp(const pkg_request_t& req_in, deps_recursion_wsp
                 it->second.request = *req;
             }
         } else {
-            if (!req->name_only())
-                verify_if_requests_are_compatible(it->second.request, *req,
+            if (!req->name_only()) {
+                // handle git_tag_override
+                auto& x = it->second.request;
+                auto y = *req;
+                if (x.git_tag_override && !y.git_tag_override)
+                    y.c.git_tag = x.c.git_tag;
+                verify_if_requests_are_compatible(it->second.request, y,
                                                   !it->second.found_on_prefix_path.empty(),
                                                   it->second.dependencies_from_script);
+            }
         }
     }
 }
@@ -342,6 +377,8 @@ idpo_recursion_result_t install_deps_phase_one_deps_script(
     for (auto& addpkg_line : addpkgs_lines) {
         auto args = split(addpkg_line, '\t');
         auto req = pkg_request_from_args(args, command_line_configs);
+        if (!wsp.requester_stack.empty())  // git tag override effective only in main project
+            req.git_tag_override = false;
         if (!req.define_only)
             deps.emplace_back(req.name);
         insert_new_request_into_wsp(req, wsp);
