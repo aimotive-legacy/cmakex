@@ -13,7 +13,6 @@
 #include "installdb.h"
 #include "misc_utils.h"
 #include "print.h"
-#include "run_add_pkgs.h"
 
 namespace cmakex {
 

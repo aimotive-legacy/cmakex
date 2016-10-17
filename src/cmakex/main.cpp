@@ -18,7 +18,6 @@
 #include "misc_utils.h"
 #include "print.h"
 #include "process_command_line.h"
-#include "run_add_pkgs.h"
 #include "run_cmake_steps.h"
 
 namespace cmakex {
