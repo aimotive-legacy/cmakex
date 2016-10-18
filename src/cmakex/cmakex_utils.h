@@ -52,7 +52,7 @@ private:
     cmakex_cache_t cmakex_cache_;
 };
 
-void badpars_exit(string_par msg);
+AW_NORETURN void badpars_exit(string_par msg);
 
 // source dir is a directory containing CMakeLists.txt
 bool evaluate_source_dir(string_par x, bool allow_invalid = false);

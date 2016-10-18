@@ -321,7 +321,6 @@ bool tolower_equals(string_par x, string_par y)
         if (std::tolower(*i) != std::tolower(*j))
             return false;
     }
-    return true;
 }
 string trim(string_par x)
 {

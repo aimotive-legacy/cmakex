@@ -938,6 +938,7 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                         }
                     }
                 } break;
+                case invalid_status:
                 default:
                     CHECK(false);
             }  // switch on the evaluation result between request config and installed config

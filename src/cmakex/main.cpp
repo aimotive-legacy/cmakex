@@ -22,7 +22,7 @@
 
 namespace cmakex {
 
-const char* c_default_cmakex_preset_filename = "default-cmakex-presets.yaml";
+static const char* const c_default_cmakex_preset_filename = "default-cmakex-presets.yaml";
 
 string get_executable_path(string_par argv0)
 {

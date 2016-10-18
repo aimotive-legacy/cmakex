@@ -170,7 +170,7 @@ Build `Release` config in existing build dir, with dependencies
     
 )~~~~";
 
-void display_usage_and_exit(int exit_code, bool brief)
+AW_NORETURN void display_usage_and_exit(int exit_code, bool brief)
 {
     auto s = stringf("cmakex v%s", cmakex_version_with_meta);
     fprintf(exit_code ? stderr : stdout, "%s ", s.c_str());
@@ -178,7 +178,7 @@ void display_usage_and_exit(int exit_code, bool brief)
     exit(exit_code);
 }
 
-void display_version_and_exit(int exit_code)
+AW_NORETURN void display_version_and_exit(int exit_code)
 {
     fprintf(exit_code ? stderr : stdout, "%s\n", cmakex_version_with_meta);
     exit(exit_code);

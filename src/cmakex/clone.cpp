@@ -146,7 +146,7 @@ void make_sure_exactly_this_sha_is_cloned_or_fail(string_par pkg_name,
                 "The current working copy should be checked out at '%s' but it has local changes. "
                 "%s",
                 cp.git_tag.c_str(), errormsg.c_str());
-            break;
+        case pkg_clone_dir_invalid:
         default:
             CHECK(false);
     }
@@ -271,6 +271,7 @@ void make_sure_exactly_this_git_tag_is_cloned(string_par pkg_name,
                 }
             }
             break;
+        case pkg_clone_dir_invalid:
         default:
             CHECK(false);
     }
@@ -304,6 +305,7 @@ void clone_helper_t::report()
         case pkg_clone_dir_nonempty_nongit:
             log_info("%s local repo is not a valid git repository.", pkg_for_log(pkg_name).c_str());
             break;
+        case pkg_clone_dir_invalid:
         default:
             CHECK(false);
     }
@@ -327,6 +329,7 @@ void clone_helper_t::update_clone_status_vars()
             cloned_sha = k_sha_uncommitted;
             cloned = true;
             break;
+        case pkg_clone_dir_invalid:
         default:
             CHECK(false);
     }
