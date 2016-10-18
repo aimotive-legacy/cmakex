@@ -144,6 +144,13 @@ cmakex configuration
                     repositories), build directories and install directory for
                     the dependencies. The default values are `_deps`,
                     `_deps-build` and `_deps-install` under `CMAKE_BINARY_DIR`.
+    --single-build-dir
+                    With makefile-generators (as opposed to multiconfig) the
+                    default is to create separate build directories for each
+                    configuration (Debug, Release, etc..).
+                    Use this option to force a single build directory.
+                    Effective only on the initial configuration and only
+                    for makefile-generators.
 
 Examples:
 =========
@@ -286,6 +293,8 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                     if (pars.deps_script.empty())
                         badpars_exit("Missing path after '--deps-only='");
                 }
+            } else if (arg == "--single-build-dir") {
+                pars.single_build_dir = true;
             } else if (starts_with(arg, "-H")) {
                 if (arg == "-H") {
                     // unlike cmake, here we support the '-H <path>' style, too
@@ -524,6 +533,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
     };
 
     cmakex_cache_t cmakex_cache = cfg.cmakex_cache();
+    const bool cmakex_cache_was_valid = cmakex_cache.valid;
 
     string home_directory;
 
@@ -708,6 +718,16 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         cmakex_cache.deps_install_dir = fs::absolute(cla.deps_install_dir);
     else if (cmakex_cache.deps_install_dir.empty())
         cmakex_cache.deps_install_dir = cfg.default_deps_install_dir();
+
+    if (cla.single_build_dir && !cmakex_cache.multiconfig_generator) {
+        if (cmakex_cache_was_valid) {
+            if (cmakex_cache.per_config_bin_dirs)
+                log_warn(
+                    "The --single-build-dir option is effective only on the initial "
+                    "configuration.");
+        } else
+            cmakex_cache.per_config_bin_dirs = false;
+    }
 
     return make_tuple(move(pcla), move(cmakex_cache));
 }

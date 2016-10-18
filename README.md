@@ -185,6 +185,13 @@ cmakex configuration
                     repositories), build directories and install directory for
                     the dependencies. The default values are `_deps`,
                     `_deps-build` and `_deps-install` under `CMAKE_BINARY_DIR`.
+    --single-build-dir
+                    With makefile-generators (as opposed to multiconfig) the
+                    default is to create separate build directories for each
+                    configuration (Debug, Release, etc..).
+                    Use this option to force a single build directory.
+                    Effective only on the initial configuration and only
+                    for makefile-generators.
 
 Miscellaneous
 =============

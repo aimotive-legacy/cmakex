@@ -220,6 +220,7 @@ struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t
     string arg_B;
     string arg_p;  // preset: [path/]preset-name
     string subcommand;
+    bool single_build_dir = false;
 };
 
 struct cmakex_cache_t

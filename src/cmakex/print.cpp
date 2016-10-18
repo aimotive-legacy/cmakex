@@ -144,6 +144,7 @@ string log_exec(string_par command, const vector<string>& args, string_par worki
 {
     auto r = string_exec(command, args, working_directory);
     printf("%s\n", r.c_str());
+    fflush(stdout);
     return r;
 }
 string datetime_string_for_log(Poco::DateTime dt)
