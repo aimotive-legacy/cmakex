@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
 
             log_info("Configuring helper CMake project");
             HelperCmakeProject hcp(pars.binary_dir);
-            hcp.configure(command_line_cmake_args);
+            hcp.configure(command_line_cmake_args, "_cmakex");
 
             // get some variables from helper project cmake cache
             auto& cc = hcp.cmake_cache;

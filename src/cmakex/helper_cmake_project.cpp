@@ -79,7 +79,8 @@ void test_cmake()
         }
     }
 }
-void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args)
+void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args,
+                                   string_par pkg_name)
 {
     test_cmake();
     for (auto d : {cfg.cmakex_executor_dir(), cfg.cmakex_tmp_dir()}) {
@@ -149,6 +150,8 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
 
     OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
     int r;
+    string filename =
+        stringf("%s-deps_script_wrapper-configure%s", pkg_name.c_str(), k_log_extension);
     try {
         r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
     } catch (...) {
@@ -156,9 +159,7 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
         fflush(stdout);
         printf("%s\n", cl_config.c_str());
 
-        save_log_from_oem(
-            cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(),
-            string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
+        save_log_from_oem(cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(), filename);
         fflush(stdout);
         throw;
     }
@@ -167,8 +168,7 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     if (r)
         printf("%s\n", cl_config.c_str());
 
-    save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
-                      string(k_build_script_executor_log_name) + "-configure" + k_log_extension);
+    save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(), filename);
 
     string cmake_cache_path = build_script_executor_binary_dir + "/CMakeCache.txt";
     if (r != EXIT_SUCCESS) {
@@ -184,7 +184,8 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
 }
 
 vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
-                                                   bool clear_downloaded_include_files)
+                                                   bool clear_downloaded_include_files,
+                                                   string_par pkg_name)
 {
     vector<string> args;
     args.emplace_back(build_script_executor_binary_dir);
@@ -201,22 +202,21 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
     auto cl_deps = string_exec("cmake", args);
     OutErrMessagesBuilder oeb2(pipe_capture, pipe_capture);
     int r;
+    string filename = stringf("%s-deps_script%s", pkg_name.c_str(), k_log_extension);
     try {
         r = exec_process("cmake", args, oeb2.stdout_callback(), oeb2.stderr_callback());
     } catch (...) {
         r = ECANCELED;
         fflush(stdout);
         printf("%s\n", cl_deps.c_str());
-        save_log_from_oem(cl_deps, r, oeb2.move_result(), cfg.cmakex_log_dir(),
-                          string(k_build_script_executor_log_name) + "-run" + k_log_extension);
+        save_log_from_oem(cl_deps, r, oeb2.move_result(), cfg.cmakex_log_dir(), filename);
         fflush(stdout);
         throw;
     }
     auto oem2 = oeb2.move_result();
     if (r)
         printf("%s\n", cl_deps.c_str());
-    save_log_from_oem(cl_deps, r, oem2, cfg.cmakex_log_dir(),
-                      string(k_build_script_executor_log_name) + "-run" + k_log_extension);
+    save_log_from_oem(cl_deps, r, oem2, cfg.cmakex_log_dir(), filename);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing dependency script wrapper, result: %d.", r);
 

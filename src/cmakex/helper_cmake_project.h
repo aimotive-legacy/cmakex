@@ -12,9 +12,10 @@ public:
     HelperCmakeProject(string_par binary_dir);
     // applies deps_accum_cmake_args if initial config, otherwise the applies the (incremental)
     // command_line_cmake_args
-    void configure(const vector<string>& command_line_cmake_args);
+    void configure(const vector<string>& command_line_cmake_args, string_par pkg_name);
     vector<string> run_deps_script(string_par deps_script_file,
-                                   bool clear_downloaded_include_files);
+                                   bool clear_downloaded_include_files,
+                                   string_par pkg_name);
 
     cmake_cache_t cmake_cache;  // read after configuration
 
