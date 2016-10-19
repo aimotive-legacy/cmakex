@@ -865,7 +865,7 @@ vector<string> cmakex_prefix_path_to_vector(string_par x, bool env_var)
     auto v = split(x, env_var ? system_path_separator() : ';');
     for (auto& p : v) {
         if (!p.empty())
-            r.emplace_back(p);
+            r.emplace_back(fs::lexically_normal(p).string());
     }
     return r;
 }

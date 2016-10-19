@@ -384,7 +384,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
                 b.switch_ == "-D") {
                 auto v = cmakex_prefix_path_to_vector(b.value, false);
                 for (auto& p : v)
-                    p = fs::absolute(p);
+                    p = fs::lexically_normal(fs::absolute(p));
                 b.value = join(v, ";");
                 changed = true;
             }
