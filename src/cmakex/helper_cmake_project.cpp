@@ -18,7 +18,7 @@ static const char* const k_build_script_add_pkg_out_filename = "add_pkg_out.txt"
 static const char* const k_build_script_cmakex_out_filename = "cmakex_out.txt";
 static const char* const k_default_binary_dirname = "b";
 static const char* const k_executor_project_command_cache_var = "__CMAKEX_EXECUTOR_PROJECT_COMMAND";
-static const char* const k_build_script_executor_log_name = "deps_script_wrapper";
+// static const char* const k_build_script_executor_log_name = "deps_script_wrapper";
 static const char* const cmakex_version_mmp = STRINGIZE(CMAKEX_VERSION_MMP);
 
 string deps_script_wrapper_cmakelists()

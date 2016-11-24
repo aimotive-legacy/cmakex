@@ -10,6 +10,8 @@
 
 namespace cmakex {
 
+const char* default_cmakex_preset_filename();
+
 namespace fs = filesystem;
 
 static const char* const cmakex_version_with_meta = STRINGIZE(CMAKEX_VERSION_WITH_META);
@@ -407,7 +409,12 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
             msg = "Unknown error";
         }
         if (!msg.empty())
-            throwf("Invalid '-p' argument, reason: %s", msg.c_str());
+            throwf(
+                "Invalid '-p' argument, reason: %s Remember, you can specify preset file with '-p "
+                "<file>#preset' or in the "
+                "CMAKEX_PRESET_FILE environment variable, or copying '%s' to "
+                "the directory of the cmakex executable.",
+                msg.c_str(), default_cmakex_preset_filename());
         CHECK(!names.empty());
         if (names.size() == 1)
             log_info("Using preset `%s` from %s", names[0].c_str(), path_for_log(file).c_str());

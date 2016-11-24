@@ -218,7 +218,7 @@ void do_test()
 
 int main_core(int argc, char* argv[])
 {
-#if GETPRESET_DO_TEST
+#ifdef GETPRESET_DO_TEST
     do_test();
     return EXIT_SUCCESS;
 #endif
@@ -267,31 +267,42 @@ std::tuple<string, vector<string>> find_file_and_names(string_par path_name)
     string file;
     if (names.empty())
         throwf("Empty path/preset argument");
+
+    vector<string> tried_paths;
+
     if (fs::is_regular_file(names[0])) {
+        if (names.size() == 1) {
+            throwf(
+                "The preset specifier (%s) is a valid YAML file but no preset names found after "
+                "it.",
+                path_for_log(path_name).c_str());
+        }
         file = names[0];
         names.erase(names.begin());
+    } else {
+        if (names.size() > 1)
+            tried_paths.emplace_back(names[0]);
+        // check environment var
+        auto x = nowide::getenv("CMAKEX_PRESET_FILE");
+        if (x && strlen(x) == 0)
+            x = nullptr;
+        if (x) {
+            if (fs::is_regular_file(x))
+                file = x;
+            else
+                tried_paths.emplace_back(x);
+        }
     }
 
     if (file.empty()) {
-        // check environment var
-        auto x = nowide::getenv("CMAKEX_PRESET_FILE");
-        if (!x)
-            throw std::runtime_error(
-                stringf("The preset specifier (%s) doesn't reference a valid yaml file and the "
-                        "CMAKEX_PRESET_FILE environment variable is not set, either.",
-                        path_name.c_str()));
-        if (!fs::is_regular_file(x))
-            throw std::runtime_error(stringf(
-                "The file specified in the CMAKEX_PRESET_FILE environment variable does not exist: "
-                "%s.",
-                path_for_log(x).c_str()));
-        file = x;
-    }
-
-    if (names.empty()) {
-        throw std::runtime_error(stringf(
-            "The preset specifier (%s) is a valid YAML file but no preset names found after it.",
-            path_name.c_str()));
+        CHECK(tried_paths.size() <= 2);
+        string m = "No valid preset file found";
+        if (!tried_paths.empty())
+            m += stringf(". Tried: %s", path_for_log(tried_paths[0]).c_str());
+        if (tried_paths.size() == 2)
+            m += stringf(" and %s", path_for_log(tried_paths[1]).c_str());
+        m += ".";
+        throw std::runtime_error(m);
     }
 
     return std::make_tuple(std::move(file), std::move(names));

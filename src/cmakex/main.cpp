@@ -22,7 +22,10 @@
 
 namespace cmakex {
 
-static const char* const c_default_cmakex_preset_filename = "default-cmakex-presets.yaml";
+const char* default_cmakex_preset_filename()
+{
+    return "default-cmakex-presets.yaml";
+}
 
 string get_executable_path(string_par argv0)
 {
@@ -57,24 +60,37 @@ int main(int argc, char* argv[])
 
     {
         // using default-cmakex-preset.yaml in the application's dir, if needed
-        auto dpf = fs::path(get_executable_path(argv[0])).parent_path().string() + "/" +
-                   c_default_cmakex_preset_filename;
-        auto e_cpf = nowide::getenv("CMAKEX_PRESET_FILE");
+        auto exe_path = fs::path(get_executable_path(argv[0])).parent_path().string();
+        auto dpf = exe_path + "/" + default_cmakex_preset_filename();
+        auto env_cpf = nowide::getenv("CMAKEX_PRESET_FILE");
+        if (env_cpf && strlen(env_cpf) == 0)
+            env_cpf = 0;
         auto dpf_exists = fs::is_regular_file(dpf);
+        auto cpf_exists = env_cpf && fs::is_regular_file(env_cpf);
 
-        if (e_cpf && strlen(e_cpf) > 0)
-            LOG_DEBUG("Using $CMAKEX_PRESET_FILE=%s as default preset file.",
-                      path_for_log(e_cpf).c_str());
-        else {
-            if (dpf_exists) {
-                LOG_DEBUG("Using %s as default preset file (in the directory of the executable).",
+        if (env_cpf) {
+            if (cpf_exists) {
+                LOG_DEBUG("Using CMAKEX_PRESET_FILE=%s as default preset file.",
+                          path_for_log(env_cpf).c_str());
+            } else {
+                LOG_WARN(
+                    "Would use CMAKEX_PRESET_FILE=%s as default preset file but it doesn't exist.",
+                    path_for_log(env_cpf).c_str());
+                if (dpf_exists)
+                    LOG_WARN(
+                        "If CMAKEX_PRESET_FILE were not set, would use %s as default preset file "
+                        "(from the directory of the executable) which does exist.",
+                        path_for_log(dpf).c_str());
+            }
+        } else {
+            nowide::setenv("CMAKEX_PRESET_FILE", dpf.c_str(), 1);
+            if (dpf_exists)
+                LOG_DEBUG("Using %s as default preset file (from the directory of the executable).",
                           path_for_log(dpf).c_str());
-                nowide::setenv("CMAKEX_PRESET_FILE", dpf.c_str(), 1);
-            } else
+            else
                 LOG_DEBUG(
-                    "Not using %s as default preset file (file doesn't exist in the directory of "
-                    "the "
-                    "executable).",
+                    "Would use use %s as default preset file (from the directory of the "
+                    "executable) but it doesn't exist.",
                     path_for_log(dpf).c_str());
         }
     }
