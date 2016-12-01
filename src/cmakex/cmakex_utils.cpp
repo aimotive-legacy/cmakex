@@ -27,21 +27,6 @@ void serialize(Archive& archive, cmakex_cache_t& m, uint32_t version)
         archive(A(deps_source_dir), A(deps_build_dir), A(deps_install_dir));
 }
 
-#if 0
-template <class Archive>
-void serialize(Archive& archive, cmake_cache_tracker_t::var_t& m)
-{
-    archive(A(value), A(status));
-}
-
-template <class Archive>
-void serialize(Archive& archive, cmake_cache_tracker_t& m, uint32_t version)
-{
-    THROW_UNLESS(version == 1);
-    archive(A(vars), A(c_sha), A(cmake_toolchain_file_sha));
-}
-#endif
-
 template <class Archive>
 void serialize(Archive& archive, cmake_cache_tracker_t& m, uint32_t version)
 {
@@ -491,21 +476,6 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
     }
     return request;
 }
-
-#if 0
-vector<string> filter_cmake_args_for_final(const vector<string>& x)
-{
-    vector<string> result;
-    result.reserve(x.size());
-    for (auto& a : x) {
-        auto pca = parse_cmake_arg(a);
-        if (pca.switch_ == "-G" ||
-            is_one_of(pca.name, {"CMAKE_INSTALL_PREFIX", "CMAKE_PREFIX_PATH", "CMAKE_MODULE_PATH"}))
-            continue;
-        result.emplace_back(a);
-    }
-}
-#endif
 
 vector<string> normalize_cmake_args(const vector<string>& x)
 {

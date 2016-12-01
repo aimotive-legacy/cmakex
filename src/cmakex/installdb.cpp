@@ -396,7 +396,8 @@ tuple<string, vector<config_name_t>> InstallDB::quick_check_on_prefix_paths(
     string_par pkg_name,
     const vector<string>& prefix_paths) const
 {
-    LOG_TRACE("quick_check_on_prefix_paths: %s [%s]", pkg_for_log(pkg_name).c_str(), join(prefix_paths, ", ").c_str());
+    LOG_TRACE("quick_check_on_prefix_paths: %s [%s]", pkg_for_log(pkg_name).c_str(),
+              join(prefix_paths, ", ").c_str());
     tuple<string, vector<config_name_t>> result;
     vector<string> v;
     v.reserve(prefix_paths.size() + 1);

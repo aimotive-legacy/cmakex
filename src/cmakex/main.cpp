@@ -42,18 +42,6 @@ int main(int argc, char* argv[])
 {
     nowide::args nwa(argc, argv);
 
-#if 0
-    {
-        const char* x = "./";
-        Poco::Path p(x);
-        for (int i = 0; i <= p.depth(); ++i) {
-            printf("%d: \"%s\"\n", i, p[i].c_str());
-        }
-        auto y = fs::lexically_normal(x);
-        printf("\"%s\" -> \"%s\"\n", x, y.c_str());
-        exit(0);
-    }
-#endif
     log::Logger global_logger(adasworks::log::global_tag);
     LOG_DEBUG("Debug log messages are enabled");
     LOG_TRACE("Trace log messages are enabled");
