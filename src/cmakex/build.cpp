@@ -56,6 +56,8 @@ build_result_t build(string_par binary_dir,
             source_dir += "/" + pkg_source_dir.str();
         pkg_bin_dir_of_config =
             cfg.pkg_binary_dir_of_config(pkg_name, config, cmakex_cache.per_config_bin_dirs);
+        cmake_args = make_sure_cmake_path_var_contains_path(
+            pkg_bin_dir_of_config, "CMAKE_PREFIX_PATH", cfg.deps_install_dir(), cmake_args);
     }
 
     const auto cmake_cache_path = pkg_bin_dir_of_config + "/CMakeCache.txt";
