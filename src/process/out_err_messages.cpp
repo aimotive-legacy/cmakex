@@ -17,26 +17,34 @@ void OutErrMessagesBuilder::add_msg(source_t source, array_view<const char> msg)
 {
     internal::out_err_message_internal_t** last_unfinished_message;
     strings_t* strings;
+    // char source_char = 0;
     if (source == out_err_message_base_t::source_stdout) {
         last_unfinished_message = &last_unfinished_stdout_message;
         strings = &out_err_messages.stdout_strings;
+        // source_char = 'O';
     } else {
         last_unfinished_message = &last_unfinished_stderr_message;
         strings = &out_err_messages.stderr_strings;
+        // source_char = 'E';
     }
     std::lock_guard<atomic_flag_mutex> lock(mutex);
-    if (*last_unfinished_message)
+    if (*last_unfinished_message) {
+        // auto s0 = (*last_unfinished_message)->msg_end;
         (*last_unfinished_message)->msg_end += msg.size();
-    else {
+        // LOG_TRACE("S:%c, msg_end (%d) += %d", source_char, (int)s0, (int)msg.size());
+    } else {
         ptrdiff_t begin_idx = strings->size();
         out_err_messages.messages.emplace_back(source, msg_clock::now(), begin_idx,
                                                begin_idx + msg.size());
+        *last_unfinished_message = &out_err_messages.messages.back();
+        // LOG_TRACE("S:%c, new msg (%d..%d)", source_char, (int)begin_idx, (int)(begin_idx +
+        // msg.size()));
     }
+    // LOG_TRACE("S:%c, strings (%d) += %d", source_char, (int)strings->size(), (int)msg.size());
     strings->insert(strings->end(), msg.begin(), msg.end());
     const char c_line_feed = 10;
-    *last_unfinished_message = strings->empty() || strings->back() != c_line_feed
-                                   ? &out_err_messages.messages.back()
-                                   : nullptr;
+    if (!msg.empty() && msg.end()[-1] == c_line_feed)
+        *last_unfinished_message = nullptr;
 }
 
 out_err_message_t OutErrMessages::at(ptrdiff_t idx) const
