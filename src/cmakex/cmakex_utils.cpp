@@ -588,13 +588,25 @@ void write_cmakex_cache_if_dirty(string_par binary_dir, const cmakex_cache_t& cm
         save_json_output_archive(cfg.cmakex_cache_path(), cmakex_cache);
 }
 
-tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string> cmake_args,
-                                                                   string_par var_name,
-                                                                   string_par dir)
+tuple<vector<string>, bool> cmake_args_prepend_existing_cmake_path_variable(
+    vector<string> cmake_args,
+    string_par var_name,
+    string_par dir)
 {
     for (auto& c : cmake_args) {
         auto pca = parse_cmake_arg(c);
         if (pca.switch_ == "-D" && pca.name == var_name) {
+            // check if it already contains the dir
+            auto paths = split(pca.value, ';');
+            bool found = false;
+            for (auto& p : paths) {
+                if (safe_fs_equivalent(p, dir)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+                continue;
             prepend_inplace(pca.value, dir.str() + ";");
             c = format_cmake_arg(pca);
             return make_tuple(move(cmake_args), true);
@@ -699,12 +711,10 @@ vector<string> make_sure_cmake_path_var_contains_path(
 
     // make sure CMAKE_PREFIX_PATH and CMAKE_MODULE_PATH variables contains our special paths
     do {  // scope for break
-        if (!fs::is_directory(path_to_add.c_str()))
-            break;
         bool b;
         // try to prepend the the cmake path arg (if it exists) with path_to_add
         tie(cmake_args, b) =
-            cmake_args_prepend_cmake_path_variable(cmake_args, var_name, path_to_add);
+            cmake_args_prepend_existing_cmake_path_variable(cmake_args, var_name, path_to_add);
         if (b)
             break;  // current cmake_args contains the variable in question and we prepended
                     // it
@@ -725,7 +735,7 @@ vector<string> make_sure_cmake_path_var_contains_path(
                     // this path variable
         auto dirs = split(it->second, ';');
         for (auto& d : dirs) {
-            if (fs::is_directory(d) && fs::equivalent(d, path_to_add.str())) {
+            if (safe_fs_equivalent(d, path_to_add.str())) {
                 cmake_path_var_value.clear();  // don't add if it already contains it
                 break;
             }

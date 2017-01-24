@@ -274,6 +274,9 @@ typename Map::mapped_type map_at_or_default(
     return it == map.end() ? default_value : it->second;
 }
 vector<string> split_at_newlines(string text);
+
+// call fs::equivalent on existing paths, normalizes and string-compares otherwise
+bool safe_fs_equivalent(string_par x, string_par y);
 }
 
 #endif

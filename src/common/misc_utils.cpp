@@ -7,10 +7,12 @@
 #include <nowide/cstdio.hpp>
 
 #include <adasworks/sx/check.h>
+#include "filesystem.h"
 
 namespace cmakex {
 
 using adasworks::sx::vstringf;
+namespace fs = filesystem;
 
 bool is_one_of(string_par x, initializer_list<const char*> y)
 {
@@ -384,5 +386,21 @@ vector<string> split_at_newlines(string text)
 {
     text.erase(std::remove_if(BEGINEND(text), [](char c) { return c == '\r'; }), text.end());
     return split(text, '\n');
+}
+bool safe_fs_equivalent(string_par x, string_par y)
+{
+    bool xe = fs::exists(x.c_str());
+    bool ye = fs::exists(y.c_str());
+    if (xe != ye)
+        return false;  // different existence: they're different
+    if (xe)            // both exist: use fs::equivalent
+        return fs::equivalent(x.c_str(), y.c_str());
+
+    // compare strings
+    fs::path xp(x.c_str());
+    fs::path yp(y.c_str());
+    if (xp.is_absolute() != yp.is_absolute())
+        return false;
+    return fs::lexically_normal(xp).string() == fs::lexically_normal(yp).string();
 }
 }

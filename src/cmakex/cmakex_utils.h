@@ -104,9 +104,10 @@ void save_cmake_cache_tracker(string_par bin_dir, const cmake_cache_tracker_t& x
 // if cmake_args sets 'var_name' (like -D<var-name>=) then the path will be prepended with 'dir' and
 // <new-path>, true returned
 // otherwise <unchanged-cmake_args, false> is returned
-tuple<vector<string>, bool> cmake_args_prepend_cmake_path_variable(vector<string> cmake_args,
-                                                                   string_par var_name,
-                                                                   string_par dir);
+tuple<vector<string>, bool> cmake_args_prepend_existing_cmake_path_variable(
+    vector<string> cmake_args,
+    string_par var_name,
+    string_par dir);
 vector<string> cmakex_prefix_path_to_vector(string_par x, bool env_var);
 cmake_cache_t read_cmake_cache(string_par path);
 void write_hijack_module(string_par pkg_name, string_par binary_dir);
