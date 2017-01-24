@@ -398,15 +398,28 @@ tuple<string, vector<config_name_t>> InstallDB::quick_check_on_prefix_paths(
 {
     LOG_TRACE("quick_check_on_prefix_paths: %s [%s]", pkg_for_log(pkg_name).c_str(),
               join(prefix_paths, ", ").c_str());
+
+    string deps_install_dir = cmakex_config_t(binary_dir).deps_install_dir();
+
     tuple<string, vector<config_name_t>> result;
+
     vector<string> v;
     v.reserve(prefix_paths.size() + 1);
+
+    // collect prefix paths to check on
     if (!glob_installed_pkg_config_descs(pkg_name, "").empty())
-        v.emplace_back("");
+        v.emplace_back(deps_install_dir);
     for (auto& p : prefix_paths) {
         if (!glob_installed_pkg_config_descs(pkg_name, p).empty())
             v.emplace_back(p);
     }
+
+    // make unique and replace deps_install_dir with the special "" string
+    v = stable_unique(v);
+    for (auto& x : v)
+        if (x == deps_install_dir)
+            x.clear();
+
     if (v.size() == 1) {
         if (!v[0].empty()) {
             get<0>(result) = v[0];
@@ -417,7 +430,7 @@ tuple<string, vector<config_name_t>> InstallDB::quick_check_on_prefix_paths(
     } else if (v.size() > 1) {
         for (auto& x : v) {
             if (x.empty())
-                x = cmakex_config_t(binary_dir).deps_install_dir();
+                x = deps_install_dir;
             x = path_for_log(x);
         }
         throwf(
