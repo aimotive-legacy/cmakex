@@ -657,6 +657,7 @@ tuple<processed_command_line_args_cmake_mode_t, cmakex_cache_t> process_command_
         for (auto& c : pcla.configs) {
             CHECK(!c.empty());  // this is an internal error
         }
+        pcla.configs = stable_unique(pcla.configs);
     }
 
     // CMAKE_BUILD_TYPE rules
