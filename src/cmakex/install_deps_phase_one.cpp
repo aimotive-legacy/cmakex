@@ -534,6 +534,10 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     pkg_bin_dir_of_config, "CMAKE_MODULE_PATH", cfg.find_module_hijack_dir(),
                     cmake_args_to_apply);
 
+                cmake_args_to_apply = make_sure_cmake_path_var_contains_path(
+                    pkg_bin_dir_of_config, "CMAKE_PREFIX_PATH", cfg.deps_install_dir(),
+                    cmake_args_to_apply);
+
                 // get tentative per-config final_cmake_args from cmake cache tracker by
                 // applying
                 // these cmake_args onto the current tracked values

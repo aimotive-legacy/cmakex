@@ -48,9 +48,7 @@ void install_deps_phase_two(string_par binary_dir,
             desc.git_sha = wp.resolved_git_tag;
         }
         desc.source_dir = wp.request.b.source_dir;
-        LOG_TRACE("1 %s", config.get_prefer_NoConfig().c_str());
         desc.final_cmake_args = wp.pcd.at(config).tentative_final_cmake_args;
-        LOG_TRACE("2");
         for (auto& d : wp.request.depends) {
             auto dep_installed = installdb.try_get_installed_pkg_all_configs(d, prefix_paths);
             for (auto& kv : dep_installed.config_descs)
