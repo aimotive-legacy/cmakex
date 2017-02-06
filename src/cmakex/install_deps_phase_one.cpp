@@ -562,6 +562,139 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
     auto& cloned = clone_helper.cloned;
     auto& cloned_sha = clone_helper.cloned_sha;
 
+    if (cloned && wsp.update) {
+        string clone_dir = cfg.pkg_clone_dir(pkg_name);
+        int r = exec_git({"remote", "set-url", "origin", pkg.request.c.git_url.c_str()}, clone_dir,
+                         nullptr, nullptr, log_git_command_on_error);
+        if (r)
+            exit(r);
+        auto lsr = git_ls_remote(pkg.request.c.git_url);
+
+        string target_git_branch, target_git_tag, target_git_sha;
+
+        string gt = pkg.request.c.git_tag;
+
+        // resolve unspecified or HEAD GIT_TAG
+        if (gt.empty() || gt == "HEAD")
+            gt = lsr.head_branch();
+
+        if (lsr.branches.count(gt) > 0) {
+            target_git_branch = gt;
+            target_git_sha = lsr.branches.at(gt);
+        } else if (lsr.tags.count(gt) > 0) {
+            target_git_tag = gt;
+            target_git_sha = lsr.tags.at(gt);
+        } else {
+            // gt must be an SHA
+            if (!sha_like(gt)) {
+                throwf(
+                    "%s requests GIT_TAG '%s' but no remote branch or tag at \"%s\" found "
+                    "with this name.",
+                    pkg_for_log(pkg_name).c_str(), gt.c_str(), pkg.request.c.git_url.c_str());
+            }
+            target_git_sha = gt;
+        }
+
+        CHECK(!target_git_sha.empty());
+
+        do {  // scope for break
+            if (cloned_sha == target_git_sha) {
+                // no need to update, we're there
+                log_verbose("%s is up-to-date with remote.", pkg_for_log(pkg_name).c_str());
+                break;
+            }
+
+            // we should update, check for local changes
+            if (get<0>(clone_helper.clone_status) == pkg_clone_dir_git_local_changes) {
+                if (wsp.update_stop_on_error)
+                    throwf(
+                        "Can't update %s because of local changes. Stash or commit your changes or "
+                        "use '--update=[if-clean|if-very-clean]",
+                        pkg_for_log(pkg_name).c_str());
+                else {
+                    log_warn("Not updating %s because of local changes.",
+                             pkg_for_log(pkg_name).c_str());
+                    break;
+                }
+            }
+
+            // check if we need to leave branch
+            string current_branch = git_current_branch_or_HEAD(clone_dir);  // HEAD or some branch
+            bool leave_branch = current_branch != "HEAD" &&
+                                (target_git_branch.empty() || target_git_branch != current_branch);
+            if (leave_branch && !wsp.update_can_leave_branch) {
+                if (wsp.update_stop_on_error)
+                    throwf(
+                        "Can't update %s because the current branch should be changed and the "
+                        "current update mode doesn't allow that. %s manually or use "
+                        "'--update=[if-clean|if-very-clean|all-clean]'",
+                        pkg_for_log(pkg_name).c_str(),
+                        target_git_branch.empty()
+                            ? "Detach"
+                            : stringf("Checkout '%s'", target_git_branch.c_str()).c_str());
+                else {
+                    log_warn(
+                        "Not updating %s because the current branch should be changed and the "
+                        "current update mode doesn't allow that.",
+                        pkg_for_log(pkg_name).c_str());
+                    break;
+                }
+            }
+
+            // try if the target SHA can be found locally
+            bool sha_is_valid = git_is_existing_commit(clone_dir, target_git_sha);
+            if (!sha_is_valid) {
+                // try to fetch
+                exec_git({"fetch"}, clone_dir, nullptr, nullptr, log_git_command_always);
+                sha_is_valid = git_is_existing_commit(clone_dir, gt);
+                if (!sha_is_valid) {
+                    string s;
+                    if (!target_git_branch.empty())
+                        s = stringf("branch '%s' resolved to %s", gt.c_str(),
+                                    target_git_sha.c_str());
+                    else if (!target_git_tag.empty())
+                        s = stringf("tag '%s' resolved to %s", gt.c_str(), target_git_sha.c_str());
+                    else
+                        s = stringf("SHA is %s", gt.c_str());
+                    throwf(
+                        "Can't update %s because the requested %s but it's an unknown reference "
+                        "even after 'git fetch'",
+                        pkg_for_log(pkg_name).c_str(), s.c_str());
+                }
+            }
+
+            if (!target_git_branch.empty()) {
+                // updating to branch
+                auto is_local_branch =
+                    git_is_existing_commit(clone_dir, "refs/heads/" + target_git_branch);
+                if (is_local_branch) {
+                    // if it's a local branch
+                    if (current_branch != target_git_branch)
+                        // if it's not the current local branch
+                        git_checkout({target_git_branch}, clone_dir);
+                } else {
+                    // create new local branch
+                    git_checkout(
+                        {"-b", target_git_branch, "--track", "origin/" + target_git_branch},
+                        clone_dir);
+                }
+                int r = exec_git({"merge", "--ff-only", "origin/" + target_git_branch}, clone_dir,
+                                 nullptr, nullptr, log_git_command_always);
+                if (r)
+                    exit(r);
+            } else if (!target_git_tag.empty()) {
+                int r = git_checkout({"refs/tags/" + target_git_tag}, clone_dir);
+                if (r)
+                    exit(r);
+            } else {
+                int r = git_checkout({target_git_sha}, clone_dir);
+                if (r)
+                    exit(r);
+            }
+            clone_helper.update_clone_status_vars();
+        } while (false);  // scope for break
+    }                     // if cloned and should update
+
     auto clone_this_at_sha = [&pkg, &clone_helper](string sha) {
         auto prc = pkg.request.c;
         if (!sha.empty())

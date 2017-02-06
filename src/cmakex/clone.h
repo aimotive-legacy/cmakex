@@ -54,13 +54,11 @@ struct clone_helper_t
     // calls ::clone and updates *this
     void clone(const pkg_clone_pars_t& c, bool git_shallow);
     void report();
+    void update_clone_status_vars();
 
 private:
     const string binary_dir;
     const string pkg_name;
-
-    // updates *this
-    void update_clone_status_vars();
 };
 }
 

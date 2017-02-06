@@ -341,4 +341,90 @@ git_status_result_t git_status(string_par dir, bool branch_tracking)
     }
     return result;
 }
+
+string ls_remote_result_t::head_branch() const
+{
+    CHECK(!head_sha.empty());
+    for (auto& kv : branches) {
+        if (head_sha == kv.second)
+            return kv.first;
+    }
+    throwf("No HEAD branch found for %s", url.c_str());
+    // never here
+}
+
+ls_remote_result_t git_ls_remote(string_par url)
+{
+    ls_remote_result_t result;
+
+    vector<string> args = {"ls-remote", "--exit-code", url.c_str()};
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
+    int r = exec_git(args, oeb.stdout_callback(), nullptr, log_git_command_on_error);
+    if (r)
+        throwf("Git command failed: ls-remote --exit-code %s", url.c_str());
+    auto oem = oeb.move_result();
+    for (int i = 0; i < oem.size(); ++i) {
+        auto s = oem.at(i);
+        if (s.source != out_err_message_base_t::source_stdout)
+            continue;
+        auto v = split_at_newlines(s.text);
+        for (auto& wx : v) {
+            string x = trim(wx);
+            if (x.empty())
+                continue;
+            string sha, ref;
+            string* s = &sha;
+            for (auto c : x) {
+                if (isgraph(c))
+                    *s += c;
+                else {
+                    s = &ref;
+                    // must not be nongraph after we started adding chars to ref
+                    if (!ref.empty())
+                        throwf("Invalid line from 'git ls-remote %s', invalid reference in: \"%s\"",
+                               url.c_str(), x.c_str());
+                }
+            }
+            if (!sha_like(sha))
+                throwf("Invalid line from 'git ls-remote %s', invalid SHA in: \"%s\"", url.c_str(),
+                       x.c_str());
+            if (ref == "HEAD")
+                result.head_sha = sha;
+            else if (starts_with(ref, "refs/heads/")) {
+                string branch = make_string(butleft(ref, strlen("refs/heads/")));
+                result.branches[branch] = sha;
+            } else if (starts_with(ref, "refs/tags/")) {
+                string tag = make_string(butleft(ref, strlen("refs/tags/")));
+                result.tags[tag] = sha;
+            }
+        }
+    }
+    return result;
+}
+
+bool git_is_existing_commit(string_par clone_dir, string_par ref)
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+    return exec_git({"cat-file", "-e", (ref.str() + "^{commit}").c_str()}, clone_dir,
+                    oeb.stdout_callback(), oeb.stderr_callback(), log_git_command_never) == 0;
+}
+
+string git_current_branch_or_HEAD(string_par clone_dir)
+{
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_echo);
+    int r = exec_git({"rev-parse", "--abbrev-ref", "--verify", "-q", "HEAD"}, clone_dir,
+                     oeb.stdout_callback(), nullptr, log_git_command_on_error);
+    if (r)
+        throwf("Git command failed: rev-parse --abbrev-ref --verify -q HEAD in directory %s",
+               path_for_log(clone_dir).c_str());
+    auto oem = oeb.move_result();
+    auto s = first_line(oem, out_err_message_base_t::source_stdout);
+    for (int i = 0; i < s.size(); ++i) {
+        if (iswspace(s[i])) {
+            s.resize(i);
+            break;
+        }
+    }
+    return s;
+}
 }

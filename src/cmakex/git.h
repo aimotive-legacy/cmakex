@@ -1,6 +1,8 @@
 #ifndef GIT_23849382
 #define GIT_23849382
 
+#include <map>
+
 #include "out_err_messages.h"
 #include "using-decls.h"
 
@@ -78,6 +80,21 @@ struct git_status_result_t
     bool clean_or_untracked_only() const;
 };
 git_status_result_t git_status(string_par dir, bool branch_tracking = false);
+
+// full ls-remote returning SHA - ref table
+struct ls_remote_result_t
+{
+    string head_branch() const;
+
+    string url;
+    std::map<string, string> branches;  // branch -> SHA
+    std::map<string, string> tags;      // tag -> SHA
+    string head_sha;
+};
+
+ls_remote_result_t git_ls_remote(string_par url);
+string git_current_branch_or_HEAD(string_par clone_dir);
+bool git_is_existing_commit(string_par clone_dir, string_par ref);
 }
 
 #endif

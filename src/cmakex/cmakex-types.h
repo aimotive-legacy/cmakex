@@ -192,6 +192,15 @@ enum deps_mode_t
     dm_deps_and_main
 };
 
+enum UpdateMode
+{
+    update_mode_none,
+    update_mode_if_clean,
+    update_mode_if_very_clean,
+    update_mode_all_clean,
+    update_mode_all_very_clean
+};
+
 struct base_command_line_args_cmake_mode_t
 {
     bool flag_c = false;
@@ -211,6 +220,7 @@ struct base_command_line_args_cmake_mode_t
     string deps_source_dir;
     string deps_build_dir;
     string deps_install_dir;
+    UpdateMode update_mode = update_mode_none;
 };
 
 struct command_line_args_cmake_mode_t : base_command_line_args_cmake_mode_t

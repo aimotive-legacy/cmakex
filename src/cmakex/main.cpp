@@ -138,6 +138,11 @@ int main(int argc, char* argv[])
             wsp.clear_downloaded_include_files = pars.clear_downloaded_include_files;
             // command_line_cmake_args contains the cmake args specified in the original cmakex call
             // except any arg dealing with CMAKE_INSTALL_PREFIX
+            wsp.update = pars.update_mode != update_mode_none;
+            wsp.update_can_leave_branch = pars.update_mode == update_mode_if_clean ||
+                                          pars.update_mode == update_mode_all_clean;
+            wsp.update_stop_on_error = pars.update_mode == update_mode_all_clean ||
+                                       pars.update_mode == update_mode_all_very_clean;
             vector<string> command_line_cmake_args;
             for (auto& c : pars.cmake_args) {
                 auto pca = parse_cmake_arg(c);

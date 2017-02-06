@@ -58,6 +58,9 @@ struct deps_recursion_wsp_t
         pkgs_to_process;  // not unordered set because we prefer cross-platform determinism
     bool force_build = false;
     bool clear_downloaded_include_files = false;
+    bool update = false;
+    bool update_can_leave_branch = false;
+    bool update_stop_on_error = true;
 };
 
 // install_deps_phase_one recursion result: aggregates certain data below a node in the recursion

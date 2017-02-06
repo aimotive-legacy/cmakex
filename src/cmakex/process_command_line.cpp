@@ -105,6 +105,18 @@ Package-management
                   main project
     --force-build Configure and build each dependency even if no build options
                   or dependencies have been changed for a package.
+    --update[=MODE]
+                  The update operation tries to set the previously cloned repos
+                  of the dependencies to the state as if they were freshly cloned.
+                  The MODE option can be `if-clean`, `if-very-clean`, `all-clean`
+                  and `all-very-clean`.
+                  If there are local changes, no updates will be done.
+                  Additionally, `*-clean` modes may leave the current branch if
+                  needed, while the `*-very-clean` modes don't update if the
+                  current branch should be left to update.
+                  The `if-*` modes skip the operation if the update is not
+                  possible while the `all-*` modes halt with an error message.
+                  The default MODE is 'all-very-clean`, the most safe mode.
     --update-includes
                   The CMake `include()` command used in the dependency scripts
                   can include a URL. The file the URL refers to will be
@@ -339,6 +351,22 @@ command_line_args_cmake_mode_t process_command_line_1(int argc, char* argv[])
                 pars.deps_install_dir = make_string(butleft(arg, strlen("--deps-install=")));
                 if (pars.deps_install_dir.empty())
                     badpars_exit("Missing path after '--deps-install='");
+            } else if (arg == "--update" || starts_with(arg, "--update=")) {
+                string mode;
+                if (arg == "--update")
+                    mode = "all-very-clean";
+                else
+                    mode = make_string(butleft(arg, strlen("--update=")));
+                if (mode == "all-very-clean")
+                    pars.update_mode = update_mode_all_very_clean;
+                else if (mode == "all-clean")
+                    pars.update_mode = update_mode_all_clean;
+                else if (mode == "if-very-clean")
+                    pars.update_mode = update_mode_if_very_clean;
+                else if (mode == "if-clean")
+                    pars.update_mode = update_mode_if_clean;
+                else
+                    badpars_exit(stringf("Invalid mode in '%s'", arg.c_str()));
             } else if (!starts_with(arg, '-')) {
                 pars.free_args.emplace_back(arg);
             } else {
