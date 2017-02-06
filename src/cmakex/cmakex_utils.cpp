@@ -443,7 +443,7 @@ pkg_request_t pkg_request_from_args(const vector<string>& pkg_args,
 
     if (args.count("GIT_TAG") > 0) {
         if (args.count("GIT_TAG_OVERRIDE") > 0)
-            throwf("Both GIT_TAG and GIT_TAG_IGNORE are specified.");
+            throwf("Both GIT_TAG and GIT_TAG_OVERRIDE are specified.");
         request.c.git_tag = args.at("GIT_TAG")[0];
     } else if (args.count("GIT_TAG_OVERRIDE") > 0) {
         request.c.git_tag = args.at("GIT_TAG_OVERRIDE")[0];
