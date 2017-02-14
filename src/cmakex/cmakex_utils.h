@@ -126,6 +126,8 @@ vector<string> make_sure_cmake_path_var_contains_path(
 // for cmake scripts
 string escape_cmake_arg(string_par x);
 string escape_command_line_arg(string_par x);
+
+bool eval_cmake_boolean_or_fail(string_par x);
 }
 
 #endif

@@ -134,7 +134,7 @@ int exec_git(const vector<string>& args,
 
     // we have git here
 
-    if (quiet_mode == log_git_command_always)
+    if (quiet_mode == log_git_command_always || g_log_git)
         log_exec("git", args, working_directory);
     if (quiet_mode != log_git_command_never)
         CHECK(stderr_callback == nullptr);

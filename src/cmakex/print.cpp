@@ -15,6 +15,7 @@ namespace cmakex {
 namespace fs = filesystem;
 
 bool g_verbose = false;
+bool g_log_git = false;
 
 void log_info()
 {

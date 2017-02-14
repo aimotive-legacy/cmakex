@@ -19,6 +19,7 @@
 #include "print.h"
 #include "process_command_line.h"
 #include "run_cmake_steps.h"
+#include "cmakex_utils.h"
 
 namespace cmakex {
 
@@ -46,6 +47,11 @@ int main(int argc, char* argv[])
     LOG_DEBUG("Debug log messages are enabled");
     LOG_TRACE("Trace log messages are enabled");
 
+    {
+        auto clg = nowide::getenv("CMAKEX_LOG_GIT");
+        if (clg)
+            g_log_git = eval_cmake_boolean_or_fail(clg);
+    }
     {
         // using default-cmakex-preset.yaml in the application's dir, if needed
         auto exe_path = fs::path(get_executable_path(argv[0])).parent_path().string();

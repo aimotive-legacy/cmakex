@@ -11,6 +11,9 @@ namespace cmakex {
 
 class OutErrMessages;
 
+extern bool g_verbose;
+extern bool g_log_git;
+
 void log_info(const char* s, ...) AW_PRINTFLIKE(1, 2);
 void log_verbose(const char* s, ...) AW_PRINTFLIKE(1, 2);
 void log_info();
@@ -38,7 +41,6 @@ void save_log_from_oem(string_par command_line,
 string current_datetime_string_for_log();
 // string datetime_string_for_log(std::chrono::system_clock::time_point x);
 void log_datetime();
-extern bool g_verbose;
 }
 
 #endif
