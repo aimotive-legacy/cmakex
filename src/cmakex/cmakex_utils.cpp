@@ -378,11 +378,11 @@ bool eval_cmake_boolean_or_fail(string_par x)
 {
     string s = x.str();
     transform_inplace(x, ::tolower);
-    if (s == "1" || s == "on" || s == "yes" || s == "true" ||
+    if (s == "1" || s == "on" || s == "yes" || s == "true" || s == "y" ||
         (!s.empty() && s[0] != '0' && isdigit(s[0]) && all_of(s, ::isdigit)))
         return true;
-    if (s == "0" || s == "off" || s == "false" || s == "n" || s == "ignore" || s == "notfound" ||
-        s.empty() || ends_with(s, "-notfound"))
+    if (s == "0" || s == "off" || s == "no" || s == "false" || s == "n" || s == "ignore" ||
+        s == "notfound" || s.empty() || ends_with(s, "-notfound"))
         return false;
     throwf("Invalid boolean constant: %s", x.c_str());
 }

@@ -13,6 +13,7 @@ class OutErrMessages;
 
 extern bool g_verbose;
 extern bool g_log_git;
+extern bool g_supress_deps_cmake_logs;
 
 void log_info(const char* s, ...) AW_PRINTFLIKE(1, 2);
 void log_verbose(const char* s, ...) AW_PRINTFLIKE(1, 2);
@@ -32,7 +33,7 @@ string current_datetime_string_for_log();
 // saves log from oem to specified location and prints informational message
 // if result!=EXIT_SUCCESS also prints to console
 void save_log_from_oem(string_par command_line,
-                       int result,
+                       bool also_to_stdout,
                        const OutErrMessages& oem,
                        string_par log_dir,
                        string_par log_filename);

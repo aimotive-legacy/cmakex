@@ -130,12 +130,17 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
 
     --config <cfg>: For specifying configs other than Debug, Release
                     RelWithDebInfo. Can be used multiple times.
+
     --target <tgt>: For specifying targets other than ALL (default) and INSTALL
                     (for that one, use 'i' in the command-word). Can be used
                     multiple times.
+
     --clean-first
+
     -C, -D, -U, -G, -T, -A
+
     -N, all the -W* options
+
     --debug-trycompile, --debug-output, --trace, --trace-expand
     --warn-uninitialized, --warn-unused-vars, --no-warn-unused-cli,
     --check-system-vars, --graphwiz=
@@ -148,13 +153,16 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
                   the dependency-script at <source-dir>/deps.cmake (default) or
                   at <path> and download/configure/build/install the packages
                   defined in the script (on demand)
+    
     --deps-only[=<path>]
                   Same as `--deps` but does not process the main project.
                   Tip: use `cmakex -B <path-to-new-or-existing-build>
                   --deps-only=<path> ...` to build a list of packages without a
                   main project
+    
     --force-build Configure and build each dependency even if no build options
                   or dependencies have been changed for a package.
+    
     --update[=MODE]
                   The update operation tries to set the previously cloned repos
                   of the dependencies to the state as if they were freshly cloned.
@@ -167,6 +175,7 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
                   The `if-*` modes skip the operation if the update is not
                   possible while the `all-*` modes halt with an error message.
                   The default MODE is 'all-very-clean`, the most safe mode.
+    
     --update-includes
                   The CMake `include()` command used in the dependency scripts
                   can include a URL. The file the URL refers to will be
@@ -179,6 +188,7 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
     -p <path>#preset[#preset]...
                   Load the YAML file from <path> and add the args defined for
                   the presets to the current command line.
+    
     -p preset[#preset]...
                   Use the file specified in the CMAKEX_PRESET_FILE environment
                   variable.
@@ -197,6 +207,7 @@ cmakex configuration
                     repositories), build directories and install directory for
                     the dependencies. The default values are `_deps`,
                     `_deps-build` and `_deps-install` under `CMAKE_BINARY_DIR`.
+    
     --single-build-dir
                     With makefile-generators (as opposed to multiconfig) the
                     default is to create separate build directories for each
@@ -214,6 +225,17 @@ Miscellaneous
               dependencies and also information about the command line and the
               main project. It's advised to use the `.cmake` extenstion so it
               can be given to the `--deps=` argument later.
+
+    -q        Quiet logging of cmake operations on dependencies. The stdout and
+              stderr from cmake will only be saved to disk but not forwarded to
+              stdout, except if the command fails.
+
+Environment variables
+---------------------
+
+    CMAKEX_LOG_GIT=<cmake-recognized-boolean-value>
+              If enabled, logs all git commands to stdout. For debugging.
+
 
 ### Examples:
 

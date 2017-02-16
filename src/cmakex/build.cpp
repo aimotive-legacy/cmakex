@@ -105,6 +105,7 @@ build_result_t build(string_par binary_dir,
                                   config.get_prefer_NoConfig().c_str(), k_log_extension))
                  .c_str());
 
+    const auto pipe_mode = g_supress_deps_cmake_logs ? pipe_capture : pipe_echo_and_capture;
     {  // scope only
         auto cct = load_cmake_cache_tracker(pkg_bin_dir_of_config);
         cct.add_pending(cmake_args);
@@ -127,7 +128,7 @@ build_result_t build(string_par binary_dir,
             if (pkg_name.empty()) {
                 r = exec_process("cmake", cmake_args_to_apply);
             } else {
-                OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+                OutErrMessagesBuilder oeb(pipe_mode, pipe_mode);
                 try {
                     r = exec_process("cmake", cmake_args_to_apply, oeb.stdout_callback(),
                                      oeb.stderr_callback());
@@ -137,7 +138,7 @@ build_result_t build(string_par binary_dir,
                     r = ECANCELED;
                     fflush(stdout);
                     save_log_from_oem(
-                        cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(),
+                        cl_config, r != EXIT_SUCCESS, oeb.move_result(), cfg.cmakex_log_dir(),
                         stringf("%s-%s-configure%s", pkg_name.c_str(),
                                 config.get_prefer_NoConfig().c_str(), k_log_extension));
                     fflush(stdout);
@@ -145,7 +146,7 @@ build_result_t build(string_par binary_dir,
                 }
                 auto oem = oeb.move_result();
 
-                save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(),
+                save_log_from_oem(cl_config, r != EXIT_SUCCESS, oem, cfg.cmakex_log_dir(),
                                   stringf("%s-%s-configure%s", pkg_name.c_str(),
                                           config.get_prefer_NoConfig().c_str(), k_log_extension));
             }
@@ -210,7 +211,7 @@ build_result_t build(string_par binary_dir,
             if (pkg_name.empty()) {
                 r = exec_process("cmake", args);
             } else {
-                OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+                OutErrMessagesBuilder oeb(pipe_mode, pipe_mode);
                 try {
                     r = exec_process("cmake", args, oeb.stdout_callback(), oeb.stderr_callback());
                 } catch (...) {
@@ -219,7 +220,7 @@ build_result_t build(string_par binary_dir,
                     r = ECANCELED;
                     fflush(stdout);
                     save_log_from_oem(
-                        cl_build, r, oeb.move_result(), cfg.cmakex_log_dir(),
+                        cl_build, r != EXIT_SUCCESS, oeb.move_result(), cfg.cmakex_log_dir(),
                         stringf("%s-%s-build-%s%s", pkg_name.c_str(),
                                 config.get_prefer_NoConfig().c_str(),
                                 target.empty() ? "all" : target.c_str(), k_log_extension));
@@ -229,7 +230,7 @@ build_result_t build(string_par binary_dir,
                 auto oem = oeb.move_result();
 
                 save_log_from_oem(
-                    cl_build, r, oem, cfg.cmakex_log_dir(),
+                    cl_build, r != EXIT_SUCCESS, oem, cfg.cmakex_log_dir(),
                     stringf("%s-%s-build-%s%s", pkg_name.c_str(),
                             config.get_prefer_NoConfig().c_str(),
                             target.empty() ? "all" : target.c_str(), k_log_extension));

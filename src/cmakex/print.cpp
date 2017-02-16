@@ -16,6 +16,7 @@ namespace fs = filesystem;
 
 bool g_verbose = false;
 bool g_log_git = false;
+bool g_supress_deps_cmake_logs = false;
 
 void log_info()
 {
@@ -168,15 +169,15 @@ string datetime_string_for_log(std::chrono::system_clock::time_point x)
 
 struct slf_helper_t
 {
-    slf_helper_t(int result, FILE* f) : result(result), f(f) {}
-    int result;
+    slf_helper_t(bool also_to_stdout, FILE* f) : also_to_stdout(also_to_stdout), f(f) {}
+    bool also_to_stdout;
     FILE* f;
 };
 
 void slf_printf(slf_helper_t& h, string_par s)
 {
     fprintf(h.f, "%s", s.c_str());
-    if (h.result != EXIT_SUCCESS)
+    if (h.also_to_stdout)
         printf("%s", s.c_str());
 }
 
@@ -186,7 +187,7 @@ void slf_printf_file_only(slf_helper_t& h, string_par s)
 }
 
 void save_log_from_oem(string_par command_line,
-                       int result,
+                       bool also_to_stdout,
                        const OutErrMessages& oem,
                        string_par log_dir,
                        string_par log_filename)
@@ -218,7 +219,7 @@ void save_log_from_oem(string_par command_line,
     }
     auto f = move(*maybe_f);
 
-    slf_helper_t h(result, f.stream());
+    slf_helper_t h(also_to_stdout, f.stream());
 
     slf_printf_file_only(h, stringf("%s\n", command_line.c_str()));
     slf_printf(
@@ -276,7 +277,7 @@ void save_log_from_oem(string_par command_line,
     slf_printf(h,
                stringf("Finished at %s\n", datetime_string_for_log(oem.end_system_time()).c_str()));
 
-    if (result)
+    if (also_to_stdout)
         log_info("Log saved to %s.", /*prefix_msg.c_str(), */ path_for_log(log_path).c_str());
 }
 

@@ -159,7 +159,8 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
         fflush(stdout);
         printf("%s\n", cl_config.c_str());
 
-        save_log_from_oem(cl_config, r, oeb.move_result(), cfg.cmakex_log_dir(), filename);
+        save_log_from_oem(cl_config, r != EXIT_SUCCESS, oeb.move_result(), cfg.cmakex_log_dir(),
+                          filename);
         fflush(stdout);
         throw;
     }
@@ -168,7 +169,7 @@ void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args
     if (r)
         printf("%s\n", cl_config.c_str());
 
-    save_log_from_oem(cl_config, r, oem, cfg.cmakex_log_dir(), filename);
+    save_log_from_oem(cl_config, r != EXIT_SUCCESS, oem, cfg.cmakex_log_dir(), filename);
 
     string cmake_cache_path = build_script_executor_binary_dir + "/CMakeCache.txt";
     if (r != EXIT_SUCCESS) {
@@ -209,14 +210,15 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
         r = ECANCELED;
         fflush(stdout);
         printf("%s\n", cl_deps.c_str());
-        save_log_from_oem(cl_deps, r, oeb2.move_result(), cfg.cmakex_log_dir(), filename);
+        save_log_from_oem(cl_deps, r != EXIT_SUCCESS, oeb2.move_result(), cfg.cmakex_log_dir(),
+                          filename);
         fflush(stdout);
         throw;
     }
     auto oem2 = oeb2.move_result();
     if (r)
         printf("%s\n", cl_deps.c_str());
-    save_log_from_oem(cl_deps, r, oem2, cfg.cmakex_log_dir(), filename);
+    save_log_from_oem(cl_deps, r != EXIT_SUCCESS, oem2, cfg.cmakex_log_dir(), filename);
     if (r != EXIT_SUCCESS)
         throwf("Failed executing dependency script wrapper, result: %d.", r);
 
