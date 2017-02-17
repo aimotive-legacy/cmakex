@@ -10,6 +10,7 @@
 #include "filesystem.h"
 #include "misc_utils.h"
 #include "print.h"
+#include "cmakex_utils.h"
 
 namespace cmakex {
 using adasworks::sx::atomic_flag_mutex;
@@ -39,6 +40,8 @@ string find_git_with_cmake()
         throwf("Can't create temporary file in %s, please remove all the \"%s*\" files.",
                path_for_log(tmpdir).c_str(), filename_base);
     }
+
+    test_cmake();
 
     try {
         // save findgit script to temporary file

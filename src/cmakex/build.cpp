@@ -28,6 +28,8 @@ build_result_t build(string_par binary_dir,
                      vector<string> build_args,
                      const vector<string>& native_tool_args)
 {
+    test_cmake();
+
     build_result_t build_result;
 
     cmakex_config_t cfg(binary_dir);

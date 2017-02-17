@@ -7,6 +7,7 @@
 #include "misc_utils.h"
 #include "print.h"
 #include "resource.h"
+#include "out_err_messages.h"
 
 CEREAL_CLASS_VERSION(cmakex::cmakex_cache_t, 2)
 CEREAL_CLASS_VERSION(cmakex::cmake_cache_tracker_t, 2)
@@ -797,5 +798,39 @@ string escape_command_line_arg(string_par x)
     if (quote)
         result = stringf("\"%s\"", result.c_str());
     return result;
+}
+void test_cmake()
+{
+    static bool cmake_found = false;
+    if (cmake_found)
+        return;
+
+    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
+    int r;
+    try {
+        r = exec_process("cmake", vector<string>{{"--version"}}, oeb.stdout_callback(),
+                         oeb.stderr_callback());
+    } catch (const exception& e) {
+        log_error("Exception during testing 'cmake': %s", e.what());
+        r = ECANCELED;
+    } catch (...) {
+        log_error("Unknown exception during testing 'cmake'");
+        r = ECANCELED;
+    }
+    auto oem = oeb.move_result();
+
+    if (r) {
+        auto p = getenv("PATH");
+        throwf("Can't find cmake executable on the path. Error code: %d, PATH: %s", r,
+               p ? p : "<null>");
+    } else {
+        if (oem.size() >= 1) {
+            auto msg = oem.at(0);
+            auto pos = std::min(msg.text.find('\n'), msg.text.find('\r'));
+            if (pos != string::npos)
+                msg.text = msg.text.substr(0, pos);
+            printf("%s\n", msg.text.c_str());
+        }
+    }
 }
 }

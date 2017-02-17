@@ -35,18 +35,29 @@ int exec_process(string_par path,
         outpipe_thread = std::thread(&pipereader, &outpipe, &stdout_callback);
     if (stderr_callback)
         errpipe_thread = std::thread(&pipereader, &errpipe, &stderr_callback);
-    auto handle =
-        working_directory.empty()
-            ? Process::launch(path.str(), args, nullptr, stdout_callback ? &outpipe : nullptr,
-                              stderr_callback ? &errpipe : nullptr)
-            : Process::launch(path.str(), args, working_directory.str(), nullptr,
-                              stdout_callback ? &outpipe : nullptr,
-                              stderr_callback ? &errpipe : nullptr);
-    int exit_code = handle.wait();
+    int exit_code = EXIT_FAILURE;
+    try {
+        auto handle =
+            working_directory.empty()
+                ? Process::launch(path.str(), args, nullptr, stdout_callback ? &outpipe : nullptr,
+                                  stderr_callback ? &errpipe : nullptr)
+                : Process::launch(path.str(), args, working_directory.str(), nullptr,
+                                  stdout_callback ? &outpipe : nullptr,
+                                  stderr_callback ? &errpipe : nullptr);
+        exit_code = handle.wait();
+    } catch (...) {
+        if (outpipe_thread.joinable())
+            outpipe_thread.join();
+        if (errpipe_thread.joinable())
+            errpipe_thread.join();
+        throw;
+    }
+
     if (outpipe_thread.joinable())
         outpipe_thread.join();
     if (errpipe_thread.joinable())
         errpipe_thread.join();
+
     return exit_code;
 }
 }

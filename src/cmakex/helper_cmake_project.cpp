@@ -49,36 +49,6 @@ HelperCmakeProject::HelperCmakeProject(string_par binary_dir)
 {
 }
 
-void test_cmake()
-{
-    OutErrMessagesBuilder oeb(pipe_capture, pipe_capture);
-    int r;
-    try {
-        r = exec_process("cmake", vector<string>{{"--version"}}, oeb.stdout_callback(),
-                         oeb.stderr_callback());
-    } catch (const exception& e) {
-        log_error("Exception during testing 'cmake': %s", e.what());
-        r = ECANCELED;
-    } catch (...) {
-        log_error("Unknown exception during testing 'cmake'");
-        r = ECANCELED;
-    }
-    auto oem = oeb.move_result();
-
-    if (r) {
-        auto p = getenv("PATH");
-        throwf("Can't find cmake executable on the path. Error code: %d, PATH: %s", r,
-               p ? p : "<null>");
-    } else {
-        if (oem.size() >= 1) {
-            auto msg = oem.at(0);
-            auto pos = std::min(msg.text.find('\n'), msg.text.find('\r'));
-            if (pos != string::npos)
-                msg.text = msg.text.substr(0, pos);
-            printf("%s\n", msg.text.c_str());
-        }
-    }
-}
 void HelperCmakeProject::configure(const vector<string>& command_line_cmake_args,
                                    string_par pkg_name)
 {
@@ -188,6 +158,7 @@ vector<string> HelperCmakeProject::run_deps_script(string_par deps_script_file,
                                                    bool clear_downloaded_include_files,
                                                    string_par pkg_name)
 {
+    test_cmake();
     vector<string> args;
     args.emplace_back(build_script_executor_binary_dir);
 
