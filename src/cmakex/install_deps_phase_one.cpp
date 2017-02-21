@@ -604,12 +604,18 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                 break;
             }
 
+            LOG_INFO("Updating %s from remote.", pkg_for_log(pkg_name).c_str());
+
             // we should update, check for local changes
+            bool local_changes = false;
             if (get<0>(clone_helper.clone_status) == pkg_clone_dir_git_local_changes) {
-                if (wsp.update_stop_on_error)
+                if (wsp.update_can_reset) {
+                    // 'local_changes' implies that we can git-reset (update mode is force)
+                    local_changes = true;
+                } else if (wsp.update_stop_on_error)
                     throwf(
                         "Can't update %s because of local changes. Stash or commit your changes or "
-                        "use '--update=[if-clean|if-very-clean]",
+                        "use '--update=[if-clean|if-very-clean|force]",
                         pkg_for_log(pkg_name).c_str());
                 else {
                     log_warn("Not updating %s because of local changes.",
@@ -671,23 +677,63 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     // if it's a local branch
                     if (current_branch != target_git_branch)
                         // if it's not the current local branch
-                        git_checkout({target_git_branch}, clone_dir);
+                        if (local_changes) {
+                            LOG_WARN("%s: abandoning local changes in index or workspace.",
+                                     pkg_for_log(pkg_name).c_str());
+                            git_checkout({"-f", target_git_branch}, clone_dir);
+                        } else
+                            git_checkout({target_git_branch}, clone_dir);
                 } else {
                     // create new local branch
-                    git_checkout(
-                        {"-b", target_git_branch, "--track", "origin/" + target_git_branch},
-                        clone_dir);
+                    string sw;
+                    if (local_changes) {
+                        LOG_WARN("%s: abandoning local changes in index or workspace.",
+                                 pkg_for_log(pkg_name).c_str());
+                        sw = "-fb";
+                    } else
+                        sw = "-b";
+                    git_checkout({sw, target_git_branch, "--track", "origin/" + target_git_branch},
+                                 clone_dir);
                 }
-                int r = exec_git({"merge", "--ff-only", "origin/" + target_git_branch}, clone_dir,
+                int r =
+                    exec_git({"merge-base", "--is-ancestor", "HEAD", "origin/" + target_git_branch},
+                             clone_dir, nullptr, nullptr, log_git_command_never);
+                if (!r) {
+                    // no fast forward
+                    if (wsp.update_can_reset) {
+                        LOG_WARN(
+                            "%s: abandoning commits on branch '%s' because it can't be updated "
+                            "with fast-forward merge.",
+                            pkg_for_log(pkg_name).c_str(), target_git_branch.c_str());
+                        r = exec_git({"reset", "--hard", "origin/" + target_git_branch}, clone_dir,
+                                     nullptr, nullptr, log_git_command_always);
+                    } else
+                        throwf(
+                            "Can't update %s because the requested branch '%s' can't be reached "
+                            "via a fast-forward merge from the current local HEAD '%s'. Update "
+                            "manually or use '--update=force'.",
+                            pkg_for_log(pkg_name).c_str(), target_git_branch.c_str(),
+                            cloned_sha.c_str());
+                } else {
+                    r = exec_git({"merge", "--ff-only", "origin/" + target_git_branch}, clone_dir,
                                  nullptr, nullptr, log_git_command_always);
-                if (r)
-                    exit(r);
-            } else if (!target_git_tag.empty()) {
-                int r = git_checkout({"refs/tags/" + target_git_tag}, clone_dir);
+                }
                 if (r)
                     exit(r);
             } else {
-                int r = git_checkout({target_git_sha}, clone_dir);
+                vector<string> args;
+                if (local_changes) {
+                    LOG_WARN("%s: abandoning local changes in index or workspace.",
+                             pkg_for_log(pkg_name).c_str());
+                    args.emplace_back("-f");
+                }
+                if (!target_git_tag.empty())
+                    args.emplace_back("refs/tags/" + target_git_tag);
+                else {
+                    CHECK(!target_git_sha.empty());
+                    args.emplace_back(target_git_sha);
+                }
+                int r = git_checkout(args, clone_dir);
                 if (r)
                     exit(r);
             }

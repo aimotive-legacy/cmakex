@@ -198,7 +198,8 @@ enum UpdateMode
     update_mode_if_clean,
     update_mode_if_very_clean,
     update_mode_all_clean,
-    update_mode_all_very_clean
+    update_mode_all_very_clean,
+    update_mode_force
 };
 
 struct base_command_line_args_cmake_mode_t

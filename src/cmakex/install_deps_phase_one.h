@@ -61,6 +61,7 @@ struct deps_recursion_wsp_t
     bool update = false;
     bool update_can_leave_branch = false;
     bool update_stop_on_error = true;
+    bool update_can_reset = false;
 };
 
 // install_deps_phase_one recursion result: aggregates certain data below a node in the recursion

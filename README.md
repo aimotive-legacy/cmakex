@@ -166,15 +166,26 @@ command: [cmake(1)](https://cmake.org/cmake/help/latest/manual/cmake.1.html).
     --update[=MODE]
                   The update operation tries to set the previously cloned repos
                   of the dependencies to the state as if they were freshly cloned.
-                  The MODE option can be `if-clean`, `if-very-clean`, `all-clean`
-                  and `all-very-clean`.
-                  If there are local changes, no updates will be done.
-                  Additionally, `*-clean` modes may leave the current branch if
-                  needed, while the `*-very-clean` modes don't update if the
-                  current branch should be left to update.
-                  The `if-*` modes skip the operation if the update is not
-                  possible while the `all-*` modes halt with an error message.
-                  The default MODE is 'all-very-clean`, the most safe mode.
+                  The MODE option can be `if-clean`, `if-very-clean`, `all-clean`,
+                  `all-very-clean` and `force`.
+
+                  The `all-clean` mode updates only if there are no local changes
+                  and allows only fast-forward merge. It may change (or leave) the
+                  current branch, for another branch, tag or commit, as needed.
+                  Halts with an error if the update is not possible.
+
+                  The `all-very-clean` is similar does not allow to change (or
+                  leave) the current branch.
+
+                  The `if-clean` and `if-very-clean` modes are similar, but they
+                  don't stop at the first error, simply skip updating the project
+                  where it's not possible.
+
+                  The `force` mode updates in all cases, may abandon local changes
+                  and commits (uses 'git reset --hard' when fast-forward merge is
+                  not possible)
+
+                  The default MODE is 'all-very-clean`, the safest mode.
     
     --update-includes
                   The CMake `include()` command used in the dependency scripts
