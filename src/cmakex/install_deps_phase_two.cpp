@@ -76,7 +76,7 @@ void install_deps_phase_two(string_par binary_dir,
                 moc.depends_maybe_commented = stringf("DEPENDS %s", depends_list.c_str());
         }
         if (!source_dir.empty())
-            moc.source_dir = stringf("SOURCE %s", path_for_log(source_dir).c_str());
+            moc.source_dir = stringf("SOURCE_DIR %s", path_for_log(source_dir).c_str());
         if (!final_cmake_args.args.empty()) {
             moc.cmake_args = "CMAKE_ARGS";
             for (auto& ca : final_cmake_args.args) {
