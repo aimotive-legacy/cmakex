@@ -4,6 +4,8 @@ are not listed here, see git history.
 v1.0, since 2016-10-06
 ----------------------
 
+- Fix annoying 'branch not implemented' crash (occured when a dep was
+  installed and later the clone was removed)
 - Added --update=force update-mode.
 - Added -q option to supress cmake log for deps (and changed the default
   behaviour to always print cmake log)

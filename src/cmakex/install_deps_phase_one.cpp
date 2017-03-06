@@ -773,6 +773,12 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
 
     // if it's not found on a prefix path
     if (pkg.found_on_prefix_path.empty()) {
+// Because of the install-prebuilt-package-from-server feature is not yet implemented
+// I comment out this branch. Effect: always clone the dependency if it's not found
+// on a prefix path.
+// Even when that feature will be implemented, it has to be investigated what's the
+// correct way of this.
+#if 0
         // if any of the requested configs is not satisfied we know we need the clone right now
         // this is partly a shortcut, partly later (when traversing the dependencies) we
         // exploit the fact that this package is either installed (say, from server) or cloned
@@ -785,6 +791,10 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
         }
         if (one_config_is_not_satisfied && !cloned)
             clone_this();
+#else
+        if (!cloned)
+            clone_this();
+#endif
     } else {
         // at this point, if we found it on prefix path, we've already overwritten the requested
         // config with the installed one. Verify this.
@@ -927,6 +937,14 @@ idpo_recursion_result_t run_deps_add_pkg(string_par pkg_name,
                     binary_dir, keys_of_set(pkg.request.depends), command_line_cmake_args,
                     command_line_configs, wsp, cmakex_cache);
             } else {
+                // We should not come here because if it's not on prefix path it should have been
+                // cloned.
+                // Anyway, give a better error message
+                LOG_FATAL(
+                    "Internal error: %s is neither cloned nor found on a prefix path. Try to "
+                    "remove the deps-install directory.",
+                    pkg_for_log(pkg_name).c_str());
+
                 // enumerate dependencies from description of installed package
                 LOG_FATAL("This branch is not implemented");
 
